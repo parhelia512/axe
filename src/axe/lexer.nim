@@ -76,5 +76,4 @@ proc lex*(source: string): seq[Token] =
                 let charAtPos = if pos < source.len: source[pos] else: '.'
                 raise newException(ValueError,
                         &"Unexpected character at position {pos}: '{charAtPos}'")
-    echo "Tokens: ", tokens
     return tokens

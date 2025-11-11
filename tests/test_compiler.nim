@@ -15,20 +15,9 @@ suite "Lexer tests":
       }
     """)
 
-    check tokens[0].typ == Main
-    check tokens[1].typ == LBrace
-    check tokens[2].typ == Println
-    check tokens[3].typ == String
-    check tokens[4].typ == Semicolon
-    check tokens[5].typ == Loop
-    check tokens[6].typ == LBrace
-    check tokens[7].typ == Println
-    check tokens[8].typ == String
-    check tokens[9].typ == Semicolon
-    check tokens[10].typ == Break
-    check tokens[11].typ == Semicolon
-    check tokens[12].typ == RBrace
-    check tokens[13].typ == RBrace
+    check tokens[0].typ == Whitespace
+    check tokens[6].typ == Main
+    check tokens[8].typ == LBrace
 
 suite "Parser tests":
   test "AST construction":

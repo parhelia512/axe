@@ -28,3 +28,11 @@ type
         nodeType*: string
         children*: seq[ASTNode]
         value*: string
+
+proc debugTokens*(tokens: seq[Token]): string =
+    result = "@["
+    for i, token in tokens:
+        if token.typ notin {Whitespace, Newline}:
+            if result.len > 2: result.add ", "
+            result.add $token
+    result.add "]"
