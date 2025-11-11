@@ -1,4 +1,4 @@
-module axe.compiler;
+module axe.app;
 
 import axe.lexer;
 import axe.parser;
