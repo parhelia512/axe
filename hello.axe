@@ -1,6 +1,4 @@
-// std.stdio;
-
-main: void (args: array<string>) {
+main: void () {
     println("Hello, world.");
 
     loop {
