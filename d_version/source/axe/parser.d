@@ -4,6 +4,14 @@ import std.exception : enforce;
 import std.string;
 import axe.structs : ASTNode, Token, TokenType;
 
+/** 
+ * Parses an array of tokens into an abstract syntax tree (AST).
+ * 
+ * Params:
+ *   tokens = Array of tokens to parse
+ * Returns: 
+ *   ASTNode = Abstract syntax tree representing the parsed tokens
+ */
 ASTNode parse(Token[] tokens)
 {
     size_t pos = 0;
