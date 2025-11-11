@@ -86,7 +86,7 @@ proc generateC*(ast: ASTNode): string =
     return cCode
 
 proc generateAsm*(ast: ASTNode): string =
-    ## Generate x86 assembly code from AST
+    ## Generate x64 assembly code from AST
     ## Includes assembly code generation for main function, loop and break statements, and string handling
 
     var asmCode = ""
