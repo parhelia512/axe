@@ -5,6 +5,10 @@ import std.string;
 import std.algorithm.iteration;
 import axe.structs;
 
+/**
+ * Lexical analysis and tokenization
+ * Includes whitespace skipping, tokenization, and string handling
+ */
 Token[] lex(string source)
 {
     import std.ascii;
@@ -17,7 +21,7 @@ Token[] lex(string source)
         switch (source[pos])
         {
         case '*':
-            if (tokens.length > 0 && tokens[$ - 1].type == TokenType.identifier)
+            if (tokens.length > 0 && tokens[$ - 1].type == TokenType.IDENTIFIER)
             {
                 tokens[$ - 1].value ~= "*";
                 pos++;
@@ -29,90 +33,90 @@ Token[] lex(string source)
             break;
 
         case ' ', '\t', '\r':
-            tokens ~= Token(TokenType.whitespace, source[pos .. pos + 1]);
+            tokens ~= Token(TokenType.WHITESPACE, source[pos .. pos + 1]);
             pos++;
             break;
 
         case '\n':
-            tokens ~= Token(TokenType.newline, "\n");
+            tokens ~= Token(TokenType.NEWLINE, "\n");
             pos++;
             break;
 
         case '{':
-            tokens ~= Token(TokenType.lbrace, "{");
+            tokens ~= Token(TokenType.LBRACE, "{");
             pos++;
             break;
 
         case '}':
-            tokens ~= Token(TokenType.rbrace, "}");
+            tokens ~= Token(TokenType.RBRACE, "}");
             pos++;
             break;
 
         case ';':
-            tokens ~= Token(TokenType.semicolon, ";");
+            tokens ~= Token(TokenType.SEMICOLON, ";");
             pos++;
             break;
 
         case ':':
-            tokens ~= Token(TokenType.colon, ":");
+            tokens ~= Token(TokenType.COLON, ":");
             pos++;
             break;
 
         case '"':
             size_t ending = source.indexOf('"', pos + 1);
             enforce(ending != -1, "Unterminated string");
-            tokens ~= Token(TokenType.str, source[pos + 1 .. ending]);
+            tokens ~= Token(TokenType.STR, source[pos + 1 .. ending]);
             pos = ending + 1;
             break;
 
         case '(', ')', ',':
             tokens ~= Token(
-                source[pos] == '(' ? TokenType.lparen : source[pos] == ')' ? TokenType.rparen
-                    : TokenType.comma,
+                source[pos] == '(' ? TokenType.LPAREN : source[pos] == ')' ? TokenType.RPAREN
+                    : TokenType.COMMA,
                     source[pos .. pos + 1]
             );
             pos++;
             break;
 
         case '[':
-            tokens ~= Token(TokenType.lbracket, "[");
+            tokens ~= Token(TokenType.LBRACKET, "[");
             pos++;
             break;
 
         case ']':
-            tokens ~= Token(TokenType.rbracket, "]");
+            tokens ~= Token(TokenType.RBRACKET, "]");
             pos++;
             break;
 
         case '.':
-            tokens ~= Token(TokenType.dot, ".");
+            tokens ~= Token(TokenType.DOT, ".");
             pos++;
             break;
 
         default:
             if (pos + 4 <= source.length && source[pos .. pos + 4] == "main")
             {
-                tokens ~= Token(TokenType.main, "main");
+                tokens ~= Token(TokenType.MAIN, "main");
                 pos += 4;
             }
             else if (pos + 7 <= source.length && source[pos .. pos + 7] == "println")
             {
-                tokens ~= Token(TokenType.println, "println");
+                tokens ~= Token(TokenType.PRINTLN, "println");
                 pos += 7;
             }
             else if (pos + 4 <= source.length && source[pos .. pos + 4] == "loop")
             {
-                tokens ~= Token(TokenType.loop, "loop");
+                tokens ~= Token(TokenType.LOOP, "loop");
                 pos += 4;
             }
             else if (pos + 5 <= source.length && source[pos .. pos + 5] == "break")
             {
-                tokens ~= Token(TokenType.break_, "break");
+                tokens ~= Token(TokenType.BREAK_, "break");
                 pos += 5;
             }
             else if (pos + 3 <= source.length && source[pos .. pos + 3] == "def")
             {
-                tokens ~= Token(TokenType.def, "def");
+                tokens ~= Token(TokenType.DEF, "def");
                 pos += 3;
             }
             else if (source[pos].isAlphaNum())
@@ -122,7 +126,7 @@ Token[] lex(string source)
                 {
                     pos++;
                 }
-                tokens ~= Token(TokenType.identifier, source[start .. pos]);
+                tokens ~= Token(TokenType.IDENTIFIER, source[start .. pos]);
             }
             else
             {

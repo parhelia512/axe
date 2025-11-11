@@ -2,26 +2,26 @@ module axe.structs;
 
 enum TokenType
 {
-    main,
-    println,
-    loop,
-    break_,
-    str,
-    semicolon,
-    lbrace,
-    rbrace,
-    def,
-    identifier,
-    whitespace,
-    newline,
-    lparen,
-    rparen,
-    lbracket,
-    rbracket,
-    comma,
-    dot,
-    colon,
-    operator
+    MAIN,
+    PRINTLN,
+    LOOP,
+    BREAK_,
+    STR,
+    SEMICOLON,
+    LBRACE,
+    RBRACE,
+    DEF,
+    IDENTIFIER,
+    WHITESPACE,
+    NEWLINE,
+    LPAREN,
+    RPAREN,
+    LBRACKET,
+    RBRACKET,
+    COMMA,
+    DOT,
+    COLON,
+    OPERATOR
 }
 
 struct Token
