@@ -159,10 +159,11 @@ when isMainModule:
         echo "Usage: axe input.axe"
     else:
         try:
-            let source = readFile(paramStr(1))
-            let tokens = lex(source)
-            let ast = parse(tokens)
-            let cCode = generateC(ast)
+            let 
+                source = readFile(paramStr(1))
+                tokens = lex(source)
+                ast = parse(tokens)
+                cCode = generateC(ast)
             writeFile("output.c", cCode)
             discard execProcess(command="gcc", args=["output.c", "-o", "output"], options={poStdErrToStdOut})
         except ValueError as e:
