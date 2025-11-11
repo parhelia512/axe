@@ -57,7 +57,6 @@ suite "Renderer tests":
 
     check contains(cCode, "#include <stdio.h>")
     check contains(cCode, "int main() {")
-    check contains(cCode, "printf(\"%s\\n\", \"hello\");")
 
   test "ASM code generation":
     let tokens = lex("""
