@@ -21,8 +21,8 @@ when isMainModule:
                 options = {poStdErrToStdOut}
             )
         except ValueError as e:
-            echo "Error: ", e.msg
+            echo "Compilation error: ", e.msg
         except OSError as e:
-            echo "LL Error (maybe no C toolchain is installed?): ", e.msg.replace("OS error:", "")
+            echo "Linker error (maybe no C toolchain is installed?): ", e.msg.replace("OS error:", "")
         except Exception as e:
-            echo "Unknown Error: ", e.msg
+            echo "Error: ", e.msg
