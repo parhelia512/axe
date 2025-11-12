@@ -29,10 +29,12 @@ void main(string[] args)
 
         string source = readText(name);
         auto tokens = lex(source);
-        auto ast = parse(tokens);
 
         if (args.canFind("-tokens"))
             writeln(tokens);
+        
+        auto ast = parse(tokens);
+
         if (args.canFind("-ast"))
             writeln(ast);
         
