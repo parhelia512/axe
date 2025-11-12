@@ -733,19 +733,18 @@ string compileAndRunAsm(string asmCode)
     string asmFile = buildPath(tempDir(), "temp.asm");
     string objFile = buildPath(tempDir(), "temp.o");
     string exeFile = buildPath(tempDir(), "temp.exe");
+
     std.file.write(asmFile, asmCode);
+    
     auto nasmResult = execute(["nasm", "-f", "win64", "-o", objFile, asmFile]);
 
     if (nasmResult.status != 0)
-    {
         return "NASM Error: " ~ nasmResult.output;
-    }
 
     auto linkResult = execute(["gcc", "-o", exeFile, objFile]);
+
     if (linkResult.status != 0)
-    {
         return "Linker Error: " ~ linkResult.output;
-    }
 
     auto runResult = execute([exeFile]);
     return runResult.output;
