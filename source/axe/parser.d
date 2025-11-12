@@ -331,6 +331,7 @@ ASTNode parse(Token[] tokens)
                                     .WHITESPACE)
                                     pos++;
 
+                                string args;
                                 while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
                                 {
                                     if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
@@ -341,7 +342,12 @@ ASTNode parse(Token[] tokens)
                                     else if (tokens[pos].type == TokenType.STR || tokens[pos].type == TokenType
                                         .IDENTIFIER)
                                     {
+                                        args ~= tokens[pos].value;
                                         pos++;
+                                        if (pos < tokens.length && tokens[pos].type == TokenType.COMMA) {
+                                            args ~= ", ";
+                                            pos++;
+                                        }
                                     }
                                     else
                                     {
@@ -359,7 +365,7 @@ ASTNode parse(Token[] tokens)
                                 enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                     "Expected ';' after function call");
                                 pos++;
-                                loopNode.children ~= ASTNode("FunctionCall", [], funcName);
+                                loopNode.children ~= ASTNode("FunctionCall", [], funcName ~ "(" ~ args ~ ")");
                                 break;
                             }
 
@@ -397,6 +403,7 @@ ASTNode parse(Token[] tokens)
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                         pos++;
 
+                    string args;
                     while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
                     {
                         if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
@@ -407,7 +414,12 @@ ASTNode parse(Token[] tokens)
                         else if (tokens[pos].type == TokenType.STR || tokens[pos].type == TokenType
                             .IDENTIFIER)
                         {
+                            args ~= tokens[pos].value;
                             pos++;
+                            if (pos < tokens.length && tokens[pos].type == TokenType.COMMA) {
+                                args ~= ", ";
+                                pos++;
+                            }
                         }
                         else
                         {
@@ -425,7 +437,7 @@ ASTNode parse(Token[] tokens)
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                         format("Expected ';' after function call to '%s'", funcName));
                     pos++;
-                    mainNode.children ~= ASTNode("FunctionCall", [], funcName);
+                    mainNode.children ~= ASTNode("FunctionCall", [], funcName ~ "(" ~ args ~ ")");
                     break;
 
                 default:
@@ -558,12 +570,7 @@ ASTNode parse(Token[] tokens)
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                         pos++;
 
-                    enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
-                        "Expected '(' after function name");
-                    pos++;
-                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                        pos++;
-
+                    string functionArgs;
                     while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
                     {
                         if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
@@ -574,7 +581,12 @@ ASTNode parse(Token[] tokens)
                         else if (tokens[pos].type == TokenType.STR || tokens[pos].type == TokenType
                             .IDENTIFIER)
                         {
+                            functionArgs ~= tokens[pos].value;
                             pos++;
+                            if (pos < tokens.length && tokens[pos].type == TokenType.COMMA) {
+                                functionArgs ~= ", ";
+                                pos++;
+                            }
                         }
                         else
                         {
@@ -591,7 +603,7 @@ ASTNode parse(Token[] tokens)
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                         "Expected ';' after function call");
                     pos++;
-                    funcNode.children ~= ASTNode("FunctionCall", [], callName);
+                    funcNode.children ~= ASTNode("FunctionCall", [], callName ~ "(" ~ args ~ ")");
                     break;
 
                 case TokenType.LOOP:
