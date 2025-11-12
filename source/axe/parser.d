@@ -84,14 +84,19 @@ ASTNode parse(Token[] tokens)
                         string argType = parseType();
                         args ~= argType ~ " " ~ argName;
                     }
-                    else
+                    else if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
                     {
                         args ~= "int " ~ argName;
                     }
                 }
+                else if (tokens[pos].type == TokenType.STR || tokens[pos].type == TokenType.IDENTIFIER)
+                {
+                    args ~= tokens[pos].value;
+                    pos++;
+                }
                 else
                 {
-                    enforce(false, "Unexpected token in argument list");
+                    enforce(false, "Unexpected token in argument list: " ~ tokens[pos].value);
                 }
             }
             enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN, "Expected ')' after arguments");
@@ -310,11 +315,32 @@ ASTNode parse(Token[] tokens)
                                     .WHITESPACE)
                                     pos++;
 
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
+                                    "Expected '(' after function name");
+                                pos++;
+                                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                    pos++;
+
+                                while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
+                                {
+                                    if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.COMMA)
+                                    {
+                                        pos++;
+                                    }
+                                    else if (tokens[pos].type == TokenType.STR || tokens[pos].type == TokenType.IDENTIFIER)
+                                    {
+                                        pos++;
+                                    }
+                                    else
+                                    {
+                                        enforce(false, "Unexpected token in function call arguments");
+                                    }
+                                }
+
                                 enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
                                     "Expected ')' after function arguments");
                                 pos++;
-                                while (pos < tokens.length && tokens[pos].type == TokenType
-                                    .WHITESPACE)
+                                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                                     pos++;
 
                                 enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
@@ -352,19 +378,35 @@ ASTNode parse(Token[] tokens)
                         pos++;
 
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
-                        "Expected '(' after function name");
+                        format("Expected '(' after function name '%s' at position %s", funcName, pos.to!string));
                     pos++;
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                         pos++;
 
+                    while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
+                    {
+                        if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.COMMA)
+                        {
+                            pos++;
+                        }
+                        else if (tokens[pos].type == TokenType.STR || tokens[pos].type == TokenType.IDENTIFIER)
+                        {
+                            pos++;
+                        }
+                        else
+                        {
+                            enforce(false, format("Unexpected argument in function call: %s", tokens[pos].value));
+                        }
+                    }
+
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
-                        "Expected ')' after function arguments");
+                        format("Expected ')' after function arguments for '%s'", funcName));
                     pos++;
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                         pos++;
 
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                        "Expected ';' after function call");
+                        format("Expected ';' after function call to '%s'", funcName));
                     pos++;
                     mainNode.children ~= ASTNode("FunctionCall", [], funcName);
                     break;
@@ -491,6 +533,28 @@ ASTNode parse(Token[] tokens)
                     pos++;
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                         pos++;
+
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
+                        "Expected '(' after function name");
+                    pos++;
+                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                        pos++;
+
+                    while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
+                    {
+                        if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.COMMA)
+                        {
+                            pos++;
+                        }
+                        else if (tokens[pos].type == TokenType.STR || tokens[pos].type == TokenType.IDENTIFIER)
+                        {
+                            pos++;
+                        }
+                        else
+                        {
+                            enforce(false, "Unexpected token in function call arguments");
+                        }
+                    }
 
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
                         "Expected ')' after function arguments");
