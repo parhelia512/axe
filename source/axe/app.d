@@ -41,36 +41,15 @@ void main(string[] args)
         if (args.canFind("-asm"))
         {
             string asmCode = generateAsm(ast);
-            std.file.write(replace(name, ".axe", ".asm"), asmCode);
-
-            version (Windows)
-            {
-                execute([
-                    "nasm", "-f", "win64", replace(name, ".axe", ".asm"), "-o",
-                    replace(name, ".axe", ".o"), "-g"
-                ]);
-                execute([
-                    "gcc", "-g", replace(name, ".axe", ".o"), "-o",
-                    replace(name, ".axe", ".exe"), "-mconsole"
-                ]);
+            string result = compileAndRunAsm(asmCode);
+            
+            if (result.canFind("Error:")) {
+                stderr.writeln("Assembly Error:");
+                stderr.writeln(result);
+                return;
             }
-            else version (Posix)
-            {
-                execute([
-                    "nasm", "-f", "elf64", replace(name, ".axe", ".asm"), "-o",
-                    replace(name, ".axe", ".o"), "-g"
-                ]);
-                execute([
-                    "gcc", "-g", "-m64", replace(name, ".axe", ".o"), "-o",
-                    replace(name, ".axe", "")
-                ]);
-            }
-
-            if (!args.canFind("-e"))
-            {
-                remove(replace(name, ".axe", ".asm"));
-                remove(replace(name, ".axe", ".o"));
-            }
+            
+            stdout.writeln(result);
         }
         else
         {

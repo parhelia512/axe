@@ -5,6 +5,26 @@ import std.array;
 import axe.structs;
 import std.exception;
 import std.algorithm;
+import std.file;
+import std.process;
+import std.path;
+import std.stdio;
+import std.ascii;
+import std.string;
+
+string operand(string s, string[string] paramMap = null)
+{
+    s = s.strip();
+    if (s.length == 0)
+        return s;
+    if (paramMap !is null && s in paramMap)
+        return paramMap[s];
+    if (s[0].isDigit() || (s.length > 1 && s[0] == '-' && s[1].isDigit()))
+        return s;
+    if (s[0] == '"')
+        return s;
+    return "[" ~ s ~ "]";
+}
 
 /** 
  * C backend renderer.
@@ -295,11 +315,11 @@ string generateAsm(ASTNode ast)
 
                         if (i < 4)
                         {
-                            asmCode ~= "    mov " ~ reg ~ ", " ~ param ~ "\n";
+                            asmCode ~= "    mov " ~ reg ~ ", " ~ operand(param) ~ "\n";
                         }
                         else
                         {
-                            asmCode ~= "    mov rcx, " ~ param ~ "\n";
+                            asmCode ~= "    mov rcx, " ~ operand(param) ~ "\n";
                             asmCode ~= "    push rcx\n";
                         }
                     }
@@ -341,17 +361,22 @@ string generateAsm(ASTNode ast)
                         break;
                     case "Assignment":
                         auto parts = loopChild.value.split(" = ");
-                        if (parts[1].canFind(" - "))
+                        string dest = parts[0].strip();
+                        string src = parts[1].strip();
+
+                        if (src.canFind(" - "))
                         {
-                            auto exprParts = parts[1].split(" - ");
-                            asmCode ~= "    mov eax, " ~ exprParts[0] ~ "\n"
-                                ~ "    sub eax, " ~ exprParts[1] ~ "\n"
-                                ~ "    mov " ~ parts[0] ~ ", eax\n";
+                            auto exprParts = src.split(" - ");
+                            asmCode ~= "    mov eax, " ~ operand(exprParts[0]) ~ "\n"
+                                ~ "    sub eax, " ~ operand(
+                                    exprParts[1]) ~ "\n"
+                                ~ "    mov [" ~ dest ~ "], eax\n";
                         }
                         else
                         {
-                            asmCode ~= "    mov eax, " ~ parts[1] ~ "\n"
-                                ~ "    mov " ~ parts[0] ~ ", eax\n";
+                            asmCode ~= "    mov eax, " ~ operand(
+                                src) ~ "\n"
+                                ~ "    mov [" ~ dest ~ "], eax\n";
                         }
                         break;
                     }
@@ -365,17 +390,21 @@ string generateAsm(ASTNode ast)
                 break;
             case "Assignment":
                 auto parts = child.value.split(" = ");
-                if (parts[1].canFind(" - "))
+                string dest = parts[0].strip();
+                string src = parts[1].strip();
+
+                if (src.canFind(" - "))
                 {
-                    auto exprParts = parts[1].split(" - ");
-                    asmCode ~= "    mov eax, " ~ exprParts[0] ~ "\n"
-                        ~ "    sub eax, " ~ exprParts[1] ~ "\n"
-                        ~ "    mov " ~ parts[0] ~ ", eax\n";
+                    auto exprParts = src.split(" - ");
+                    asmCode ~= "    mov eax, " ~ operand(exprParts[0]) ~ "\n"
+                        ~ "    sub eax, " ~ operand(
+                            exprParts[1]) ~ "\n"
+                        ~ "    mov [" ~ dest ~ "], eax\n";
                 }
                 else
                 {
-                    asmCode ~= "    mov eax, " ~ parts[1] ~ "\n"
-                        ~ "    mov " ~ parts[0] ~ ", eax\n";
+                    asmCode ~= "    mov eax, " ~ operand(src) ~ "\n"
+                        ~ "    mov [" ~ dest ~ "], eax\n";
                 }
                 break;
             }
@@ -390,36 +419,28 @@ string generateAsm(ASTNode ast)
     case "Function":
         auto funcDecl = ast.value.split("(");
         string funcName = funcDecl[0].strip();
-        string args = funcDecl.length > 1 ?
-            funcDecl[1].strip(")").strip() : "";
+        string args = funcDecl.length > 1 ? funcDecl[1].strip(")").strip() : "";
 
         asmCode ~= "section .text\n"
             ~ "global " ~ funcName ~ "\n"
             ~ funcName ~ ":\n"
+            ~ "    push rbp\n"
+            ~ "    mov rbp, rsp\n"
             ~ "    sub rsp, 40\n";
 
-        // Handle function parameters
+        // Store parameters on stack and create mapping
+        string[string] paramMap;
         if (args.length > 0)
         {
             auto params = args.split(",");
-            int paramOffset = 16; // First parameter is at [rsp+16] (after return address and rbp)
-
+            int offset = 16;
             foreach (i, param; params)
             {
-                auto parts = param.split(":");
-                if (parts.length == 2)
-                {
-                    string paramName = parts[0].strip();
-                    string paramType = parts[1].strip();
-
-                    // Store parameter from register to stack
-                    asmCode ~= "    mov " ~ paramName ~ ", " ~
-                        (i == 0 ? "rcx" : i == 1 ? "rdx" : i == 2 ? "r8" : "r9") ~ "\n";
-                    asmCode ~= "    mov [rsp+" ~ to!string(paramOffset) ~ "], " ~
-                        (i == 0 ? "rcx" : i == 1 ? "rdx" : i == 2 ? "r8" : "r9") ~ "\n";
-
-                    paramOffset += 8; // Each parameter is 8 bytes on stack
-                }
+                string paramName = param.split(":")[0].strip();
+                paramMap[paramName] = "[rbp+" ~ to!string(offset) ~ "]";
+                asmCode ~= "    mov " ~ paramMap[paramName] ~ ", "
+                    ~ (i == 0 ? "rcx" : i == 1 ? "rdx" : i == 2 ? "r8" : "r9") ~ "\n";
+                offset += 8;
             }
         }
         int msgCounter = 0;
@@ -445,8 +466,7 @@ string generateAsm(ASTNode ast)
             case "FunctionCall":
                 auto callDecl = child.value.split("(");
                 string callName = callDecl[0];
-                string callArgs = callDecl.length > 1 ?
-                    callDecl[1].strip(")") : "";
+                string callArgs = callDecl.length > 1 ? callDecl[1].strip(")") : "";
 
                 if (callArgs.length > 0)
                 {
@@ -459,11 +479,11 @@ string generateAsm(ASTNode ast)
 
                         if (i < 4)
                         {
-                            asmCode ~= "    mov " ~ reg ~ ", " ~ param ~ "\n";
+                            asmCode ~= "    mov " ~ reg ~ ", " ~ operand(param, paramMap) ~ "\n";
                         }
                         else
                         {
-                            asmCode ~= "    mov rcx, " ~ param ~ "\n";
+                            asmCode ~= "    mov rcx, " ~ operand(param, paramMap) ~ "\n";
                             asmCode ~= "    push rcx\n";
                         }
                     }
@@ -473,17 +493,21 @@ string generateAsm(ASTNode ast)
                 break;
             case "Assignment":
                 auto parts = child.value.split(" = ");
-                if (parts[1].canFind(" - "))
+                string dest = parts[0].strip();
+                string src = parts[1].strip();
+
+                if (src.canFind(" - "))
                 {
-                    auto exprParts = parts[1].split(" - ");
-                    asmCode ~= "    mov eax, " ~ exprParts[0] ~ "\n"
-                        ~ "    sub eax, " ~ exprParts[1] ~ "\n"
-                        ~ "    mov " ~ parts[0] ~ ", eax\n";
+                    auto exprParts = src.split(" - ");
+                    asmCode ~= "    mov eax, " ~ operand(exprParts[0], paramMap) ~ "\n"
+                        ~ "    sub eax, " ~ operand(
+                            exprParts[1], paramMap) ~ "\n"
+                        ~ "    mov [" ~ dest ~ "], eax\n";
                 }
                 else
                 {
-                    asmCode ~= "    mov eax, " ~ parts[1] ~ "\n"
-                        ~ "    mov " ~ parts[0] ~ ", eax\n";
+                    asmCode ~= "    mov eax, " ~ operand(src, paramMap) ~ "\n"
+                        ~ "    mov [" ~ dest ~ "], eax\n";
                 }
                 break;
 
@@ -494,9 +518,13 @@ string generateAsm(ASTNode ast)
                 if (condition.canFind("=="))
                 {
                     auto parts = condition.split("==");
-                    asmCode ~= "    mov eax, " ~ parts[0].strip() ~ "\n"
-                        ~ "    cmp eax, " ~ parts[1].strip() ~ "\n"
-                        ~ "    jne " ~ endIfLabel ~ "\n";
+                    string left = parts[0].strip();
+                    string right = parts[1].strip();
+
+                    asmCode ~= "    mov eax, " ~ operand(left, paramMap) ~ "\n";
+                    asmCode ~= "    mov ebx, " ~ operand(right, paramMap) ~ "\n";
+                    asmCode ~= "    cmp eax, ebx\n";
+                    asmCode ~= "    jne " ~ endIfLabel ~ "\n";
                 }
 
                 foreach (ifChild; child.children)
@@ -546,9 +574,13 @@ string generateAsm(ASTNode ast)
                         if (condition.canFind("=="))
                         {
                             auto parts = condition.split("==");
-                            asmCode ~= "    mov eax, " ~ parts[0].strip() ~ "\n"
-                                ~ "    cmp eax, " ~ parts[1].strip() ~ "\n"
-                                ~ "    jne " ~ endIfLabel ~ "\n";
+                            string left = parts[0].strip();
+                            string right = parts[1].strip();
+
+                            asmCode ~= "    mov eax, " ~ operand(left, paramMap) ~ "\n";
+                            asmCode ~= "    mov ebx, " ~ operand(right, paramMap) ~ "\n";
+                            asmCode ~= "    cmp eax, ebx\n";
+                            asmCode ~= "    jne " ~ endIfLabel ~ "\n";
                         }
 
                         foreach (ifChild; loopChild.children)
@@ -575,15 +607,15 @@ string generateAsm(ASTNode ast)
             }
 
         }
-        asmCode ~= "    add rsp, 40\n"
+        asmCode ~= "    mov rsp, rbp\n"
+            ~ "    pop rbp\n"
             ~ "    ret\n";
         break;
 
     case "FunctionCall":
         auto funcDecl = ast.value.split("(");
         string funcName = funcDecl[0];
-        string args = funcDecl.length > 1 ?
-            funcDecl[1].strip(")") : "";
+        string args = funcDecl.length > 1 ? funcDecl[1].strip(")") : "";
 
         if (args.length > 0)
         {
@@ -595,11 +627,11 @@ string generateAsm(ASTNode ast)
 
                 if (i < 4)
                 {
-                    asmCode ~= "    mov " ~ reg ~ ", " ~ param ~ "\n";
+                    asmCode ~= "    mov " ~ reg ~ ", " ~ operand(param) ~ "\n";
                 }
                 else
                 {
-                    asmCode ~= "    mov rcx, " ~ param ~ "\n";
+                    asmCode ~= "    mov rcx, " ~ operand(param) ~ "\n";
                     asmCode ~= "    push rcx\n";
                 }
             }
@@ -633,17 +665,21 @@ string generateAsm(ASTNode ast)
                 break;
             case "Assignment":
                 auto parts = child.value.split(" = ");
-                if (parts[1].canFind(" - "))
+                string dest = parts[0].strip();
+                string src = parts[1].strip();
+
+                if (src.canFind(" - "))
                 {
-                    auto exprParts = parts[1].split(" - ");
-                    asmCode ~= "    mov eax, " ~ exprParts[0] ~ "\n"
-                        ~ "    sub eax, " ~ exprParts[1] ~ "\n"
-                        ~ "    mov " ~ parts[0] ~ ", eax\n";
+                    auto exprParts = src.split(" - ");
+                    asmCode ~= "    mov eax, " ~ operand(exprParts[0]) ~ "\n"
+                        ~ "    sub eax, " ~ operand(
+                            exprParts[1]) ~ "\n"
+                        ~ "    mov [" ~ dest ~ "], eax\n";
                 }
                 else
                 {
-                    asmCode ~= "    mov eax, " ~ parts[1] ~ "\n"
-                        ~ "    mov " ~ parts[0] ~ ", eax\n";
+                    asmCode ~= "    mov eax, " ~ operand(src) ~ "\n"
+                        ~ "    mov [" ~ dest ~ "], eax\n";
                 }
                 break;
             }
@@ -658,23 +694,60 @@ string generateAsm(ASTNode ast)
 
     case "Assignment":
         auto parts = ast.value.split(" = ");
-        if (parts[1].canFind(" - "))
+        string dest = parts[0].strip();
+        string src = parts[1].strip();
+
+        if (src.canFind(" - "))
         {
-            auto exprParts = parts[1].split(" - ");
-            asmCode ~= "    mov eax, " ~ exprParts[0] ~ "\n"
-                ~ "    sub eax, " ~ exprParts[1] ~ "\n"
-                ~ "    mov " ~ parts[0] ~ ", eax\n";
+            auto exprParts = src.split(" - ");
+            asmCode ~= "    mov eax, " ~ operand(exprParts[0]) ~ "\n"
+                ~ "    sub eax, " ~ operand(
+                    exprParts[1]) ~ "\n"
+                ~ "    mov [" ~ dest ~ "], eax\n";
         }
         else
         {
-            asmCode ~= "    mov eax, " ~ parts[1] ~ "\n"
-                ~ "    mov " ~ parts[0] ~ ", eax\n";
+            asmCode ~= "    mov eax, " ~ operand(src) ~ "\n"
+                ~ "    mov [" ~ dest ~ "], eax\n";
         }
         break;
 
     }
 
     return asmCode;
+}
+
+/** 
+ * Compiles and runs the generated assembly code
+ * Returns NASM errors if any
+ */
+string compileAndRunAsm(string asmCode)
+{
+    // Create temp files
+    string asmFile = buildPath(tempDir(), "temp.asm");
+    string objFile = buildPath(tempDir(), "temp.o");
+    string exeFile = buildPath(tempDir(), "temp.exe");
+
+    // Write assembly to file
+    std.file.write(asmFile, asmCode);
+
+    // Run NASM
+    auto nasmResult = execute(["nasm", "-f", "win64", "-o", objFile, asmFile]);
+    if (nasmResult.status != 0)
+    {
+        return "NASM Error: " ~ nasmResult.output;
+    }
+
+    // Run linker
+    auto linkResult = execute(["gcc", "-o", exeFile, objFile]);
+    if (linkResult.status != 0)
+    {
+        return "Linker Error: " ~ linkResult.output;
+    }
+
+    // Run the executable
+    auto runResult = execute([exeFile]);
+    return runResult.output;
 }
 
 unittest
