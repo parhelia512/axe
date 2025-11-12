@@ -389,11 +389,8 @@ string generateAsm(ASTNode ast)
                         string dest = parts[0].strip();
                         string src = parts[1].strip();
 
-                        // Declare the variable if it's not a parameter
                         if (!isParameter(dest))
-                        {
                             declareVariable(dest);
-                        }
 
                         if (src.canFind(" - "))
                         {
