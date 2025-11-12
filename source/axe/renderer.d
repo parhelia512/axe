@@ -138,9 +138,20 @@ string generateAsm(ASTNode ast)
     final switch (ast.nodeType)
     {
     case "Program":
-        if (ast.children.length > 0 && ast.children[0].nodeType == "Main")
+        foreach (child; ast.children)
         {
-            asmCode = generateAsm(ast.children[0]);
+            if (child.nodeType == "Main")
+            {
+                asmCode = generateAsm(child);
+            }
+            else if (child.nodeType == "Function")
+            {
+                asmCode ~= generateAsm(child) ~ "\n";
+            }
+            else
+            {
+                enforce(false, "Unsupported node type in Program: " ~ child.nodeType);
+            }
         }
         break;
 
@@ -173,6 +184,14 @@ string generateAsm(ASTNode ast)
                 msgCounter++;
                 break;
 
+            case "FunctionCall":
+                auto callDecl = child.value.split("(");
+                string callName = callDecl[0];
+                string callArgs = callDecl.length > 1 ?
+                    callDecl[1].strip(")") : "";
+                asmCode ~= "    call " ~ callName ~ "\n";
+                break;
+
             case "Loop":
                 int loopId = 0;
                 asmCode ~= "loop_" ~ loopId.to!string ~ "_start:\n";
@@ -200,6 +219,10 @@ string generateAsm(ASTNode ast)
                 asmCode ~= "    jmp loop_" ~ loopId.to!string ~ "_start\n";
                 asmCode ~= "loop_" ~ loopId.to!string ~ "_end:\n";
                 break;
+
+            case "Break":
+                asmCode ~= "    jmp loop_0_end\n";
+                break;
             }
         }
         asmCode ~= `
@@ -208,6 +231,86 @@ string generateAsm(ASTNode ast)
             ret
         `;
         break;
+
+    case "Function":
+        auto funcDecl = ast.value.split("(");
+        string funcName = funcDecl[0];
+        string args = funcDecl.length > 1 ?
+            funcDecl[1].strip(")") : "";
+        asmCode ~= "section .text\n"
+            ~ "global " ~ funcName ~ "\n"
+            ~ funcName ~ ":\n"
+            ~ "    sub rsp, 40\n";
+        int msgCounter = 0;
+        foreach (child; ast.children)
+        {
+            final switch (child.nodeType)
+            {
+            case "Println":
+                asmCode ~= `
+                    section .data
+                        msg_` ~ msgCounter.to!string ~ ` db '` ~ child.value ~ `', 0
+                    section .text
+                        mov rcx, msg_` ~ msgCounter.to!string ~ `
+                        call printf
+                        mov rcx, nl
+                        call printf
+                `;
+                msgCounter++;
+                break;
+
+            case "FunctionCall":
+                auto callDecl = child.value.split("(");
+                string callName = callDecl[0];
+                string callArgs = callDecl.length > 1 ?
+                    callDecl[1].strip(")") : "";
+                asmCode ~= "    call " ~ callName ~ "\n";
+                break;
+            }
+        }
+        asmCode ~= "    add rsp, 40\n"
+            ~ "    ret\n";
+        break;
+
+    case "FunctionCall":
+        auto funcDecl = ast.value.split("(");
+        string funcName = funcDecl[0];
+        string args = funcDecl.length > 1 ?
+            funcDecl[1].strip(")") : "";
+        asmCode ~= "    call " ~ funcName ~ "\n";
+        break;
+
+    case "Loop":
+        int loopId = 0;
+        asmCode ~= "loop_" ~ loopId.to!string ~ "_start:\n";
+        foreach (child; ast.children)
+        {
+            final switch (child.nodeType)
+            {
+            case "Println":
+                asmCode ~= `
+                    section .data
+                        msg_` ~ loopId.to!string ~ ` db '` ~ child.value ~ `', 0
+                    section .text
+                        mov rcx, msg_` ~ loopId.to!string ~ `
+                        call printf
+                        mov rcx, nl
+                        call printf
+                `;
+                break;
+            case "Break":
+                asmCode ~= "    jmp loop_" ~ loopId.to!string ~ "_end\n";
+                break;
+            }
+        }
+        asmCode ~= "    jmp loop_" ~ loopId.to!string ~ "_start\n";
+        asmCode ~= "loop_" ~ loopId.to!string ~ "_end:\n";
+        break;
+
+    case "Break":
+        asmCode ~= "    jmp end\n";
+        break;
+
     }
 
     return asmCode;
