@@ -5,6 +5,14 @@ import std.array;
 import axe.structs;
 import std.exception;
 
+/** 
+ * C backend renderer.
+ *
+ * Params:
+ *   ast = Abstract syntax tree to render.
+ * Returns: 
+ *   Generated C code.
+ */
 string generateC(ASTNode ast)
 {
     string cCode;
@@ -115,6 +123,14 @@ string generateC(ASTNode ast)
 
 import std.conv;
 
+/** 
+ * Assembly/NASM backend renderer.
+ *
+ * Params:
+ *   ast = Abstract syntax tree to render.
+ * Returns: 
+ *   Generated assembly code.
+ */
 string generateAsm(ASTNode ast)
 {
     string asmCode;
