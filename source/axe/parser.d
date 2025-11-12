@@ -623,10 +623,12 @@ ASTNode parse(Token[] tokens)
                                     tokens[pos].value,
                                     tokens[pos].type.to!string,
                                     [
-                                        TokenType.IDENTIFIER, TokenType.IF, TokenType.LOOP,
+                                        TokenType.IDENTIFIER, TokenType.IF,
+                                        TokenType.LOOP,
                                         TokenType.PRINTLN, TokenType.BREAK
                                     ].map!(
-                                    t => t.to!string).join(", ")));
+                                    t => t.to!string).join(", "))
+                            );
                         }
                     }
 
