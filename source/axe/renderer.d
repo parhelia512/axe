@@ -989,4 +989,17 @@ unittest
         auto closeBraces = cCode.count('}');
         assert(openBraces == closeBraces, "Braces should be balanced");
     }
+
+    {
+        auto tokens = lex("def greet(name: char*, t: int) { println \"hello\"; } main { greet(\"world\", 1); }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Function call with string literal test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("void greet(char* name, int t)"), "Should declare greet function");
+        assert(cCode.canFind("greet(\"world\", 1);"), "String literal should have quotes in function call");
+        assert(!cCode.canFind("greet(world, 1);"), "String literal should not lose quotes");
+    }
 }
