@@ -115,7 +115,6 @@ Token[] lex(string source)
         case '/':
             if (pos + 1 < source.length && source[pos + 1] == '/')
             {
-                // Comment - skip until end of line
                 size_t start = pos;
                 while (pos < source.length && source[pos] != '\n')
                 {
