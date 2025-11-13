@@ -229,13 +229,15 @@ class ModelInstantiationNode : ASTNode
     string modelName;
     string variableName;
     string[string] fieldValues; // field name -> value
+    bool isMutable;
 
-    this(string modelName, string variableName, string[string] fieldValues)
+    this(string modelName, string variableName, string[string] fieldValues, bool isMutable = false)
     {
         super("ModelInstantiation");
         this.modelName = modelName;
         this.variableName = variableName;
         this.fieldValues = fieldValues;
+        this.isMutable = isMutable;
     }
 }
 

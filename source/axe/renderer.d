@@ -236,12 +236,21 @@ string generateC(ASTNode ast)
         auto instNode = cast(ModelInstantiationNode) ast;
         string indent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
         
-        cCode ~= indent ~ instNode.modelName ~ " " ~ instNode.variableName ~ ";\n";
+        // Generate struct initialization using compound literal (const for val, mutable for mut val)
+        string constQualifier = instNode.isMutable ? "" : "const ";
+        cCode ~= indent ~ constQualifier ~ instNode.modelName ~ " " ~ instNode.variableName ~ " = {";
         
+        // Add field initializers
+        bool first = true;
         foreach (fieldName, fieldValue; instNode.fieldValues)
         {
-            cCode ~= indent ~ instNode.variableName ~ "." ~ fieldName ~ " = " ~ fieldValue ~ ";\n";
+            if (!first)
+                cCode ~= ", ";
+            cCode ~= "." ~ fieldName ~ " = " ~ fieldValue;
+            first = false;
         }
+        
+        cCode ~= "};\n";
         break;
 
     case "MemberAccess":

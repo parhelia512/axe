@@ -281,10 +281,15 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                         string memberName = tokens[pos].value;
                         pos++;
                         
-                        // Check if this is a member write or read
                         if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
                         {
-                            // Member write: obj.field = value
+                            if (!currentScope.isDeclared(identName))
+                                enforce(false, "Undeclared variable: " ~ identName);
+                            
+                            if (!currentScope.isMutable(identName))
+                                enforce(false, "Cannot assign to member '" ~ memberName ~ 
+                                    "' of immutable variable '" ~ identName ~ "'");
+                            
                             pos++; // Skip '='
                             
                             string value = "";
@@ -531,7 +536,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                 pos++;
                                 
                                 currentScope.addVariable(varName, isMutable);
-                                mainNode.children ~= new ModelInstantiationNode(modelName, varName, fieldValues);
+                                mainNode.children ~= new ModelInstantiationNode(
+                                    modelName, varName, fieldValues, isMutable);
                             }
                             else
                             {
