@@ -239,6 +239,32 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
         case TokenType.USE:
             pos++; // Skip 'use'
 
+            // Check if this is an external import: use external("header.h")
+            if (pos < tokens.length && tokens[pos].type == TokenType.EXTERNAL)
+            {
+                pos++; // Skip 'external'
+                
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
+                    "Expected '(' after 'external'");
+                pos++; // Skip '('
+                
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.STR,
+                    "Expected string literal for header file");
+                string headerFile = tokens[pos].value;
+                pos++;
+                
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                    "Expected ')' after header file");
+                pos++; // Skip ')'
+                
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                    "Expected ';' after external import");
+                pos++; // Skip ';'
+                
+                ast.children ~= new ExternalImportNode(headerFile);
+                continue;
+            }
+
             enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
                 "Expected module name after 'use'");
             string moduleName = tokens[pos].value;

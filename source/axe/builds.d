@@ -10,7 +10,7 @@ import std.process;
 import std.array;
 import std.stdio;
 import std.algorithm;
-import std.string : replace;
+import std.string : replace, startsWith;
 import std.path : dirName, buildPath;
 
 /**
@@ -81,10 +81,20 @@ void handleMachineArgs(string[] args)
             string cCode = generateC(ast);
             string ext = isAxec ? ".axec" : ".axe";
             std.file.write(replace(name, ext, ".c"), cCode);
-            auto e = execute([
-                "clang", replace(name, ext, ".c"), "-Wno-everything", "-Os", "-o",
-                replace(name, ext, ".exe")
-            ]);
+            
+            string[] clangCmd = ["clang", replace(name, ext, ".c"), "-Wno-everything", "-Os"];
+            
+            foreach (arg; args)
+            {
+                if (arg.startsWith("-I"))
+                {
+                    clangCmd ~= arg;
+                }
+            }
+            
+            clangCmd ~= ["-o", replace(name, ext, ".exe")];
+            
+            auto e = execute(clangCmd);
             if (e[0] != 0)
             {
                 stderr.writeln(

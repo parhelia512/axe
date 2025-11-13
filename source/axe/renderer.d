@@ -55,7 +55,16 @@ string generateC(ASTNode ast)
     switch (ast.nodeType)
     {
     case "Program":
-        cCode = "#include <stdio.h>\n#include <stdbool.h>\n#include <stdlib.h>\n#include <string.h>\n\n";
+        cCode = "#include <stdio.h>\n#include <stdbool.h>\n#include <stdlib.h>\n#include <string.h>\n";
+
+        // Add external imports first
+        foreach (child; ast.children)
+        {
+            if (child.nodeType == "ExternalImport")
+                cCode ~= generateC(child);
+        }
+        
+        cCode ~= "\n";
 
         foreach (child; ast.children)
         {
@@ -65,7 +74,7 @@ string generateC(ASTNode ast)
 
         foreach (child; ast.children)
         {
-            if (child.nodeType != "Model")
+            if (child.nodeType != "Model" && child.nodeType != "ExternalImport")
                 cCode ~= generateC(child) ~ "\n";
         }
         break;
@@ -435,6 +444,11 @@ string generateC(ASTNode ast)
             cCode ~= indent ~ incDecNode.variable ~ "++;\n";
         else
             cCode ~= indent ~ incDecNode.variable ~ "--;\n";
+        break;
+
+    case "ExternalImport":
+        auto extImportNode = cast(ExternalImportNode) ast;
+        cCode ~= "#include <" ~ extImportNode.headerFile ~ ">\n";
         break;
 
     default:
@@ -1798,5 +1812,18 @@ unittest
         assert(cCode.canFind("const int data[5] = {1, 2, 3, 4, 5};"), "Should have array declaration");
         assert(cCode.canFind("printf(\"%d\\n\", (sizeof(data)/sizeof(data[0])));"), 
             "Should convert .len to sizeof expression");
+    }
+
+    {
+        auto tokens = lex("use external(\"raylib.h\"); main { println \"test\"; }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("External import test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("#include <raylib.h>"), "Should have external include directive");
+        assert(cCode.canFind("#include <stdio.h>"), "Should have standard includes");
+        assert(cCode.canFind("int main()"), "Should have main function");
     }
 }

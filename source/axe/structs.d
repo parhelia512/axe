@@ -56,6 +56,7 @@ enum TokenType
     FOR,
     CONTINUE,
     IN,
+    EXTERNAL,
 }
 
 /** 
@@ -362,6 +363,17 @@ class MemberAccessNode : ASTNode
         this.objectName = objectName;
         this.memberName = memberName;
         this.value = value;
+    }
+}
+
+class ExternalImportNode : ASTNode
+{
+    string headerFile;
+
+    this(string headerFile)
+    {
+        super("ExternalImport");
+        this.headerFile = headerFile;
     }
 }
 

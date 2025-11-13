@@ -329,6 +329,11 @@ Token[] lex(string source)
                 tokens ~= Token(TokenType.USE, "use");
                 pos += 3;
             }
+            else if (pos + 8 <= source.length && source[pos .. pos + 8] == "external")
+            {
+                tokens ~= Token(TokenType.EXTERNAL, "external");
+                pos += 8;
+            }
             else if (pos + 6 <= source.length && source[pos .. pos + 6] == "switch")
             {
                 tokens ~= Token(TokenType.SWITCH, "switch");
