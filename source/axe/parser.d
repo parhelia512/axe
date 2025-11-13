@@ -497,7 +497,8 @@ ASTNode parse(Token[] tokens)
                             pos++;
 
                             string initializer = "";
-                            if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
+                            if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR
+                                && tokens[pos].value == "=")
                             {
                                 pos++;
                                 while (pos < tokens.length && tokens[pos].type != TokenType
@@ -841,8 +842,9 @@ ASTNode parse(Token[] tokens)
                                     pos++;
 
                                 if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR &&
-                                    (tokens[pos].value == "==" || tokens[pos].value == ">" || tokens[pos].value == "<" ||
-                                        tokens[pos].value == ">=" || tokens[pos].value == "<=" || tokens[pos].value ==
+                                    (tokens[pos].value == "==" || tokens[pos].value == ">" || tokens[pos].value == "<"
+                                        || tokens[pos].value == ">=" || tokens[pos].value == "<=" || tokens[pos]
+                                        .value ==
                                         "!="))
                                 {
                                     cond ~= " " ~ tokens[pos].value ~ " ";
