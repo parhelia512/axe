@@ -4,7 +4,7 @@ import std.exception : enforce;
 import std.conv;
 import std.string;
 import std.algorithm;
-import axe.structs : ASTNode, Token, TokenType, DeclarationNode, ProgramNode, FunctionNode, PrintlnNode, BreakNode, IfNode, LoopNode, AssignmentNode, FunctionCallNode;
+import axe.structs;
 
 /** 
  * Parses an array of tokens into an abstract syntax tree (AST).
