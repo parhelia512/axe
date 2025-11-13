@@ -54,6 +54,7 @@ enum TokenType
     ELSE,
     ELIF,
     FOR,
+    CONTINUE,
 }
 
 /** 
@@ -151,6 +152,14 @@ class BreakNode : ASTNode
     this()
     {
         super("Break");
+    }
+}
+
+class ContinueNode : ASTNode
+{
+    this()
+    {
+        super("Continue");
     }
 }
 

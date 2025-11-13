@@ -275,23 +275,23 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                     if (pos < tokens.length && tokens[pos].type == TokenType.DOT)
                     {
                         pos++; // Skip '.'
-                        
+
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
                             "Expected member name after '.'");
                         string memberName = tokens[pos].value;
                         pos++;
-                        
+
                         if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
                         {
                             if (!currentScope.isDeclared(identName))
                                 enforce(false, "Undeclared variable: " ~ identName);
-                            
+
                             if (!currentScope.isMutable(identName))
-                                enforce(false, "Cannot assign to member '" ~ memberName ~ 
-                                    "' of immutable variable '" ~ identName ~ "'");
-                            
+                                enforce(false, "Cannot assign to member '" ~ memberName ~
+                                        "' of immutable variable '" ~ identName ~ "'");
+
                             pos++; // Skip '='
-                            
+
                             string value = "";
                             while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
                             {
@@ -301,11 +301,11 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                     value ~= tokens[pos].value;
                                 pos++;
                             }
-                            
+
                             enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                 "Expected ';' after member assignment");
                             pos++;
-                            
+
                             mainNode.children ~= new MemberAccessNode(identName, memberName, value.strip());
                         }
                         else
@@ -436,10 +436,69 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                             loopNode.children ~= new BreakNode();
                             break;
 
+                        case TokenType.CONTINUE:
+                            pos++;
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after 'continue'");
+                            pos++;
+                            loopNode.children ~= new ContinueNode();
+                            break;
+
+                        case TokenType.MUT:
+                        case TokenType.VAL:
+                            bool loopIsMutable = tokens[pos].type == TokenType.MUT;
+                            pos++;
+
+                            if (loopIsMutable)
+                            {
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.VAL,
+                                    "Expected 'val' after 'mut'");
+                                pos++;
+                            }
+
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                                "Expected variable name");
+                            string loopVarName = tokens[pos].value;
+                            pos++;
+
+                            // Check for type annotation
+                            string loopVarType = "";
+                            if (pos < tokens.length && tokens[pos].type == TokenType.COLON)
+                            {
+                                pos++; // Skip ':'
+                                loopVarType = parseType();
+                            }
+
+                            string loopInitializer = "";
+                            if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR
+                                && tokens[pos].value == "=")
+                            {
+                                pos++;
+
+                                while (pos < tokens.length && tokens[pos].type != TokenType
+                                    .SEMICOLON)
+                                {
+                                    if (tokens[pos].type == TokenType.STR)
+                                        loopInitializer ~= "\"" ~ tokens[pos].value ~ "\"";
+                                    else
+                                        loopInitializer ~= tokens[pos].value;
+                                    pos++;
+                                }
+                            }
+
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after variable declaration");
+                            pos++;
+
+                            currentScope.addVariable(loopVarName, loopIsMutable);
+                            loopNode.children ~= new DeclarationNode(loopVarName, loopIsMutable, loopInitializer,
+                                loopVarType);
+                            break;
+
                         case TokenType.IDENTIFIER:
                             string loopIdentName = tokens[pos].value;
                             pos++;
-                            
+
                             if (pos < tokens.length && tokens[pos].type == TokenType.INCREMENT)
                             {
                                 if (!currentScope.isDeclared(loopIdentName))
@@ -447,11 +506,11 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                 if (!currentScope.isMutable(loopIdentName))
                                     enforce(false, "Cannot increment immutable variable: " ~ loopIdentName);
                                 pos++;
-                                
+
                                 enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                     "Expected ';' after increment");
                                 pos++;
-                                
+
                                 loopNode.children ~= new IncrementDecrementNode(loopIdentName, true);
                             }
                             else if (pos < tokens.length && tokens[pos].type == TokenType.DECREMENT)
@@ -461,11 +520,11 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                 if (!currentScope.isMutable(loopIdentName))
                                     enforce(false, "Cannot decrement immutable variable: " ~ loopIdentName);
                                 pos++;
-                                
+
                                 enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                     "Expected ';' after decrement");
                                 pos++;
-                                
+
                                 loopNode.children ~= new IncrementDecrementNode(loopIdentName, false);
                             }
                             else
@@ -477,22 +536,22 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                         case TokenType.IF:
                             // Handle if statements in loops
                             pos++;
-                            
+
                             string loopCondition;
                             bool hasParens = false;
-                            
+
                             // Check if condition has parentheses
                             if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
                             {
                                 hasParens = true;
                                 pos++; // Skip '('
-                                
+
                                 while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
                                 {
                                     loopCondition ~= tokens[pos].value;
                                     pos++;
                                 }
-                                
+
                                 enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
                                     "Expected ')' after if condition");
                                 pos++; // Skip ')'
@@ -522,6 +581,14 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                     pos++;
                                     loopIfNode.children ~= new BreakNode();
                                 }
+                                else if (tokens[pos].type == TokenType.CONTINUE)
+                                {
+                                    pos++;
+                                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                        "Expected ';' after 'continue'");
+                                    pos++;
+                                    loopIfNode.children ~= new ContinueNode();
+                                }
                                 else
                                 {
                                     enforce(false, "Unexpected token in if body within loop");
@@ -549,50 +616,50 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
 
                 case TokenType.FOR:
                     pos++; // Skip 'for'
-                    
+
                     // Parse initialization (mut val i = 0 or val i = 0)
                     bool forIsMutable = false;
                     string forVarName = "";
                     string forVarType = "";
                     string forInitValue = "";
-                    
+
                     if (pos < tokens.length && tokens[pos].type == TokenType.MUT)
                     {
                         forIsMutable = true;
                         pos++; // Skip 'mut'
                     }
-                    
+
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.VAL,
                         "Expected 'val' in for loop initialization");
                     pos++; // Skip 'val'
-                    
+
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
                         "Expected variable name in for loop");
                     forVarName = tokens[pos].value;
                     pos++;
-                    
+
                     // Check for type annotation
                     if (pos < tokens.length && tokens[pos].type == TokenType.COLON)
                     {
                         pos++; // Skip ':'
                         forVarType = parseType();
                     }
-                    
+
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=",
                         "Expected '=' in for loop initialization");
                     pos++; // Skip '='
-                    
+
                     // Parse init value until semicolon
                     while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
                     {
                         forInitValue ~= tokens[pos].value;
                         pos++;
                     }
-                    
+
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                         "Expected ';' after for loop initialization");
                     pos++; // Skip ';'
-                    
+
                     // Parse condition (i < 10)
                     string forCondition = "";
                     while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
@@ -600,11 +667,11 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                         forCondition ~= tokens[pos].value;
                         pos++;
                     }
-                    
+
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                         "Expected ';' after for loop condition");
                     pos++; // Skip ';'
-                    
+
                     // Parse increment (i++)
                     string forIncrement = "";
                     while (pos < tokens.length && tokens[pos].type != TokenType.LBRACE)
@@ -612,20 +679,20 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                         forIncrement ~= tokens[pos].value;
                         pos++;
                     }
-                    
+
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
                         "Expected '{' after for loop header");
                     pos++; // Skip '{'
-                    
+
                     auto forNode = new ForNode("", forCondition.strip(), forIncrement.strip());
                     forNode.isMutable = forIsMutable;
                     forNode.varName = forVarName;
                     forNode.varType = forVarType.length > 0 ? forVarType : "int";
                     forNode.initValue = forInitValue.strip();
-                    
+
                     // Register the loop variable in scope
                     currentScope.addVariable(forVarName, forIsMutable);
-                    
+
                     // Parse for loop body
                     while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
                     {
@@ -637,7 +704,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                 "Expected ';' after println");
                             pos++;
                             break;
-                            
+
                         case TokenType.BREAK:
                             pos++;
                             enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
@@ -645,11 +712,19 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                             pos++;
                             forNode.children ~= new BreakNode();
                             break;
-                            
+
+                        case TokenType.CONTINUE:
+                            pos++;
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after 'continue'");
+                            pos++;
+                            forNode.children ~= new ContinueNode();
+                            break;
+
                         case TokenType.IDENTIFIER:
                             string forLoopIdentName = tokens[pos].value;
                             pos++;
-                            
+
                             if (pos < tokens.length && tokens[pos].type == TokenType.INCREMENT)
                             {
                                 if (!currentScope.isDeclared(forLoopIdentName))
@@ -657,11 +732,11 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                 if (!currentScope.isMutable(forLoopIdentName))
                                     enforce(false, "Cannot increment immutable variable: " ~ forLoopIdentName);
                                 pos++;
-                                
+
                                 enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                     "Expected ';' after increment");
                                 pos++;
-                                
+
                                 forNode.children ~= new IncrementDecrementNode(forLoopIdentName, true);
                             }
                             else if (pos < tokens.length && tokens[pos].type == TokenType.DECREMENT)
@@ -671,11 +746,11 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                 if (!currentScope.isMutable(forLoopIdentName))
                                     enforce(false, "Cannot decrement immutable variable: " ~ forLoopIdentName);
                                 pos++;
-                                
+
                                 enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                     "Expected ';' after decrement");
                                 pos++;
-                                
+
                                 forNode.children ~= new IncrementDecrementNode(forLoopIdentName, false);
                             }
                             else
@@ -683,24 +758,24 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                 enforce(false, "Unexpected token after identifier in for loop body");
                             }
                             break;
-                            
+
                         case TokenType.IF:
                             // Handle if statements in for loops
                             pos++;
-                            
+
                             string forIfCondition;
-                            
+
                             // Check if condition has parentheses
                             if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
                             {
                                 pos++; // Skip '('
-                                
+
                                 while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
                                 {
                                     forIfCondition ~= tokens[pos].value;
                                     pos++;
                                 }
-                                
+
                                 enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
                                     "Expected ')' after if condition");
                                 pos++; // Skip ')'
@@ -730,6 +805,14 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                     pos++;
                                     forIfNode.children ~= new BreakNode();
                                 }
+                                else if (tokens[pos].type == TokenType.CONTINUE)
+                                {
+                                    pos++;
+                                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                        "Expected ';' after 'continue'");
+                                    pos++;
+                                    forIfNode.children ~= new ContinueNode();
+                                }
                                 else if (tokens[pos].type == TokenType.PRINTLN)
                                 {
                                     forIfNode.children ~= parsePrintln();
@@ -749,35 +832,36 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
 
                             forNode.children ~= forIfNode;
                             break;
-                            
+
                         default:
-                            enforce(false, "Unexpected token in for loop body: " ~ tokens[pos].value);
+                            enforce(false, "Unexpected token in for loop body: " ~ tokens[pos]
+                                    .value);
                         }
                     }
-                    
+
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                         "Expected '}' after for loop body");
                     pos++;
-                    
+
                     mainNode.children ~= forNode;
                     break;
 
                 case TokenType.IF:
                     pos++;
-                    
+
                     string condition;
-                    
+
                     // Check if condition has parentheses
                     if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
                     {
                         pos++; // Skip '('
-                        
+
                         while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
                         {
                             condition ~= tokens[pos].value;
                             pos++;
                         }
-                        
+
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
                             "Expected ')' after if condition");
                         pos++; // Skip ')'
@@ -821,20 +905,20 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                     while (pos < tokens.length && tokens[pos].type == TokenType.ELIF)
                     {
                         pos++; // Skip 'elif'
-                        
+
                         string elifCondition;
-                        
+
                         // Check if condition has parentheses
                         if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
                         {
                             pos++; // Skip '('
-                            
+
                             while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
                             {
                                 elifCondition ~= tokens[pos].value;
                                 pos++;
                             }
-                            
+
                             enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
                                 "Expected ')' after elif condition");
                             pos++; // Skip ')'
@@ -848,11 +932,11 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                 pos++;
                             }
                         }
-                        
+
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
                             "Expected '{' after elif condition");
                         pos++;
-                        
+
                         auto elifNode = new IfNode(elifCondition);
                         while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
                         {
@@ -864,28 +948,28 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                     "Expected ';' after println");
                                 pos++;
                                 break;
-                                
+
                             default:
                                 enforce(false, "Unexpected token in elif body");
                             }
                         }
-                        
+
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                             "Expected '}' after elif body");
                         pos++;
-                        
+
                         ifNode.elifBranches ~= elifNode;
                     }
-                    
+
                     // Check for else
                     if (pos < tokens.length && tokens[pos].type == TokenType.ELSE)
                     {
                         pos++; // Skip 'else'
-                        
+
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
                             "Expected '{' after else");
                         pos++;
-                        
+
                         while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
                         {
                             switch (tokens[pos].type)
@@ -896,12 +980,12 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                     "Expected ';' after println");
                                 pos++;
                                 break;
-                                
+
                             default:
                                 enforce(false, "Unexpected token in else body");
                             }
                         }
-                        
+
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                             "Expected '}' after else body");
                         pos++;
@@ -960,7 +1044,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                     break;
 
                                 default:
-                                    enforce(false, "Unexpected token in case body: " ~ tokens[pos].value);
+                                    enforce(false, "Unexpected token in case body: " ~ tokens[pos]
+                                            .value);
                                 }
                             }
 
@@ -993,7 +1078,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                     break;
 
                                 default:
-                                    enforce(false, "Unexpected token in default body: " ~ tokens[pos].value);
+                                    enforce(false, "Unexpected token in default body: " ~ tokens[pos]
+                                            .value);
                                 }
                             }
 
@@ -1006,8 +1092,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                         else
                         {
                             // Unexpected token in switch body
-                            enforce(false, "Unexpected token in switch body at pos " ~ pos.to!string ~ 
-                                ": " ~ tokens[pos].type.to!string ~ " ('" ~ tokens[pos].value ~ "')");
+                            enforce(false, "Unexpected token in switch body at pos " ~ pos.to!string ~
+                                    ": " ~ tokens[pos].type.to!string ~ " ('" ~ tokens[pos].value ~ "')");
                         }
                     }
 
@@ -1045,21 +1131,21 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                         if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
                         {
                             pos++;
-                            
+
                             // Check if this is a model instantiation
                             if (pos < tokens.length && tokens[pos].type == TokenType.NEW)
                             {
                                 pos++; // Skip 'new'
-                                
+
                                 enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
                                     "Expected model name after 'new'");
                                 string modelName = tokens[pos].value;
                                 pos++;
-                                
+
                                 enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
                                     "Expected '(' after model name");
                                 pos++; // Skip '('
-                                
+
                                 string[string] fieldValues;
                                 while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
                                 {
@@ -1067,13 +1153,13 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                     {
                                         string fieldName = tokens[pos].value;
                                         pos++;
-                                        
+
                                         enforce(pos < tokens.length && tokens[pos].type == TokenType.COLON,
                                             "Expected ':' after field name in model instantiation");
                                         pos++; // Skip ':'
-                                        
+
                                         string fieldValue = "";
-                                        while (pos < tokens.length && tokens[pos].type != TokenType.COMMA 
+                                        while (pos < tokens.length && tokens[pos].type != TokenType.COMMA
                                             && tokens[pos].type != TokenType.RPAREN)
                                         {
                                             if (tokens[pos].type == TokenType.STR)
@@ -1082,10 +1168,11 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                                 fieldValue ~= tokens[pos].value;
                                             pos++;
                                         }
-                                        
+
                                         fieldValues[fieldName] = fieldValue.strip();
-                                        
-                                        if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
+
+                                        if (pos < tokens.length && tokens[pos].type == TokenType
+                                            .COMMA)
                                             pos++; // Skip ','
                                     }
                                     else
@@ -1093,15 +1180,15 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                         pos++; // Skip whitespace/newlines
                                     }
                                 }
-                                
+
                                 enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
                                     "Expected ')' after model instantiation");
                                 pos++; // Skip ')'
-                                
+
                                 enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                     "Expected ';' after model instantiation");
                                 pos++;
-                                
+
                                 currentScope.addVariable(varName, isMutable);
                                 mainNode.children ~= new ModelInstantiationNode(
                                     modelName, varName, fieldValues, isMutable);
@@ -1109,7 +1196,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                             else
                             {
                                 // Regular variable initialization
-                                while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                                while (pos < tokens.length && tokens[pos].type != TokenType
+                                    .SEMICOLON)
                                 {
                                     if (tokens[pos].type == TokenType.STR)
                                         initializer ~= "\"" ~ tokens[pos].value ~ "\"";
@@ -1117,7 +1205,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                         initializer ~= tokens[pos].value;
                                     pos++;
                                 }
-                                
+
                                 enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                     "Expected ';' after val declaration");
                                 pos++;

@@ -268,6 +268,10 @@ string generateC(ASTNode ast)
         cCode ~= "break;\n";
         break;
 
+    case "Continue":
+        cCode ~= "continue;\n";
+        break;
+
     case "RawC":
         auto rawNode = cast(RawCNode) ast;
         cCode ~= rawNode.code ~ "\n";
@@ -275,8 +279,15 @@ string generateC(ASTNode ast)
 
     case "Return":
         auto returnNode = cast(ReturnNode) ast;
-        string processedExpr = processExpression(returnNode.expression);
-        cCode ~= "return " ~ processedExpr ~ ";\n";
+        if (returnNode.expression.length > 0)
+        {
+            string processedExpr = processExpression(returnNode.expression);
+            cCode ~= "return " ~ processedExpr ~ ";\n";
+        }
+        else
+        {
+            cCode ~= "return;\n";
+        }
         break;
 
     case "Model":
@@ -1569,5 +1580,72 @@ unittest
 
         assert(cCode.canFind("for (int x = 1; (x<=100); x++)"), "Should have for loop");
         assert(cCode.canFind("x++;"), "Should have increment in body");
+    }
+
+    {
+        auto tokens = lex("main { for mut val i = 0; i < 10; i++ { if i == 5 { continue; } println \"ok\"; } }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("For loop with continue test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("for (int i = 0; (i<10); i++)"), "Should have for loop");
+        assert(cCode.canFind("if ((i==5))"), "Should have if condition");
+        assert(cCode.canFind("continue;"), "Should have continue statement");
+        assert(cCode.canFind("printf(\"ok\\n\");"), "Should have println after continue");
+    }
+
+    {
+        auto tokens = lex("main { loop { mut val x: int = 0; x++; if x > 5 { continue; } break; } }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Loop with continue test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("while (1) {"), "Should have while loop");
+        assert(cCode.canFind("continue;"), "Should have continue");
+        assert(cCode.canFind("break;"), "Should have break");
+    }
+
+    {
+        auto tokens = lex("def test { return; } main { }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Headless return test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("void test()"), "Should have function");
+        assert(cCode.canFind("return;"), "Should have headless return");
+        assert(!cCode.canFind("return ;"), "Should not have space before semicolon");
+    }
+
+    {
+        auto tokens = lex("def getValue: int { return 42; } main { }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Return with value test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("int getValue()"), "Should have function with return type");
+        assert(cCode.canFind("return 42;"), "Should have return with value");
+    }
+
+    {
+        auto tokens = lex("main { for mut val i = 0; i < 20; i++ { if i < 5 { continue; } if i > 15 { break; } } }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("For loop with both continue and break test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("for (int i = 0; (i<20); i++)"), "Should have for loop");
+        assert(cCode.canFind("if ((i<5))"), "Should have first if");
+        assert(cCode.canFind("continue;"), "Should have continue");
+        assert(cCode.canFind("if ((i>15))"), "Should have second if");
+        assert(cCode.canFind("break;"), "Should have break");
     }
 }
