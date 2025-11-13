@@ -98,7 +98,7 @@ ASTNode parse(Token[] tokens)
 
             enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
                 "Expected ')' after function arguments");
-            pos++; // Skip ')'
+            pos++;
         }
 
         return args;
@@ -132,25 +132,25 @@ ASTNode parse(Token[] tokens)
                 switch (tokens[pos].type)
                 {
                 case TokenType.PRINTLN:
-                    pos++; // Skip 'println'
+                    pos++;
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.STR,
                         "Expected string after println");
                     mainNode.children ~= new PrintlnNode(tokens[pos].value);
-                    pos++; // Skip string
+                    pos++;
 
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                         "Expected ';' after println");
-                    pos++; // Skip ';'
+                    pos++;
                     break;
 
                 case TokenType.IDENTIFIER:
                     string funcName = tokens[pos].value;
-                    pos++; // Skip function name
+                    pos++;
 
                     string args = "";
                     if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
                     {
-                        pos++; // Skip '('
+                        pos++;
 
                         while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
                         {
@@ -178,21 +178,21 @@ ASTNode parse(Token[] tokens)
 
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
                             "Expected ')' after function arguments");
-                        pos++; // Skip ')'
+                        pos++;
                     }
 
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                         "Expected ';' after function call");
-                    pos++; // Skip ';'
+                    pos++;
 
                     mainNode.children ~= new FunctionCallNode(funcName, args);
                     break;
 
                 case TokenType.LOOP:
-                    pos++; // Skip 'loop'
+                    pos++;
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
                         "Expected '{' after 'loop'");
-                    pos++; // Skip '{'
+                    pos++;
 
                     auto loopNode = new LoopNode();
                     while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
@@ -200,10 +200,10 @@ ASTNode parse(Token[] tokens)
                         switch (tokens[pos].type)
                         {
                         case TokenType.BREAK:
-                            pos++; // Skip 'break'
+                            pos++;
                             enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                 "Expected ';' after 'break'");
-                            pos++; // Skip ';'
+                            pos++;
                             loopNode.children ~= new BreakNode();
                             break;
 
@@ -214,16 +214,16 @@ ASTNode parse(Token[] tokens)
 
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                         "Expected '}' after loop body");
-                    pos++; // Skip '}'
+                    pos++;
 
                     mainNode.children ~= loopNode;
                     break;
 
                 case TokenType.IF:
-                    pos++; // Skip 'if'
+                    pos++;
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
                         "Expected '(' after 'if'");
-                    pos++; // Skip '('
+                    pos++;
 
                     string condition;
                     while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
@@ -234,11 +234,11 @@ ASTNode parse(Token[] tokens)
 
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
                         "Expected ')' after if condition");
-                    pos++; // Skip ')'
+                    pos++;
 
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
                         "Expected '{' after if condition");
-                    pos++; // Skip '{'
+                    pos++;
 
                     auto ifNode = new IfNode(condition);
                     while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
@@ -246,15 +246,15 @@ ASTNode parse(Token[] tokens)
                         switch (tokens[pos].type)
                         {
                         case TokenType.PRINTLN:
-                            pos++; // Skip 'println'
+                            pos++;
                             enforce(pos < tokens.length && tokens[pos].type == TokenType.STR,
                                 "Expected string after println");
                             ifNode.children ~= new PrintlnNode(tokens[pos].value);
-                            pos++; // Skip string
+                            pos++;
 
                             enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                 "Expected ';' after println");
-                            pos++; // Skip ';'
+                            pos++;
                             break;
 
                         default:
@@ -264,32 +264,35 @@ ASTNode parse(Token[] tokens)
 
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                         "Expected '}' after if body");
-                    pos++; // Skip '}'
+                    pos++;
 
                     mainNode.children ~= ifNode;
                     break;
 
                 case TokenType.VAL:
                     bool isMutable = false;
-                    pos++; // Skip 'val'
-                    
-                    if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER) {
+                    pos++;
+
+                    if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
+                    {
                         string varName = tokens[pos].value;
-                        pos++; // Skip identifier
-                        
+                        pos++;
+
                         string initializer = "";
-                        if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=") {
-                            pos++; // Skip '='
-                            while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON) {
+                        if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
+                        {
+                            pos++;
+                            while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                            {
                                 initializer ~= tokens[pos].value;
                                 pos++;
                             }
                         }
-                        
+
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                             "Expected ';' after val declaration");
-                        pos++; // Skip ';'
-                        
+                        pos++;
+
                         mainNode.children ~= new DeclarationNode(varName, isMutable, initializer);
                     }
                     break;
@@ -482,24 +485,28 @@ ASTNode parse(Token[] tokens)
                     case TokenType.VAL:
                         bool isMutable = false;
                         pos++; // Skip 'val'
-                        
-                        if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER) {
+
+                        if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
+                        {
                             string varName = tokens[pos].value;
                             pos++; // Skip identifier
-                            
+
                             string initializer = "";
-                            if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=") {
+                            if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
+                            {
                                 pos++; // Skip '='
-                                while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON) {
+                                while (pos < tokens.length && tokens[pos].type != TokenType
+                                    .SEMICOLON)
+                                {
                                     initializer ~= tokens[pos].value;
                                     pos++;
                                 }
                             }
-                            
+
                             enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                 "Expected ';' after val declaration");
                             pos++; // Skip ';'
-                            
+
                             mainNode.children ~= new DeclarationNode(varName, isMutable, initializer);
                         }
                         break;
