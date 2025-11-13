@@ -123,46 +123,10 @@ string generateC(ASTNode ast)
     case "FunctionCall":
         auto callNode = cast(FunctionCallNode) ast;
         string callName = callNode.functionName;
-        string callArgs = callNode.functionName ~ "(" ~ callNode.args.join(", ") ~ ")";
-
         string[] processedArgs;
-        if (callArgs.length > 0)
-        {
-            auto argList = callArgs.split(",");
-            foreach (arg; argList)
-            {
-                string expr = arg.strip();
 
-                if (expr.length >= 2 && expr[0] == '"' && expr[$ - 1] == '"')
-                {
-                    processedArgs ~= expr;
-                }
-                else if (expr.canFind("+"))
-                {
-                    auto exprParts = expr.split("+");
-                    processedArgs ~= "(" ~ exprParts[0].strip() ~ " + " ~ exprParts[1].strip() ~ ")";
-                }
-                else if (expr.canFind("-"))
-                {
-                    auto exprParts = expr.split("-");
-                    processedArgs ~= "(" ~ exprParts[0].strip() ~ " - " ~ exprParts[1].strip() ~ ")";
-                }
-                else if (expr.canFind("*"))
-                {
-                    auto exprParts = expr.split("*");
-                    processedArgs ~= "(" ~ exprParts[0].strip() ~ " * " ~ exprParts[1].strip() ~ ")";
-                }
-                else if (expr.canFind("/"))
-                {
-                    auto exprParts = expr.split("/");
-                    processedArgs ~= "(" ~ exprParts[0].strip() ~ " / " ~ exprParts[1].strip() ~ ")";
-                }
-                else
-                {
-                    processedArgs ~= expr;
-                }
-            }
-        }
+        foreach (arg; callNode.args)
+            processedArgs ~= processExpression(arg);
 
         string indent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
         cCode ~= indent ~ callName ~ "(" ~ processedArgs.join(", ") ~ ");\n";
@@ -936,8 +900,9 @@ unittest
     {
         auto tokens = lex("main { foo(1, 2); }");
         auto ast = parse(tokens);
-
         auto cCode = generateC(ast);
+
+        writeln(cCode);
         assert(cCode.canFind("foo(1, 2)"));
     }
 
