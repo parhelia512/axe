@@ -243,6 +243,17 @@ ASTNode parse(Token[] tokens)
                     {
                         switch (tokens[pos].type)
                         {
+                        case TokenType.PRINTLN:
+                            pos++;
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.STR,
+                                "Expected string after println");
+                            loopNode.children ~= new PrintlnNode(tokens[pos].value);
+                            pos++;
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after println");
+                            pos++;
+                            break;
+
                         case TokenType.BREAK:
                             pos++;
                             enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
@@ -484,6 +495,17 @@ ASTNode parse(Token[] tokens)
                         {
                             switch (tokens[pos].type)
                             {
+                            case TokenType.PRINTLN:
+                                pos++;
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.STR,
+                                    "Expected string after println");
+                                loopNode.children ~= new PrintlnNode(tokens[pos].value);
+                                pos++;
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                    "Expected ';' after println");
+                                pos++;
+                                break;
+
                             case TokenType.BREAK:
                                 pos++; // Skip 'break'
                                 enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
