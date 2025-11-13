@@ -55,6 +55,7 @@ enum TokenType
     ELIF,
     FOR,
     CONTINUE,
+    IN,
 }
 
 /** 
@@ -260,6 +261,21 @@ class ForNode : ASTNode
         this.initialization = initialization;
         this.condition = condition;
         this.increment = increment;
+    }
+}
+
+class ForInNode : ASTNode
+{
+    string varName;         // loop variable name
+    string arrayName;       // array to iterate over
+    string arraySize;       // size of the array (for C code generation)
+
+    this(string varName, string arrayName, string arraySize = "")
+    {
+        super("ForIn");
+        this.varName = varName;
+        this.arrayName = arrayName;
+        this.arraySize = arraySize;
     }
 }
 

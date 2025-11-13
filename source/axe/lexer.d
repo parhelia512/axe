@@ -302,6 +302,12 @@ Token[] lex(string source)
                 tokens ~= Token(TokenType.ELSE, "else");
                 pos += 4;
             }
+            else if (pos + 2 <= source.length && source[pos .. pos + 2] == "in" &&
+                (pos + 2 >= source.length || !(source[pos + 2].isAlphaNum || source[pos + 2] == '_')))
+            {
+                tokens ~= Token(TokenType.IN, "in");
+                pos += 2;
+            }
             else if (pos + 2 <= source.length && source[pos .. pos + 2] == "if" &&
                 (pos + 2 >= source.length || !(source[pos + 2].isAlphaNum || source[pos + 2] == '_')))
             {

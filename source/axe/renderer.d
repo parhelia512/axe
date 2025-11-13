@@ -289,6 +289,32 @@ string generateC(ASTNode ast)
         cCode ~= "}\n";
         break;
 
+    case "ForIn":
+        auto forInNode = cast(ForInNode) ast;
+        
+        // Generate: for (size_t i = 0; i < sizeof(array)/sizeof(array[0]); i++) {
+        //              type varName = array[i];
+        //              ... body ...
+        //          }
+        string indexVar = "_i_" ~ forInNode.varName;
+        string arraySize = "sizeof(" ~ forInNode.arrayName ~ ")/sizeof(" ~ forInNode.arrayName ~ "[0])";
+        
+        cCode ~= "for (size_t " ~ indexVar ~ " = 0; " ~ indexVar ~ " < " ~ arraySize ~ "; " ~ indexVar ~ "++) {\n";
+        loopLevel++;
+        
+        // Declare the loop variable and assign it from the array
+        string indent = "    ".replicate(loopLevel);
+        cCode ~= indent ~ "int " ~ forInNode.varName ~ " = " ~ forInNode.arrayName ~ "[" ~ indexVar ~ "];\n";
+        
+        foreach (child; ast.children)
+        {
+            cCode ~= generateC(child);
+        }
+
+        loopLevel--;
+        cCode ~= "}\n";
+        break;
+
     case "Break":
         cCode ~= "break;\n";
         break;
@@ -424,6 +450,17 @@ string generateC(ASTNode ast)
 string processExpression(string expr)
 {
     expr = expr.strip();
+
+    // Handle .len property for arrays
+    if (expr.canFind(".len"))
+    {
+        auto parts = expr.split(".len");
+        if (parts.length == 2 && parts[1].strip().length == 0)
+        {
+            string arrayName = parts[0].strip();
+            return "(sizeof(" ~ arrayName ~ ")/sizeof(" ~ arrayName ~ "[0]))";
+        }
+    }
 
     // Don't process if it's already parenthesized
     if (expr.canFind("(") && expr.endsWith(")"))
@@ -1733,5 +1770,33 @@ unittest
         assert(cCode.canFind("int arr[3] = {1, 2, 3};"), "Should have array with initializer");
         assert(cCode.canFind("for (int i = 0; (i<3); i++)"), "Should have for loop");
         assert(cCode.canFind("arr[i] = 0;"), "Should have array assignment in loop");
+    }
+
+    {
+        auto tokens = lex("main { mut val nums: int[] = [10, 20, 30]; for n in nums { println n; } }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("For-in loop test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("int nums[3] = {10, 20, 30};"), "Should have array declaration");
+        assert(cCode.canFind("for (size_t _i_n = 0; _i_n < sizeof(nums)/sizeof(nums[0]); _i_n++)"), 
+            "Should have for-in loop converted to C for loop");
+        assert(cCode.canFind("int n = nums[_i_n];"), "Should declare loop variable from array");
+        assert(cCode.canFind("printf(\"%d\\n\", n);"), "Should have println with variable");
+    }
+
+    {
+        auto tokens = lex("main { val data: int[] = [1, 2, 3, 4, 5]; println data.len; }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Array .len property test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("const int data[5] = {1, 2, 3, 4, 5};"), "Should have array declaration");
+        assert(cCode.canFind("printf(\"%d\\n\", (sizeof(data)/sizeof(data[0])));"), 
+            "Should convert .len to sizeof expression");
     }
 }

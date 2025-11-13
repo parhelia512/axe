@@ -699,6 +699,91 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                 case TokenType.FOR:
                     pos++; // Skip 'for'
 
+                    size_t savedPos = pos;
+                    bool isForIn = false;
+                    string forInVarName = "";
+                    string forInArrayName = "";
+                    
+                    if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
+                    {
+                        forInVarName = tokens[pos].value;
+                        pos++;
+                        
+                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                            pos++;
+                        
+                        if (pos < tokens.length && tokens[pos].type == TokenType.IN)
+                        {
+                            pos++; // Skip 'in'
+                            
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+                            
+                            if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
+                            {
+                                forInArrayName = tokens[pos].value;
+                                pos++;
+                                isForIn = true;
+                            }
+                        }
+                    }
+                    
+                    if (isForIn)
+                    {
+                        // Parse for-in loop
+                        enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                            "Expected '{' after for-in header");
+                        pos++; // Skip '{'
+                        
+                        auto forInNode = new ForInNode(forInVarName, forInArrayName);
+                        
+                        // Register the loop variable in scope
+                        currentScope.addVariable(forInVarName, false);
+                        
+                        // Parse for-in loop body
+                        while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+                        {
+                            switch (tokens[pos].type)
+                            {
+                            case TokenType.PRINTLN:
+                                forInNode.children ~= parsePrintln();
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                    "Expected ';' after println");
+                                pos++;
+                                break;
+                                
+                            case TokenType.BREAK:
+                                pos++;
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                    "Expected ';' after 'break'");
+                                pos++;
+                                forInNode.children ~= new BreakNode();
+                                break;
+                                
+                            case TokenType.CONTINUE:
+                                pos++;
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                    "Expected ';' after 'continue'");
+                                pos++;
+                                forInNode.children ~= new ContinueNode();
+                                break;
+                                
+                            default:
+                                enforce(false, "Unexpected token in for-in loop body: " ~ to!string(tokens[pos].type));
+                            }
+                        }
+                        
+                        enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                            "Expected '}' after for-in loop body");
+                        pos++; // Skip '}'
+                        
+                        mainNode.children ~= forInNode;
+                        break;
+                    }
+                    
+                    // Reset position for classic for loop parsing
+                    pos = savedPos;
+
                     // Parse initialization (mut val i = 0 or val i = 0)
                     bool forIsMutable = false;
                     string forVarName = "";
