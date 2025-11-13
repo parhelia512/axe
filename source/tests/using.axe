@@ -1,6 +1,4 @@
-use adder (
-    add
-);
+use math (add, subtract);
 
 main {
     println add(1, 2);
