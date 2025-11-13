@@ -1155,36 +1155,12 @@ ASTNode parse(Token[] tokens)
                                     .WHITESPACE)
                                     pos++;
 
-                                string expr;
-                                if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
+                                string expr = "";
+                                while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
                                 {
-                                    expr = tokens[pos].value;
+                                    expr ~= tokens[pos].value;
                                     pos++;
-
-                                    while (pos < tokens.length && tokens[pos].type == TokenType
-                                        .WHITESPACE)
-                                        pos++;
-
-                                    if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR
-                                        && tokens[pos].value == "-")
-                                    {
-                                        pos++;
-                                        while (pos < tokens.length && tokens[pos].type == TokenType
-                                            .WHITESPACE)
-                                            pos++;
-
-                                        if (pos < tokens.length && tokens[pos].type == TokenType
-                                            .IDENTIFIER)
-                                        {
-                                            expr ~= " - " ~ tokens[pos].value;
-                                            pos++;
-                                        }
-                                    }
                                 }
-
-                                while (pos < tokens.length && tokens[pos].type == TokenType
-                                    .WHITESPACE)
-                                    pos++;
 
                                 enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                     "Expected ';' after assignment");
@@ -1273,6 +1249,42 @@ ASTNode parse(Token[] tokens)
                     pos++;
                     currentScopeNode = funcNode;
                     funcNode.children ~= loopNode;
+                    break;
+
+                case TokenType.VAL:
+                    bool isMutable = false;
+                    pos++;
+                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                        pos++;
+
+                    if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
+                    {
+                        string varName = tokens[pos].value;
+                        pos++;
+                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                            pos++;
+
+                        string initializer = "";
+                        if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR
+                            && tokens[pos].value == "=")
+                        {
+                            pos++;
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+                            while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                            {
+                                initializer ~= tokens[pos].value;
+                                pos++;
+                            }
+                        }
+
+                        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                            "Expected ';' after val declaration");
+                        pos++;
+
+                        currentScope.addVariable(varName, isMutable);
+                        funcNode.children ~= new DeclarationNode(varName, isMutable, initializer);
+                    }
                     break;
 
                 case TokenType.RETURN:

@@ -981,7 +981,7 @@ unittest
         assert(cCode.canFind("while (1) {"), "Should have loop");
         assert(cCode.canFind("printf(\"test\\n\");"), "Should have println in loop");
         assert(cCode.canFind("x = (x+1);"), "Should have assignment in loop");
-        assert(cCode.canFind("if ((x == 5))"), "Should have if statement");
+        assert(cCode.canFind("if ((x==5))"), "Should have if statement");
 
         import std.algorithm : count;
 
