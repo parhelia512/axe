@@ -47,7 +47,11 @@ string operand(string s, string[string] paramMap = null)
 string generateC(ASTNode ast)
 {
     string cCode;
-    string[] includes = ["#include <stdio.h>"];
+    string[] includes = ["#include <stdio.h>", "#include <stdbool.h>"];
+    string[string] variables;
+    string currentFunction = "";
+    string[] functionParams;
+    int loopLevel = 0;
 
     switch (ast.nodeType)
     {
@@ -58,13 +62,14 @@ string generateC(ASTNode ast)
             {
                 auto funcDecl = child.value.split("(");
                 string funcName = funcDecl[0];
-                string args = funcDecl.length > 1 ?
-                    funcDecl[1].strip(")") : "";
+                string args = funcDecl.length > 1 ? funcDecl[1].strip(")") : "";
                 cCode ~= "void " ~ funcName ~ "(" ~
-                    (args.length > 0 ? "int " ~ args.replace(",", ", int ") : "void") ~ ");\n";
+                    (args.length > 0 ? "int " ~ args.replace(",", ", int ") : "void") ~
+                    ");\n";
             }
         }
         cCode ~= includes.join("\n") ~ "\n\n";
+
         foreach (child; ast.children)
         {
             cCode ~= generateC(child) ~ "\n";
@@ -73,169 +78,154 @@ string generateC(ASTNode ast)
 
     case "Main":
         cCode ~= "int main() {\n";
+        loopLevel++;
+
         foreach (child; ast.children)
         {
-            if (child.nodeType == "Println")
-            {
-                cCode ~= "    printf(\"%s\\n\", \"" ~ child.value ~ "\");\n";
-            }
-            else if (child.nodeType == "Loop")
-            {
-                cCode ~= "    while (1) {\n";
-                foreach (loopChild; child.children)
-                {
-                    if (loopChild.nodeType == "Println")
-                    {
-                        cCode ~= "        printf(\"%s\\n\", \"" ~ loopChild.value ~ "\");\n";
-                    }
-                    else if (loopChild.nodeType == "Break")
-                    {
-                        cCode ~= "        break;\n";
-                    }
-                    else if (loopChild.nodeType == "Assignment")
-                    {
-                        cCode ~= "        " ~ loopChild.value ~ ";\n";
-                    }
-                    else if (loopChild.nodeType == "If")
-                    {
-                        cCode ~= "        if (" ~ loopChild.value ~ ") {\n";
-                        foreach (ifChild; loopChild.children)
-                        {
-                            if (ifChild.nodeType == "Break")
-                            {
-                                cCode ~= "            break;\n";
-                            }
-                            else if (ifChild.nodeType == "FunctionCall")
-                            {
-                                auto parts = ifChild.value.split("(");
-                                string funcName = parts[0];
-                                string args = parts.length > 1 ? parts[1].strip(")") : "";
-                                cCode ~= "            " ~ funcName ~ "(" ~ args ~ ");\n";
-                            }
-                            else if (ifChild.nodeType == "Assignment")
-                            {
-                                cCode ~= "            " ~ ifChild.value ~ ";\n";
-                            }
-                        }
-                        cCode ~= "        }\n";
-                    }
-                    else if (loopChild.nodeType == "FunctionCall")
-                    {
-                        auto parts = loopChild.value.split("(");
-                        string funcName = parts[0];
-                        string args = parts.length > 1 ? parts[1].strip(")") : "";
-                        cCode ~= "        " ~ funcName ~ "(" ~ args ~ ");\n";
-                    }
-                }
-                cCode ~= "    }\n";
-            }
-            else if (child.nodeType == "Break")
-            {
-                cCode ~= "    break;\n";
-            }
-            else if (child.nodeType == "FunctionCall")
-            {
-                auto parts = child.value.split("(");
-                string funcName = parts[0];
-                string args = parts.length > 1 ? parts[1].strip(")") : "";
-                cCode ~= "    " ~ funcName ~ "(" ~ args ~ ");\n";
-            }
-            else if (child.nodeType == "Assignment")
-            {
-                cCode ~= "    " ~ child.value ~ ";\n";
-            }
-            else if (child.nodeType == "If")
-            {
-                cCode ~= "    if (" ~ child.value ~ ") {\n";
-                foreach (ifChild; child.children)
-                {
-                    if (ifChild.nodeType == "Break")
-                    {
-                        cCode ~= "        break;\n";
-                    }
-                    else if (ifChild.nodeType == "FunctionCall")
-                    {
-                        auto parts = ifChild.value.split("(");
-                        string funcName = parts[0];
-                        string args = parts.length > 1 ? parts[1].strip(")") : "";
-                        cCode ~= "        " ~ funcName ~ "(" ~ args ~ ");\n";
-                    }
-                    else if (ifChild.nodeType == "Assignment")
-                    {
-                        cCode ~= "        " ~ ifChild.value ~ ";\n";
-                    }
-                }
-                cCode ~= "    }\n";
-            }
+            cCode ~= generateC(child);
         }
-        cCode ~= "    return 0;\n}";
+
+        cCode ~= "    return 0;\n";
+        loopLevel--;
+        cCode ~= "}\n";
         break;
 
     case "Function":
         auto funcDecl = ast.value.split("(");
         string funcName = funcDecl[0];
-        string args = funcDecl.length > 1 ?
-            funcDecl[1].strip(")") : "";
+        string args = funcDecl.length > 1 ? funcDecl[1].strip(")") : "";
+
+        string prevFunction = currentFunction;
+        currentFunction = funcName;
+
+        functionParams = args.length > 0 ? args.split(",").map!(s => s.strip).array : [
+        ];
+
         cCode ~= "void " ~ funcName ~ "(" ~
-            (args.length > 0 ? "int " ~ args.replace(",", ", int ") : "void") ~ ") {\n";
+            (args.length > 0 ? "int " ~ args.replace(",", ", int ") : "void") ~
+            ") {\n";
+
         foreach (child; ast.children)
         {
-            final switch (child.nodeType)
-            {
-            case "Println":
-                cCode ~= "    printf(\"%s\\n\", \"" ~ child.value ~ "\");\n";
-                cCode ~= "printf(\"%s\\n\", \"" ~ child.value ~ "\");\n";
-                break;
-            case "FunctionCall":
-                auto parts = child.value.split("(");
-                auto calledFuncName = parts[0];
-                auto calledFuncArgs = parts.length > 1 ? parts[1].strip(")") : "";
-                cCode ~= "    " ~ calledFuncName ~ "(" ~ calledFuncArgs ~ ");\n";
-                break;
-            case "Assignment":
-                cCode ~= child.value ~ ";\n";
-                break;
-            case "If":
-                cCode ~= "if (" ~ child.value ~ ") {\n";
-                foreach (ifChild; child.children)
-                {
-                    final switch (ifChild.nodeType)
-                    {
-                    case "Break":
-                        cCode ~= "break;\n";
-                        break;
-                    }
-                }
-                cCode ~= "}\n";
-                break;
-            }
+            cCode ~= generateC(child);
         }
-        cCode ~= "}";
+
+        currentFunction = prevFunction;
+        cCode ~= "}\n";
         break;
 
     case "FunctionCall":
         auto parts = ast.value.split("(");
         string funcName = parts[0];
         string args = parts.length > 1 ? parts[1].strip(")") : "";
-        cCode ~= funcName ~ "(" ~ args ~ ");\n";
+
+        string[] processedArgs;
+        if (args.length > 0)
+        {
+            auto argList = args.split(",");
+            foreach (arg; argList)
+            {
+                string expr = arg.strip();
+
+                if (expr.length >= 2 && expr[0] == '"' && expr[$ - 1] == '"')
+                {
+                    processedArgs ~= expr;
+                }
+                else if (expr.canFind("+"))
+                {
+                    auto exprParts = expr.split("+");
+                    processedArgs ~= "(" ~ exprParts[0].strip() ~ " + " ~ exprParts[1].strip() ~ ")";
+                }
+                else if (expr.canFind("-"))
+                {
+                    auto exprParts = expr.split("-");
+                    processedArgs ~= "(" ~ exprParts[0].strip() ~ " - " ~ exprParts[1].strip() ~ ")";
+                }
+                else if (expr.canFind("*"))
+                {
+                    auto exprParts = expr.split("*");
+                    processedArgs ~= "(" ~ exprParts[0].strip() ~ " * " ~ exprParts[1].strip() ~ ")";
+                }
+                else if (expr.canFind("/"))
+                {
+                    auto exprParts = expr.split("/");
+                    processedArgs ~= "(" ~ exprParts[0].strip() ~ " / " ~ exprParts[1].strip() ~ ")";
+                }
+                else
+                {
+                    processedArgs ~= expr;
+                }
+            }
+        }
+
+        string indent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
+        cCode ~= indent ~ funcName ~ "(" ~ processedArgs.join(", ") ~ ");\n";
         break;
 
     case "Assignment":
-        cCode ~= ast.value ~ ";\n";
+        auto parts = ast.value.split("=");
+        string dest = parts[0].strip();
+        string expr = parts[1].strip();
+
+        if (dest !in variables && !functionParams.canFind(dest) && currentFunction != "")
+        {
+            variables[dest] = "int";
+            cCode ~= "int " ~ dest;
+
+            if (expr.length > 0)
+            {
+                string processedExpr = processExpression(expr);
+                cCode ~= " = " ~ processedExpr;
+            }
+            cCode ~= ";\n";
+        }
+        else
+        {
+            string processedExpr = processExpression(expr);
+            cCode ~= dest ~ " = " ~ processedExpr ~ ";\n";
+        }
         break;
 
     case "If":
-        cCode ~= "if (" ~ ast.value ~ ") {\n";
+        string condition = ast.value;
+        string processedCond = processCondition(condition);
+
+        cCode ~= "if (" ~ processedCond ~ ") {\n";
+        loopLevel++;
+
         foreach (child; ast.children)
         {
-            final switch (child.nodeType)
-            {
-            case "Break":
-                cCode ~= "break;\n";
-                break;
-            }
+            cCode ~= generateC(child);
         }
+
+        loopLevel--;
         cCode ~= "}\n";
+        break;
+
+    case "Loop":
+        cCode ~= "while (1) {\n";
+
+        loopLevel++;
+
+        foreach (child; ast.children)
+        {
+            cCode ~= generateC(child);
+        }
+
+        loopLevel--;
+        break;
+
+    case "Println":
+        string value = ast.value;
+
+        if (value.length >= 2 && value[0] == '"' && value[$ - 1] == '"')
+            value = value[1 .. $ - 1];
+
+        cCode ~= "printf(\"" ~ value ~ "\\n\");\n";
+        break;
+
+    case "Break":
+        cCode ~= "break;\n";
         break;
 
     default:
@@ -244,6 +234,85 @@ string generateC(ASTNode ast)
 
     return cCode;
 }
+
+/**
+ * Helper function to process arithmetic expressions
+ */
+private string processExpression(string expr)
+{
+    expr = expr.strip();
+
+    if (expr.canFind("(") && expr.endsWith(")"))
+    {
+        int depth = 0;
+        int splitPos = -1;
+
+        for (int i = 0; i < expr.length; i++)
+        {
+            if (expr[i] == '(')
+                depth++;
+            else if (expr[i] == ')')
+                depth--;
+
+            if (depth == 0 && i < cast(int) expr.length - 1)
+            {
+                if (expr[i] == '+' || expr[i] == '-' || expr[i] == '*' || expr[i] == '/' ||
+                    expr[i] == '>' || expr[i] == '<' || expr[i] == '=' || expr[i] == '!')
+                {
+                    splitPos = i;
+                    break;
+                }
+            }
+        }
+
+        if (splitPos != -1)
+        {
+            string left = expr[0 .. splitPos].strip();
+            char op = expr[splitPos];
+            string right = expr[splitPos + 1 .. $].strip();
+
+            if ((op == '=' && splitPos + 1 < expr.length && expr[splitPos + 1] == '=') ||
+                (op == '!' && splitPos + 1 < expr.length && expr[splitPos + 1] == '=') ||
+                (op == '<' && splitPos + 1 < expr.length && expr[splitPos + 1] == '=') ||
+                (op == '>' && splitPos + 1 < expr.length && expr[splitPos + 1] == '='))
+            {
+                op = to!char(expr[splitPos .. splitPos + 2]);
+                right = expr[splitPos + 2 .. $].strip();
+            }
+
+            return "(" ~ processExpression(left) ~ " " ~ op ~ " " ~ processExpression(right) ~ ")";
+        }
+        else
+        {
+            return processExpression(expr[1 .. $ - 1]);
+        }
+    }
+
+    foreach (op; ["+", "-", "*", "/", "==", "!=", "<", ">", "<=", ">="])
+    {
+        if (expr.canFind(op) && op != "")
+        {
+            auto parts = expr.split(op);
+            if (parts.length == 2)
+            {
+                return "(" ~ processExpression(parts[0]) ~ op ~ processExpression(parts[1]) ~ ")";
+            }
+            else if (parts.length > 2)
+            {
+                string result = processExpression(parts[0]);
+                for (int i = 1; i < parts.length; i++)
+                {
+                    result = "(" ~ result ~ op ~ processExpression(parts[i]) ~ ")";
+                }
+                return result;
+            }
+        }
+    }
+
+    return expr;
+}
+
+private string processCondition(string condition) => processExpression(condition);
 
 import std.conv;
 
@@ -558,8 +627,9 @@ string generateAsm(ASTNode ast)
                         asmCode ~= "    mov eax, " ~ paramMap[left] ~ "\n";
                     else
                         asmCode ~= "    mov eax, " ~ operand(left) ~ "\n";
-                        
-                    asmCode ~= "    mov ebx, " ~ (right[0].isDigit() ? right : operand(right, paramMap)) ~ "\n";
+
+                    asmCode ~= "    mov ebx, " ~ (right[0].isDigit() ? right
+                            : operand(right, paramMap)) ~ "\n";
                     asmCode ~= "    cmp eax, ebx\n";
                     asmCode ~= "    jne " ~ endIfLabel ~ "\n";
                 }
@@ -623,7 +693,7 @@ string generateAsm(ASTNode ast)
                             asmCode ~= "    cmp eax, ebx\n";
                             asmCode ~= "    jne " ~ endIfLabel ~ "\n";
                         }
-                        else 
+                        else
                         {
                             asmCode ~= "    mov eax, " ~ operand(condition, paramMap) ~ "\n";
                             asmCode ~= "    cmp eax, 1\n";
@@ -787,7 +857,7 @@ string compileAndRunAsm(string asmCode)
     if (nasmResult.status != 0)
         return "NASM Error: " ~ nasmResult.output;
 
-    auto linkResult = execute(["gcc", "-o", exeFile, objFile]);
+    auto linkResult = execute(["clang", "-o", exeFile, objFile, "-lmsvcrt"]);
 
     if (linkResult.status != 0)
         return "Linker Error: " ~ linkResult.output;

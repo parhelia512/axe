@@ -1,7 +1,7 @@
-def greet(name: char*, times: int) {
+def greet(name: char*, t: int) {
     loop {
         println "name";
-        if times == 1 {
+        if t == 1 {
             break;
         }
     }
