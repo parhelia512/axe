@@ -19,27 +19,50 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
     auto programNode = cast(ProgramNode) ast;
     if (programNode is null)
         return ast;
-    
+
     ASTNode[] newChildren;
     string[string] importedFunctions;
-    
+
     foreach (child; programNode.children)
     {
         if (child.nodeType == "Use")
         {
             auto useNode = cast(UseNode) child;
-            string modulePath = buildPath(baseDir, useNode.moduleName ~ ".axe");
-            
-            if (!exists(modulePath))
+            string modulePath;
+
+            if (useNode.moduleName.startsWith("stdlib/"))
             {
-                throw new Exception("Module not found: " ~ modulePath);
+                string homeDir = getUserHomeDir();
+                if (homeDir.length == 0)
+                {
+                    throw new Exception("Could not determine user home directory");
+                }
+
+                string moduleName = useNode.moduleName[7 .. $];
+                modulePath = buildPath(homeDir, ".axe", "stdlib", moduleName ~ ".axec");
+
+                if (!exists(modulePath))
+                {
+                    throw new Exception(
+                        "Stdlib module not found: " ~ modulePath ~
+                            "\nMake sure the module is installed in ~/.axe/stdlib/");
+                }
             }
-            
+            else
+            {
+                modulePath = buildPath(baseDir, useNode.moduleName ~ ".axe");
+
+                if (!exists(modulePath))
+                {
+                    throw new Exception("Module not found: " ~ modulePath);
+                }
+            }
+
             string importSource = readText(modulePath);
             auto importTokens = lex(importSource);
-            auto importAst = parse(importTokens, isAxec);
+            auto importAst = parse(importTokens, true);
             auto importProgram = cast(ProgramNode) importAst;
-            
+
             foreach (importChild; importProgram.children)
             {
                 if (importChild.nodeType == "Function")
@@ -55,6 +78,14 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
                         newChildren ~= newFunc;
                     }
                 }
+                else if (importChild.nodeType == "Model")
+                {
+                    auto modelNode = cast(ModelNode) importChild;
+                    if (useNode.imports.canFind(modelNode.name))
+                    {
+                        newChildren ~= modelNode;
+                    }
+                }
             }
         }
         else
@@ -63,7 +94,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
             newChildren ~= child;
         }
     }
-    
+
     programNode.children = newChildren;
     return programNode;
 }
@@ -92,9 +123,26 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             }
         }
     }
-    
+
     foreach (child; node.children)
     {
         renameFunctionCalls(child, nameMap);
+    }
+}
+
+/**
+ * Get the user's home directory
+ */
+string getUserHomeDir()
+{
+    import std.process : environment;
+
+    version (Windows)
+    {
+        return environment.get("USERPROFILE", "");
+    }
+    else
+    {
+        return environment.get("HOME", "");
     }
 }

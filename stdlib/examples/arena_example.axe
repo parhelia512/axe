@@ -3,9 +3,7 @@ use stdlib/arena (
     arena_destroy,
     arena_alloc,
     arena_alloc_array,
-    arena_reset,
-    arena_get_used,
-    arena_get_remaining,
+    arena_get_remaining
 );
 
 model Point {
