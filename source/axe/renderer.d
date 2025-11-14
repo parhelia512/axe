@@ -71,21 +71,18 @@ string generateC(ASTNode ast)
 
         cCode ~= "\n";
 
-        // Generate enums first
         foreach (child; ast.children)
         {
             if (child.nodeType == "Enum")
                 cCode ~= generateC(child) ~ "\n";
         }
 
-        // Then models
         foreach (child; ast.children)
         {
             if (child.nodeType == "Model")
                 cCode ~= generateC(child) ~ "\n";
         }
 
-        // Then everything else
         foreach (child; ast.children)
         {
             if (child.nodeType != "Model" && child.nodeType != "ExternalImport" && child.nodeType != "Enum")
@@ -195,15 +192,12 @@ string generateC(ASTNode ast)
 
         if (arrayNode.size2.length > 0)
         {
-            // 2D array
             cCode ~= arrayType ~ " " ~ arrayNode.name ~ "[" ~ arrayNode.size ~ "][" ~ arrayNode.size2 ~ "]";
         }
         else
         {
-            // 1D array
             cCode ~= arrayType ~ " " ~ arrayNode.name ~ "[" ~ arrayNode.size ~ "]";
         }
-
         if (arrayNode.initializer.length > 0)
         {
             cCode ~= " = {" ~ arrayNode.initializer.join(", ") ~ "}";
@@ -216,12 +210,10 @@ string generateC(ASTNode ast)
         auto accessNode = cast(ArrayAccessNode) ast;
         if (accessNode.index2.length > 0)
         {
-            // 2D array access
             cCode ~= accessNode.arrayName ~ "[" ~ processExpression(accessNode.index) ~ "][" ~ processExpression(accessNode.index2) ~ "]";
         }
         else
         {
-            // 1D array access
             cCode ~= accessNode.arrayName ~ "[" ~ processExpression(accessNode.index) ~ "]";
         }
         break;
@@ -232,13 +224,11 @@ string generateC(ASTNode ast)
         string processedValue = processExpression(arrayAssignNode.value);
         if (arrayAssignNode.index2.length > 0)
         {
-            // 2D array assignment
             string processedIndex2 = processExpression(arrayAssignNode.index2);
             cCode ~= arrayAssignNode.arrayName ~ "[" ~ processedIndex ~ "][" ~ processedIndex2 ~ "] = " ~ processedValue ~ ";\n";
         }
         else
         {
-            // 1D array assignment
             cCode ~= arrayAssignNode.arrayName ~ "[" ~ processedIndex ~ "] = " ~ processedValue ~ ";\n";
         }
         break;
@@ -637,12 +627,19 @@ string processExpression(string expr)
         return result;
     }
 
-    // Return as-is (preserves member access like "cat.health")
     return expr;
 }
 
+import std.array;
+
 private string processCondition(string condition)
 {
+    import std.array : replace, split;
+    
+    condition = condition.replace(" and ", " && ");
+    condition = condition.replace(" or ", " || ");
+    condition = condition.replace(" xor ", " ^ ");
+    
     foreach (op; ["==", "!=", ">", "<", ">=", "<="])
     {
         if (condition.canFind(op))

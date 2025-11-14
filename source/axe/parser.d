@@ -50,7 +50,6 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
         int refDepth = 0;
         while (pos < tokens.length)
         {
-            // Skip whitespace
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
             
@@ -115,7 +114,6 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
         {
             pos++; // Skip '['
 
-            // Parse array size (can be empty for [] syntax)
             while (pos < tokens.length && tokens[pos].type != TokenType.RBRACKET)
             {
                 size ~= tokens[pos].value;
@@ -126,12 +124,10 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                 "Expected ']' after array size");
             pos++; // Skip ']'
 
-            // Check for second dimension
             if (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
             {
                 pos++; // Skip '['
 
-                // Parse second array size
                 while (pos < tokens.length && tokens[pos].type != TokenType.RBRACKET)
                 {
                     size2 ~= tokens[pos].value;

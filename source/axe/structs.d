@@ -60,6 +60,9 @@ enum TokenType
     EXTERNAL,
     REF,
     ENUM,
+    AND,
+    OR,
+    XOR,
 }
 
 /** 

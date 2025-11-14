@@ -361,6 +361,24 @@ Token[] lex(string source)
                 tokens ~= Token(TokenType.ENUM, "enum");
                 pos += 4;
             }
+            else if (pos + 3 <= source.length && source[pos .. pos + 3] == "and" &&
+                (pos + 3 >= source.length || !(source[pos + 3].isAlphaNum || source[pos + 3] == '_')))
+            {
+                tokens ~= Token(TokenType.AND, "and");
+                pos += 3;
+            }
+            else if (pos + 2 <= source.length && source[pos .. pos + 2] == "or" &&
+                (pos + 2 >= source.length || !(source[pos + 2].isAlphaNum || source[pos + 2] == '_')))
+            {
+                tokens ~= Token(TokenType.OR, "or");
+                pos += 2;
+            }
+            else if (pos + 3 <= source.length && source[pos .. pos + 3] == "xor" &&
+                (pos + 3 >= source.length || !(source[pos + 3].isAlphaNum || source[pos + 3] == '_')))
+            {
+                tokens ~= Token(TokenType.XOR, "xor");
+                pos += 3;
+            }
             else if (source[pos].isAlphaNum())
             {
                 size_t start = pos;
