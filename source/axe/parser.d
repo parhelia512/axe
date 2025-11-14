@@ -36,12 +36,6 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
     currentScope = new Scope();
 
     /** 
-     * Parses a type from the current position in the token stream.
-     * 
-     * Returns: 
-     *   string = Type name (e.g., "int", "char", "int*")
-     */
-    /** 
      * Parses ref modifiers and returns the depth
      * e.g., "ref int" returns 1, "ref ref int" returns 2
      */
@@ -244,186 +238,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
     }
 
     ASTNode currentScopeNode = ast;
-
-
-    /**
-     * Parse a loop statement recursively.
-     * This allows loops to contain nested loops.
-     */
-    LoopNode parseLoop()
-    {
-        pos++; // Skip 'loop'
-        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-            pos++;
-        
-        enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
-            "Expected '{' after loop");
-        pos++;
-        
-        auto loopNode = new LoopNode();
-        auto previousScope = currentScopeNode;
-        currentScopeNode = loopNode;
-        
-        // Parse loop body - this can now handle nested loops recursively
-        while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
-        {
-            switch (tokens[pos].type)
-            {
-            case TokenType.WHITESPACE, TokenType.NEWLINE:
-                pos++;
-                break;
-                
-            case TokenType.PRINTLN, TokenType.PRINT:
-                auto stmt = parseSimpleStatement();
-                if (stmt !is null)
-                    loopNode.children ~= stmt;
-                break;
-                
-            case TokenType.BREAK:
-                pos++;
-                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                    pos++;
-                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                    "Expected ';' after break");
-                pos++;
-                loopNode.children ~= new BreakNode();
-                break;
-                
-            case TokenType.LOOP:
-                // Recursive call for nested loops
-                loopNode.children ~= parseLoop();
-                break;
-                
-            case TokenType.IF:
-                // Parse if statement inline (simplified version)
-                pos++;
-                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                    pos++;
-                
-                string cond = "";
-                bool hasParen = false;
-                if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
-                {
-                    hasParen = true;
-                    pos++;
-                }
-                
-                while (pos < tokens.length && tokens[pos].type != TokenType.LBRACE)
-                {
-                    if (hasParen && tokens[pos].type == TokenType.RPAREN)
-                    {
-                        pos++;
-                        break;
-                    }
-                    if (tokens[pos].type != TokenType.WHITESPACE)
-                        cond ~= tokens[pos].value ~ " ";
-                    pos++;
-                }
-                
-                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                    pos++;
-                enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
-                    "Expected '{' after if condition");
-                pos++;
-                
-                auto ifNode = new IfNode(cond.strip());
-                auto prevScope = currentScopeNode;
-                currentScopeNode = ifNode;
-                
-                // Parse if body (can contain break, println, assignments)
-                while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
-                {
-                    if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE)
-                    {
-                        pos++;
-                    }
-                    else if (tokens[pos].type == TokenType.PRINTLN || tokens[pos].type == TokenType.PRINT)
-                    {
-                        auto stmt = parseSimpleStatement();
-                        if (stmt !is null)
-                            ifNode.children ~= stmt;
-                    }
-                    else if (tokens[pos].type == TokenType.BREAK)
-                    {
-                        pos++;
-                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                            pos++;
-                        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                            "Expected ';' after break");
-                        pos++;
-                        ifNode.children ~= new BreakNode();
-                    }
-                    else if (tokens[pos].type == TokenType.IDENTIFIER)
-                    {
-                        string identName = tokens[pos].value;
-                        pos++;
-                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                            pos++;
-                        
-                        if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
-                        {
-                            pos++;
-                            string value = "";
-                            while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
-                            {
-                                value ~= tokens[pos].value;
-                                pos++;
-                            }
-                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                                "Expected ';' after assignment");
-                            pos++;
-                            ifNode.children ~= new AssignmentNode(identName, value.strip());
-                        }
-                    }
-                    else
-                    {
-                        pos++;
-                    }
-                }
-                
-                enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
-                    "Expected '}' after if body");
-                pos++;
-                
-                currentScopeNode = prevScope;
-                loopNode.children ~= ifNode;
-                break;
-                
-            case TokenType.IDENTIFIER:
-                string identName = tokens[pos].value;
-                pos++;
-                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                    pos++;
-                
-                if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
-                {
-                    // Variable assignment
-                    pos++;
-                    string value = "";
-                    while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
-                    {
-                        value ~= tokens[pos].value;
-                        pos++;
-                    }
-                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                        "Expected ';' after assignment");
-                    pos++;
-                    loopNode.children ~= new AssignmentNode(identName, value.strip());
-                }
-                break;
-                
-            default:
-                enforce(false, "Unexpected token in loop body: " ~ tokens[pos].value);
-            }
-        }
-        
-        enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
-            "Expected '}' after loop body");
-        pos++;
-        
-        currentScopeNode = previousScope;
-        return loopNode;
-    }
+    
 
     /** 
      * Parses function arguments from the current position in the token stream.
@@ -2709,7 +2524,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                     break;
 
                 case TokenType.LOOP:
-                    funcNode.children ~= parseLoop();
+                    funcNode.children ~= parseLoopHelper(pos, tokens, currentScope, currentScopeNode);
                     break;
 
                 case TokenType.LOOP_OLD_REMOVE_ME:
@@ -3177,6 +2992,341 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
     }
 
     return ast;
+}
+
+/**
+ * Parse a single statement recursively (module-level helper).
+ * Returns null for whitespace/newlines.
+ */
+private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope currentScope, ref ASTNode currentScopeNode)
+{
+    import std.array : join;
+    
+    switch (tokens[pos].type)
+    {
+    case TokenType.WHITESPACE, TokenType.NEWLINE:
+        pos++;
+        return null;
+        
+    case TokenType.PRINTLN:
+        return parsePrintlnHelper(pos, tokens);
+        
+    case TokenType.PRINT:
+        return parsePrintHelper(pos, tokens);
+        
+    case TokenType.BREAK:
+        pos++;
+        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+            pos++;
+        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+            "Expected ';' after break");
+        pos++;
+        return new BreakNode();
+        
+    case TokenType.LOOP:
+        return parseLoopHelper(pos, tokens, currentScope, currentScopeNode);
+        
+    case TokenType.IF:
+        return parseIfHelper(pos, tokens, currentScope, currentScopeNode);
+        
+    case TokenType.MUT:
+        pos++;
+        enforce(pos < tokens.length && tokens[pos].type == TokenType.VAL,
+            "Expected 'val' after 'mut'");
+        goto case TokenType.VAL;
+        
+    case TokenType.VAL:
+        bool isMutable = tokens[pos - 1].type == TokenType.MUT;
+        pos++;
+        enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+            "Expected identifier after 'val'");
+        string varName = tokens[pos].value;
+        pos++;
+        
+        string typeName = "";
+        string initializer = "";
+        
+        if (pos < tokens.length && tokens[pos].type == TokenType.COLON)
+        {
+            pos++;
+            typeName = parseTypeHelper(pos, tokens);
+        }
+        
+        if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
+        {
+            pos++;
+            while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+            {
+                if (tokens[pos].type == TokenType.STR)
+                    initializer ~= "\"" ~ tokens[pos].value ~ "\"";
+                else
+                    initializer ~= tokens[pos].value;
+                pos++;
+            }
+        }
+        
+        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+            "Expected ';' after variable declaration");
+        pos++;
+        
+        currentScope.addVariable(varName, isMutable);
+        return new DeclarationNode(varName, isMutable, initializer, typeName);
+        
+    case TokenType.IDENTIFIER:
+        string identName = tokens[pos].value;
+        pos++;
+        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+            pos++;
+        
+        if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
+        {
+            // Variable assignment
+            pos++;
+            string value = "";
+            while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+            {
+                value ~= tokens[pos].value;
+                pos++;
+            }
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                "Expected ';' after assignment");
+            pos++;
+            return new AssignmentNode(identName, value.strip());
+        }
+        else if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
+        {
+            // Function call
+            pos++;
+            string[] args;
+            while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
+            {
+                if (tokens[pos].type == TokenType.COMMA || tokens[pos].type == TokenType.WHITESPACE)
+                {
+                    pos++;
+                }
+                else
+                {
+                    string arg = "";
+                    while (pos < tokens.length && tokens[pos].type != TokenType.COMMA && tokens[pos].type != TokenType.RPAREN)
+                    {
+                        arg ~= tokens[pos].value;
+                        pos++;
+                    }
+                    args ~= arg.strip();
+                }
+            }
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                "Expected ')' after function arguments");
+            pos++;
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                "Expected ';' after function call");
+            pos++;
+            return new FunctionCallNode(identName, args.join(", "));
+        }
+        return null;
+        
+    case TokenType.RETURN:
+        pos++;
+        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+            pos++;
+        string returnExpr;
+        while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+        {
+            returnExpr ~= tokens[pos].value;
+            pos++;
+        }
+        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+            "Expected ';' after return statement");
+        pos++;
+        return new ReturnNode(returnExpr);
+        
+    default:
+        return null;
+    }
+}
+
+/**
+ * Parse an if statement recursively (module-level helper).
+ */
+private IfNode parseIfHelper(ref size_t pos, Token[] tokens, ref Scope currentScope, ref ASTNode currentScopeNode)
+{
+    pos++; // Skip 'if'
+    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+        pos++;
+    
+    string cond = "";
+    bool hasParen = false;
+    if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
+    {
+        hasParen = true;
+        pos++;
+    }
+    
+    while (pos < tokens.length && tokens[pos].type != TokenType.LBRACE)
+    {
+        if (hasParen && tokens[pos].type == TokenType.RPAREN)
+        {
+            pos++;
+            break;
+        }
+        if (tokens[pos].type != TokenType.WHITESPACE)
+            cond ~= tokens[pos].value ~ " ";
+        pos++;
+    }
+    
+    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+        pos++;
+    enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+        "Expected '{' after if condition");
+    pos++;
+    
+    auto ifNode = new IfNode(cond.strip());
+    auto prevScope = currentScopeNode;
+    currentScopeNode = ifNode;
+    
+    // Parse if body using recursive parseStatementHelper
+    while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+    {
+        auto stmt = parseStatementHelper(pos, tokens, currentScope, currentScopeNode);
+        if (stmt !is null)
+            ifNode.children ~= stmt;
+    }
+    
+    enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+        "Expected '}' after if body");
+    pos++;
+    
+    currentScopeNode = prevScope;
+    return ifNode;
+}
+
+/**
+ * Parse a loop statement recursively (module-level helper).
+ */
+private LoopNode parseLoopHelper(ref size_t pos, Token[] tokens, ref Scope currentScope, ref ASTNode currentScopeNode)
+{
+    pos++; // Skip 'loop'
+    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+        pos++;
+    
+    enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+        "Expected '{' after loop");
+    pos++;
+    
+    auto loopNode = new LoopNode();
+    auto previousScope = currentScopeNode;
+    currentScopeNode = loopNode;
+    
+    // Parse loop body using recursive parseStatementHelper
+    while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+    {
+        auto stmt = parseStatementHelper(pos, tokens, currentScope, currentScopeNode);
+        if (stmt !is null)
+            loopNode.children ~= stmt;
+    }
+    
+    enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+        "Expected '}' after loop body");
+    pos++;
+    
+    currentScopeNode = previousScope;
+    return loopNode;
+}
+
+/**
+ * Helper to parse println statement.
+ */
+private PrintlnNode parsePrintlnHelper(ref size_t pos, Token[] tokens)
+{
+    pos++;
+    
+    if (pos < tokens.length && tokens[pos].type == TokenType.STR)
+    {
+        string msg = tokens[pos].value;
+        pos++;
+        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+            pos++;
+        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+            "Expected ';' after println");
+        pos++;
+        return new PrintlnNode(msg, false);
+    }
+    else
+    {
+        string expr = "";
+        while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+        {
+            if (tokens[pos].type == TokenType.STR)
+                expr ~= "\"" ~ tokens[pos].value ~ "\"";
+            else if (tokens[pos].type == TokenType.DOT)
+                expr ~= ".";
+            else
+                expr ~= tokens[pos].value;
+            pos++;
+        }
+        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+            "Expected ';' after println");
+        pos++;
+        return new PrintlnNode(expr.strip(), true);
+    }
+}
+
+/**
+ * Helper to parse print statement.
+ */
+private PrintNode parsePrintHelper(ref size_t pos, Token[] tokens)
+{
+    pos++;
+    
+    if (pos < tokens.length && tokens[pos].type == TokenType.STR)
+    {
+        string msg = tokens[pos].value;
+        pos++;
+        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+            pos++;
+        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+            "Expected ';' after print");
+        pos++;
+        return new PrintNode(msg, false);
+    }
+    else
+    {
+        string expr = "";
+        while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+        {
+            if (tokens[pos].type == TokenType.STR)
+                expr ~= "\"" ~ tokens[pos].value ~ "\"";
+            else if (tokens[pos].type == TokenType.DOT)
+                expr ~= ".";
+            else
+                expr ~= tokens[pos].value;
+            pos++;
+        }
+        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+            "Expected ';' after print");
+        pos++;
+        return new PrintNode(expr.strip(), true);
+    }
+}
+
+/**
+ * Helper to parse type.
+ */
+private string parseTypeHelper(ref size_t pos, Token[] tokens)
+{
+    string typeName = "";
+    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+        pos++;
+    
+    if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
+    {
+        typeName = tokens[pos].value;
+        pos++;
+    }
+    
+    return typeName;
 }
 
 unittest
