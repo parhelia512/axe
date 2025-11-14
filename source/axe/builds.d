@@ -107,6 +107,23 @@ void handleMachineArgs(string[] args)
             {
                 remove(replace(name, ext, ".c"));
             }
+            
+            // Run the executable if -r flag is present
+            if (args.canFind("-r"))
+            {
+                string exePath = replace(name, ext, ".exe");
+                auto runResult = execute([exePath]);
+                
+                if (runResult.status != 0)
+                {
+                    stderr.writeln("Program exited with code ", runResult.status);
+                }
+                
+                if (runResult.output.length > 0)
+                {
+                    stdout.write(runResult.output);
+                }
+            }
         }
     }
     catch (Exception e)

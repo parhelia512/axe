@@ -168,6 +168,38 @@ def str_ncopy(dest: char*, src: char*, n: int): char* {
     return result;
 }
 
+/// Converts an integer to a string. Buffer must be at least 12 bytes.
+def int_to_str(value: int, buffer: char*): char* {
+    raw {
+        sprintf(buffer, "%d", value);
+    }
+    return buffer;
+}
+
+/// Converts a long to a string. Buffer must be at least 21 bytes.
+def long_to_str(value: long, buffer: char*): char* {
+    raw {
+        sprintf(buffer, "%lld", value);
+    }
+    return buffer;
+}
+
+/// Converts a float to a string. Buffer must be at least 32 bytes.
+def float_to_str(value: float, buffer: char*): char* {
+    raw {
+        sprintf(buffer, "%f", value);
+    }
+    return buffer;
+}
+
+/// Converts a double to a string. Buffer must be at least 32 bytes.
+def double_to_str(value: double, buffer: char*): char* {
+    raw {
+        sprintf(buffer, "%lf", value);
+    }
+    return buffer;
+}
+
 test {
     assert(is_alpha(65) != 0, "65 (A) should be alphabetic");
     assert(is_digit(48) != 0, "48 (0) should be a digit");
