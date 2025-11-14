@@ -225,7 +225,6 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
             return null;
         }
 
-        // Consume semicolon
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
         enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
@@ -3046,6 +3045,219 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
 
     case TokenType.LOOP:
         return parseLoopHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
+
+    case TokenType.FOR:
+        pos++; // Skip 'for'
+        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+            pos++;
+        
+        // Check if this is a for-in loop or C-style for loop
+        // Look ahead to see if there's an 'in' keyword
+        size_t lookAhead = pos;
+        bool isForIn = false;
+        while (lookAhead < tokens.length && tokens[lookAhead].type != TokenType.LBRACE && tokens[lookAhead].type != TokenType.SEMICOLON)
+        {
+            if (tokens[lookAhead].type == TokenType.IN)
+            {
+                isForIn = true;
+                break;
+            }
+            lookAhead++;
+        }
+        
+        if (isForIn)
+        {
+            // for-in loop: for item in collection { }
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                "Expected variable name in for-in loop");
+            string itemVar = tokens[pos].value;
+            pos++;
+            
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+            
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.IN,
+                "Expected 'in' in for-in loop");
+            pos++;
+            
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+            
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                "Expected collection name in for-in loop");
+            string collection = tokens[pos].value;
+            pos++;
+            
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+            
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                "Expected '{' after for-in");
+            pos++;
+            
+            auto forInNode = new ForInNode(itemVar, collection);
+            auto prevScope = currentScopeNode;
+            currentScopeNode = forInNode;
+            currentScope.addVariable(itemVar, false); // Loop variable is immutable
+            
+            // Parse for-in body
+            while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+            {
+                auto stmt = parseStatementHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
+                if (stmt !is null)
+                    forInNode.children ~= stmt;
+            }
+            
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                "Expected '}' after for-in body");
+            pos++;
+            
+            currentScopeNode = prevScope;
+            return forInNode;
+        }
+        else
+        {
+            // C-style for loop: for init; condition; increment { }
+            string init = "";
+            string condition = "";
+            string increment = "";
+            string varName = "";
+            string varType = "";
+            bool isMutable = false;
+            
+            // Parse init - handle variable declaration
+            if (pos < tokens.length && tokens[pos].type == TokenType.MUT)
+            {
+                isMutable = true;
+                pos++;
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+            }
+            
+            if (pos < tokens.length && tokens[pos].type == TokenType.VAL)
+            {
+                pos++;
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+                
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                    "Expected variable name in for init");
+                varName = tokens[pos].value;
+                pos++;
+                
+                // Check for type annotation
+                if (pos < tokens.length && tokens[pos].type == TokenType.COLON)
+                {
+                    pos++;
+                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                        pos++;
+                    if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
+                    {
+                        varType = tokens[pos].value;
+                        pos++;
+                    }
+                }
+                
+                // Parse initializer
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+                if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
+                {
+                    pos++;
+                    while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                    {
+                        if (tokens[pos].type != TokenType.WHITESPACE)
+                            init ~= tokens[pos].value;
+                        pos++;
+                    }
+                }
+                
+                currentScope.addVariable(varName, isMutable);
+            }
+            else
+            {
+                // No variable declaration, just an expression
+                while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                {
+                    init ~= tokens[pos].value;
+                    pos++;
+                }
+            }
+            
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                "Expected ';' after for init");
+            pos++;
+            
+            // Parse condition (until semicolon)
+            while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+            {
+                if (tokens[pos].type != TokenType.WHITESPACE)
+                    condition ~= tokens[pos].value;
+                pos++;
+            }
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                "Expected ';' after for condition");
+            pos++;
+            
+            // Parse increment (until '{')
+            while (pos < tokens.length && tokens[pos].type != TokenType.LBRACE)
+            {
+                if (tokens[pos].type != TokenType.WHITESPACE)
+                    increment ~= tokens[pos].value;
+                pos++;
+            }
+            
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                "Expected '{' after for increment");
+            pos++;
+            
+            // Build initialization string
+            string initStr = "";
+            if (varName.length > 0)
+            {
+                // Default to int if no type specified
+                if (varType.length == 0)
+                    varType = "int";
+                
+                if (isMutable)
+                    initStr = "mut val " ~ varName;
+                else
+                    initStr = "val " ~ varName;
+                
+                initStr ~= ": " ~ varType;
+                
+                if (init.length > 0)
+                    initStr ~= " = " ~ init;
+            }
+            else
+            {
+                initStr = init;
+            }
+            
+            auto forNode = new ForNode(initStr, condition.strip(), increment.strip());
+            forNode.varName = varName;
+            forNode.varType = varType;
+            forNode.isMutable = isMutable;
+            forNode.initValue = init.strip();
+            
+            auto prevScope = currentScopeNode;
+            currentScopeNode = forNode;
+            
+            // Parse for body
+            while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+            {
+                auto stmt = parseStatementHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
+                if (stmt !is null)
+                    forNode.children ~= stmt;
+            }
+            
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                "Expected '}' after for body");
+            pos++;
+            
+            currentScopeNode = prevScope;
+            return forNode;
+        }
 
     case TokenType.IF:
         return parseIfHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
