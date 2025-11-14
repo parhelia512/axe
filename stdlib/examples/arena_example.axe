@@ -1,9 +1,12 @@
-// Example of using the Arena allocator
-
-use external("stdlib.h");
-
-// Include the arena library (in a real setup, this would be a proper import)
-// For now, we'll just paste it or compile separately
+use stdlib/arena (
+    arena_create,
+    arena_destroy,
+    arena_alloc,
+    arena_alloc_array,
+    arena_reset,
+    arena_get_used,
+    arena_get_remaining,
+);
 
 model Point {
     x: int;
@@ -12,44 +15,44 @@ model Point {
 
 def process_points() {
     // Create an arena with 1MB of memory
-    mut val arena = Arena_create(1048576);
+    mut val arena = arena_create(1048576);
     
     println "Arena created";
     print "Available memory: ";
-    println Arena_get_remaining(ref_of(arena));
+    println arena_get_remaining(ref_of(arena));
     
     // Allocate an array of 100 Points
-    val points_ptr: long = Arena_alloc_array(ref_of(arena), 8, 100);  // sizeof(Point) = 8
+    val points_ptr: long = arena_alloc_array(ref_of(arena), 8, 100);  // sizeof(Point) = 8
     
     print "Allocated 100 points, remaining: ";
-    println Arena_get_remaining(ref_of(arena));
+    println arena_get_remaining(ref_of(arena));
     
     // Allocate a buffer for processing
-    val buffer_ptr: long = Arena_alloc(ref_of(arena), 4096);
+    val buffer_ptr: long = arena_alloc(ref_of(arena), 4096);
     
     print "Allocated 4KB buffer, remaining: ";
-    println Arena_get_remaining(ref_of(arena));
+    println arena_get_remaining(ref_of(arena));
     
     // Do some work with the allocations...
     println "Processing data...";
     
     // Clean up everything at once
-    Arena_destroy(ref_of(arena));
+    arena_destroy(ref_of(arena));
     println "Arena destroyed - all memory freed!";
 }
 
 def temporary_computation(): int {
     // Create a temporary arena for this computation
-    mut val temp_arena = Arena_create(65536);  // 64KB
+    mut val temp_arena = arena_create(65536);  // 64KB
     
     // Allocate temporary working memory
-    val workspace: long = Arena_alloc(ref_of(temp_arena), 10000);
+    val workspace: long = arena_alloc(ref_of(temp_arena), 10000);
     
     // Do computation...
     mut val result: int = 42;
     
     // Clean up
-    Arena_destroy(ref_of(temp_arena));
+    arena_destroy(ref_of(temp_arena));
     
     return result;
 }
