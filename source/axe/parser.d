@@ -2392,6 +2392,21 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                             pos++;
                             ifNode.children ~= new BreakNode();
                             break;
+                        case TokenType.RETURN:
+                            pos++;
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+                            string returnExpr = "";
+                            while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                            {
+                                returnExpr ~= tokens[pos].value;
+                                pos++;
+                            }
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after return statement");
+                            pos++;
+                            ifNode.children ~= new ReturnNode(returnExpr);
+                            break;
                         case TokenType.WHITESPACE, TokenType.NEWLINE:
                             pos++;
                             break;
@@ -2661,6 +2676,21 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                         "Expected ';' after break");
                                     pos++;
                                     ifNode.children ~= new BreakNode();
+                                    break;
+                                case TokenType.RETURN:
+                                    pos++;
+                                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                        pos++;
+                                    string returnExpr = "";
+                                    while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                                    {
+                                        returnExpr ~= tokens[pos].value;
+                                        pos++;
+                                    }
+                                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                        "Expected ';' after return statement");
+                                    pos++;
+                                    ifNode.children ~= new ReturnNode(returnExpr);
                                     break;
                                 case TokenType.WHITESPACE, TokenType.NEWLINE:
                                     pos++;
