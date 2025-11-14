@@ -853,6 +853,81 @@ string processExpression(string expr)
     expr = expr.replace(" or ", " || ");
     expr = expr.replace(" xor ", " ^ ");
 
+    // Check for macro calls in expressions
+    foreach (macroName, macroNode; g_macros)
+    {
+        import std.string : indexOf, split, strip;
+        string macroCallPattern = macroName ~ "(";
+        
+        while (expr.canFind(macroCallPattern))
+        {
+            auto startIdx = expr.indexOf(macroCallPattern);
+            auto parenStart = startIdx + macroCallPattern.length;
+            
+            // Find matching closing paren
+            int depth = 1;
+            size_t parenEnd = parenStart;
+            while (parenEnd < expr.length && depth > 0)
+            {
+                if (expr[parenEnd] == '(')
+                    depth++;
+                else if (expr[parenEnd] == ')')
+                    depth--;
+                if (depth > 0)
+                    parenEnd++;
+            }
+            
+            // Extract arguments
+            string argsStr = expr[parenStart .. parenEnd];
+            string[] callArgs;
+            
+            // Simple argument parsing (split by comma, but respect nested parens)
+            int argDepth = 0;
+            size_t argStart = 0;
+            for (size_t i = 0; i < argsStr.length; i++)
+            {
+                if (argsStr[i] == '(')
+                    argDepth++;
+                else if (argsStr[i] == ')')
+                    argDepth--;
+                else if (argsStr[i] == ',' && argDepth == 0)
+                {
+                    callArgs ~= argsStr[argStart .. i].strip();
+                    argStart = i + 1;
+                }
+            }
+            if (argStart < argsStr.length)
+                callArgs ~= argsStr[argStart .. $].strip();
+            
+            // Build parameter substitution map
+            string[string] paramMap;
+            for (size_t i = 0; i < macroNode.params.length && i < callArgs.length; i++)
+            {
+                paramMap[macroNode.params[i]] = callArgs[i];
+            }
+            
+            // Expand macro body
+            string expandedCode = "";
+            foreach (child; macroNode.children)
+            {
+                if (child.nodeType == "RawC")
+                {
+                    auto rawNode = cast(RawCNode) child;
+                    expandedCode = rawNode.code;
+                    
+                    // Replace parameters in the raw code
+                    foreach (paramName, paramValue; paramMap)
+                    {
+                        expandedCode = expandedCode.replace(paramName, paramValue);
+                    }
+                }
+            }
+            
+            // Replace macro call with expanded code
+            expr = expr[0 .. startIdx] ~ "(" ~ expandedCode ~ ")" ~ expr[parenEnd + 1 .. $];
+        }
+    }
+
     // No transformation needed for 2D arrays - they work naturally in C!
 
     // Handle ref_of() built-in function - replace all occurrences

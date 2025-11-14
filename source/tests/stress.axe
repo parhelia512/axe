@@ -5,6 +5,10 @@ use stdlib/arena (
     arena_alloc
 );
 
+use stdlib/memory (
+    copy
+);
+
 model Cell {
     temperature: int;
 }
@@ -126,7 +130,10 @@ main {
         diffuse(grid, new_grid, rows, cols);
 
         // Swap grids
-        mut val temp: Cell[10][10] = copy_of(grid);
+        mut val temp: Cell[10][10];
+        
+        copy(temp, grid, Cell[10][10]);
+
         grid = new_grid;
         new_grid = temp;
 
