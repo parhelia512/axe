@@ -3380,10 +3380,23 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
 
         string typeName = "";
         string initializer = "";
+        int refDepth = 0;
 
         if (pos < tokens.length && tokens[pos].type == TokenType.COLON)
         {
             pos++;
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+            
+            // Handle ref keyword(s)
+            while (pos < tokens.length && tokens[pos].type == TokenType.REF)
+            {
+                refDepth++;
+                pos++;
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+            }
+            
             typeName = parseTypeHelper(pos, tokens);
         }
 
@@ -3482,7 +3495,7 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         pos++;
 
         currentScope.addVariable(varName, isMutable);
-        return new DeclarationNode(varName, isMutable, initializer, typeName);
+        return new DeclarationNode(varName, isMutable, initializer, typeName, refDepth);
 
     case TokenType.IDENTIFIER:
         string identName = tokens[pos].value;
@@ -4009,6 +4022,33 @@ private string parseTypeHelper(ref size_t pos, Token[] tokens)
     {
         typeName = tokens[pos].value;
         pos++;
+        
+        // Handle array syntax: type[] or type[size]
+        while (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
+        {
+            typeName ~= "[";
+            pos++;
+            
+            // Parse array size if present
+            while (pos < tokens.length && tokens[pos].type != TokenType.RBRACKET)
+            {
+                typeName ~= tokens[pos].value;
+                pos++;
+            }
+            
+            if (pos < tokens.length && tokens[pos].type == TokenType.RBRACKET)
+            {
+                typeName ~= "]";
+                pos++;
+            }
+        }
+        
+        // Handle pointer syntax: type*
+        while (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "*")
+        {
+            typeName ~= "*";
+            pos++;
+        }
     }
 
     return typeName;
