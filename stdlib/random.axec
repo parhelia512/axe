@@ -11,6 +11,7 @@ def random(min: int, max: int): int {
 }
 
 test {
+    randomize();
     mut val r: int = random(1, 10);
     assert(r >= 1, "random(1, 10) should be >= 1");
     assert(r <= 10, "random(1, 10) should be <= 10");
