@@ -1,0 +1,39 @@
+def fib(n: int): int {
+    if n <= 1 {
+        return n;
+    }
+
+    mut val a: int = 0;
+    mut val b: int = 1;
+    mut val i: int = 2;
+
+    loop {
+        if i > n {
+            break;
+        }
+
+        mut val temp: int = a + b;
+        a = b;
+        b = temp;
+
+        i = i + 1;
+    }
+
+    return b;
+}
+
+main {
+    mut val i: int = 0;
+    loop {
+        if i > 20 {
+            break;
+        }
+
+        print "fib(";
+        print i;
+        print ") = ";
+        println fib(i);
+
+        i = i + 1;
+    }
+}
