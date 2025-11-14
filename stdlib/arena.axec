@@ -57,9 +57,17 @@ def arena_reset(arena: ref Arena) {
 }
 
 def arena_get_used(arena: ref Arena): int {
-    return arena.offset;
+    mut val result: int = 0;
+    raw {
+        result = arena->offset;
+    }
+    return result;
 }
 
 def arena_get_remaining(arena: ref Arena): int {
-    return arena.capacity - arena.offset;
+    mut val result: int = 0;
+    raw {
+        result = arena->capacity - arena->offset;
+    }
+    return result;
 }

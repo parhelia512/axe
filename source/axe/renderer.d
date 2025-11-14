@@ -255,15 +255,22 @@ string generateC(ASTNode ast)
                     }
                     else
                     {
+                        // Handle ref parameters - convert to pointers
+                        string finalType = info.type;
+                        if (finalType.startsWith("ref "))
+                        {
+                            finalType = finalType[4 .. $].strip() ~ "*";
+                        }
+                        
                         // Only include dimension params if they're referenced by arrays
                         if (info.name in referencedDimensions)
                         {
-                            dimensionParams ~= info.type ~ " " ~ info.name;
+                            dimensionParams ~= finalType ~ " " ~ info.name;
                         }
                         else
                         {
                             // Non-dimension params stay with arrays
-                            otherParams ~= info.type ~ " " ~ info.name;
+                            otherParams ~= finalType ~ " " ~ info.name;
                         }
                     }
                 }

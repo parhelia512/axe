@@ -290,6 +290,18 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                     {
                         pos++;
 
+                        // Check for ref keyword before type
+                        string refPrefix = "";
+                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                            pos++;
+                        if (pos < tokens.length && tokens[pos].type == TokenType.REF)
+                        {
+                            refPrefix = "ref ";
+                            pos++;
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+                        }
+
                         // Check if this is an array type
                         size_t savedPos = pos;
                         string baseType = parseType();
@@ -301,7 +313,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                             auto arrayInfo = parseArrayType();
                             writeln("DEBUG parseArgs: elementType='", arrayInfo.elementType, "' size='", arrayInfo.size, "' size2='", arrayInfo
                                     .size2, "' hasSecondDimension=", arrayInfo.hasSecondDimension);
-                            string fullType = arrayInfo.elementType;
+                            string fullType = refPrefix ~ arrayInfo.elementType;
                             if (arrayInfo.size.length > 0)
                                 fullType ~= "[" ~ arrayInfo.size ~ "]";
                             else
@@ -320,7 +332,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                         }
                         else
                         {
-                            args ~= baseType ~ " " ~ paramName;
+                            args ~= refPrefix ~ baseType ~ " " ~ paramName;
                         }
                     }
                     else
