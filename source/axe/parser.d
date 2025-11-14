@@ -1911,7 +1911,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                 currentScopeNode = previousScope;
                 
                 // OLD CODE - keeping structure for reference
-                if (false) {
+                static if (false) {
                     switch (tokens[pos].type)
                     {
                     case TokenType.PRINTLN:
