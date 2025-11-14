@@ -12,6 +12,9 @@ import std.stdio;
 import std.ascii;
 import std.string;
 
+// Module-level tracking for reference depths
+private int[string] g_refDepths;
+
 /** 
  * Converts a string to an operand.
  *
@@ -48,7 +51,6 @@ string generateC(ASTNode ast)
 {
     string cCode;
     string[string] variables;
-    int[string] refDepths;  // Track reference depth for each variable
     string currentFunction = "";
     string[] functionParams;
     int loopLevel = 0;
@@ -56,6 +58,8 @@ string generateC(ASTNode ast)
     switch (ast.nodeType)
     {
     case "Program":
+        // Clear global ref tracking only at Program level
+        g_refDepths.clear();
         cCode = "#include <stdio.h>\n#include <stdbool.h>\n#include <stdlib.h>\n#include <string.h>\n";
 
         // Add external imports first
@@ -157,8 +161,22 @@ string generateC(ASTNode ast)
         }
         else
         {
+            writeln("[DEBUG] Assignment to: '", dest, "'");
             string processedExpr = processExpression(expr);
-            cCode ~= dest ~ " = " ~ processedExpr ~ ";\n";
+            
+            // Auto-dereference if dest is a reference variable
+            string destWithDeref = dest;
+            if (dest in g_refDepths && g_refDepths[dest] > 0)
+            {
+                writeln("[DEBUG] Dest is a ref, adding derefs");
+                for (int i = 0; i < g_refDepths[dest]; i++)
+                {
+                    destWithDeref = "*" ~ destWithDeref;
+                }
+            }
+            
+            writeln("[DEBUG] Final assignment: ", destWithDeref, " = ", processedExpr);
+            cCode ~= destWithDeref ~ " = " ~ processedExpr ~ ";\n";
         }
         break;
 
@@ -191,10 +209,11 @@ string generateC(ASTNode ast)
     case "Declaration":
         auto declNode = cast(DeclarationNode) ast;
         
-        // Track reference depth for this variable
+        // Track reference depth for this variable globally
         if (declNode.refDepth > 0)
         {
-            refDepths[declNode.name] = declNode.refDepth;
+            g_refDepths[declNode.name] = declNode.refDepth;
+            writeln("[DEBUG] Tracked ref variable: ", declNode.name, " with depth ", declNode.refDepth);
         }
         
         // Use explicit type annotation if provided, otherwise default to int
@@ -478,6 +497,8 @@ string generateC(ASTNode ast)
 string processExpression(string expr)
 {
     expr = expr.strip();
+    writeln("[DEBUG] processExpression called with: '", expr, "'");
+    writeln("[DEBUG] Current g_refDepths: ", g_refDepths);
 
     // Handle ref_of() built-in function
     if (expr.canFind("ref_of(") && expr.endsWith(")"))
@@ -485,6 +506,7 @@ string processExpression(string expr)
         auto startIdx = expr.indexOf("ref_of(") + 7;
         auto endIdx = expr.lastIndexOf(")");
         string varName = expr[startIdx .. endIdx].strip();
+        writeln("[DEBUG] ref_of detected for: ", varName);
         return "&" ~ varName;
     }
 
@@ -536,6 +558,20 @@ string processExpression(string expr)
         }
     }
 
+    // Auto-dereference if this is a reference variable
+    if (expr in g_refDepths && g_refDepths[expr] > 0)
+    {
+        writeln("[DEBUG] Auto-dereferencing '", expr, "' with depth ", g_refDepths[expr]);
+        string result = expr;
+        for (int i = 0; i < g_refDepths[expr]; i++)
+        {
+            result = "*" ~ result;
+        }
+        writeln("[DEBUG] Result after deref: '", result, "'");
+        return result;
+    }
+
+    writeln("[DEBUG] Returning as-is: '", expr, "'");
     // Return as-is (preserves member access like "cat.health")
     return expr;
 }
