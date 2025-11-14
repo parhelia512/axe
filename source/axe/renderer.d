@@ -12,7 +12,6 @@ import std.stdio;
 import std.ascii;
 import std.string;
 
-// Module-level tracking for reference depths
 private int[string] g_refDepths;
 
 /** 
@@ -58,17 +57,15 @@ string generateC(ASTNode ast)
     switch (ast.nodeType)
     {
     case "Program":
-        // Clear global ref tracking only at Program level
         g_refDepths.clear();
         cCode = "#include <stdio.h>\n#include <stdbool.h>\n#include <stdlib.h>\n#include <string.h>\n";
 
-        // Add external imports first
         foreach (child; ast.children)
         {
             if (child.nodeType == "ExternalImport")
                 cCode ~= generateC(child);
         }
-        
+
         cCode ~= "\n";
 
         foreach (child; ast.children)
@@ -163,8 +160,6 @@ string generateC(ASTNode ast)
         {
             writeln("[DEBUG] Assignment to: '", dest, "'");
             string processedExpr = processExpression(expr);
-            
-            // Auto-dereference if dest is a reference variable
             string destWithDeref = dest;
             if (dest in g_refDepths && g_refDepths[dest] > 0)
             {
@@ -174,7 +169,7 @@ string generateC(ASTNode ast)
                     destWithDeref = "*" ~ destWithDeref;
                 }
             }
-            
+
             writeln("[DEBUG] Final assignment: ", destWithDeref, " = ", processedExpr);
             cCode ~= destWithDeref ~ " = " ~ processedExpr ~ ";\n";
         }
@@ -182,15 +177,16 @@ string generateC(ASTNode ast)
 
     case "ArrayDeclaration":
         auto arrayNode = cast(ArrayDeclarationNode) ast;
-        string arrayType = arrayNode.isMutable ? arrayNode.elementType : "const " ~ arrayNode.elementType;
-        
+        string arrayType = arrayNode.isMutable ? arrayNode.elementType
+            : "const " ~ arrayNode.elementType;
+
         cCode ~= arrayType ~ " " ~ arrayNode.name ~ "[" ~ arrayNode.size ~ "]";
-        
+
         if (arrayNode.initializer.length > 0)
         {
             cCode ~= " = {" ~ arrayNode.initializer.join(", ") ~ "}";
         }
-        
+
         cCode ~= ";\n";
         break;
 
@@ -208,23 +204,19 @@ string generateC(ASTNode ast)
 
     case "Declaration":
         auto declNode = cast(DeclarationNode) ast;
-        
-        // Track reference depth for this variable globally
+
         if (declNode.refDepth > 0)
         {
             g_refDepths[declNode.name] = declNode.refDepth;
-            writeln("[DEBUG] Tracked ref variable: ", declNode.name, " with depth ", declNode.refDepth);
+            writeln("[DEBUG] Tracked ref variable: ", declNode.name, " with depth ", declNode
+                    .refDepth);
         }
-        
-        // Use explicit type annotation if provided, otherwise default to int
+
         string baseType = declNode.typeName.length > 0 ? declNode.typeName : "int";
-        
-        // Add pointer stars for ref types
+
         for (int i = 0; i < declNode.refDepth; i++)
-        {
             baseType ~= "*";
-        }
-        
+
         string type = declNode.isMutable ? baseType : "const " ~ baseType;
         string decl = type ~ " " ~ declNode.name;
 
@@ -262,38 +254,36 @@ string generateC(ASTNode ast)
 
         loopLevel--;
         cCode ~= "}";
-        
-        // Handle elif branches
+
         foreach (elifBranch; ifNode.elifBranches)
         {
             auto elifNode = cast(IfNode) elifBranch;
             cCode ~= " else if (" ~ processCondition(elifNode.condition) ~ ") {\n";
             loopLevel++;
-            
+
             foreach (child; elifNode.children)
             {
                 cCode ~= generateC(child);
             }
-            
+
             loopLevel--;
             cCode ~= "}";
         }
-        
-        // Handle else block
+
         if (ifNode.elseBody.length > 0)
         {
             cCode ~= " else {\n";
             loopLevel++;
-            
+
             foreach (child; ifNode.elseBody)
             {
                 cCode ~= generateC(child);
             }
-            
+
             loopLevel--;
             cCode ~= "}";
         }
-        
+
         cCode ~= "\n";
         break;
 
@@ -313,12 +303,13 @@ string generateC(ASTNode ast)
 
     case "For":
         auto forNode = cast(ForNode) ast;
-        
+
         string forType = forNode.isMutable ? forNode.varType : "const " ~ forNode.varType;
-        string forInit = forType ~ " " ~ forNode.varName ~ " = " ~ processExpression(forNode.initValue);
+        string forInit = forType ~ " " ~ forNode.varName ~ " = " ~ processExpression(
+            forNode.initValue);
         string forCond = processCondition(forNode.condition);
         string forIncr = forNode.increment;
-        
+
         cCode ~= "for (" ~ forInit ~ "; " ~ forCond ~ "; " ~ forIncr ~ ") {\n";
         loopLevel++;
 
@@ -333,21 +324,21 @@ string generateC(ASTNode ast)
 
     case "ForIn":
         auto forInNode = cast(ForInNode) ast;
-        
+
         // Generate: for (size_t i = 0; i < sizeof(array)/sizeof(array[0]); i++) {
         //              type varName = array[i];
         //              ... body ...
         //          }
         string indexVar = "_i_" ~ forInNode.varName;
         string arraySize = "sizeof(" ~ forInNode.arrayName ~ ")/sizeof(" ~ forInNode.arrayName ~ "[0])";
-        
+
         cCode ~= "for (size_t " ~ indexVar ~ " = 0; " ~ indexVar ~ " < " ~ arraySize ~ "; " ~ indexVar ~ "++) {\n";
         loopLevel++;
-        
+
         // Declare the loop variable and assign it from the array
         string indent = "    ".replicate(loopLevel);
         cCode ~= indent ~ "int " ~ forInNode.varName ~ " = " ~ forInNode.arrayName ~ "[" ~ indexVar ~ "];\n";
-        
+
         foreach (child; ast.children)
         {
             cCode ~= generateC(child);
@@ -472,7 +463,7 @@ string generateC(ASTNode ast)
     case "IncrementDecrement":
         auto incDecNode = cast(IncrementDecrementNode) ast;
         string indent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
-        
+
         if (incDecNode.isIncrement)
             cCode ~= indent ~ incDecNode.variable ~ "++;\n";
         else
@@ -1530,7 +1521,8 @@ unittest
     }
 
     {
-        auto tokens = lex("main { mut val counter: int = 0; loop { counter++; if counter == 5 { break; } } }");
+        auto tokens = lex(
+            "main { mut val counter: int = 0; loop { counter++; if counter == 5 { break; } } }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -1580,7 +1572,7 @@ unittest
         catch (Exception e)
         {
             writeln("ERROR: ", e.msg);
-            assert(e.msg.canFind("Cannot increment immutable variable"), 
+            assert(e.msg.canFind("Cannot increment immutable variable"),
                 "Should prevent increment of immutable variable");
             caught = true;
         }
@@ -1591,7 +1583,8 @@ unittest
     }
 
     {
-        auto tokens = lex("main { val x: int = 5; if x > 10 { println \"big\"; } else { println \"small\"; } }");
+        auto tokens = lex(
+            "main { val x: int = 5; if x > 10 { println \"big\"; } else { println \"small\"; } }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -1623,7 +1616,8 @@ unittest
     }
 
     {
-        auto tokens = lex("main { val n: int = 15; if (n < 10) { println \"less\"; } elif (n == 15) { println \"equal\"; } }");
+        auto tokens = lex(
+            "main { val n: int = 15; if (n < 10) { println \"less\"; } elif (n == 15) { println \"equal\"; } }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -1638,7 +1632,8 @@ unittest
     }
 
     {
-        auto tokens = lex("main { val temp: int = 20; if temp < 0 { println \"freezing\"; } else { println \"ok\"; } }");
+        auto tokens = lex(
+            "main { val temp: int = 20; if temp < 0 { println \"freezing\"; } else { println \"ok\"; } }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -1652,7 +1647,8 @@ unittest
     }
 
     {
-        auto tokens = lex("main { val age: int = 25; if (age >= 18) { println \"adult\"; } else { println \"minor\"; } }");
+        auto tokens = lex(
+            "main { val age: int = 25; if (age >= 18) { println \"adult\"; } else { println \"minor\"; } }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -1727,7 +1723,8 @@ unittest
     }
 
     {
-        auto tokens = lex("main { for mut val i = 0; i < 10; i++ { if i == 5 { continue; } println \"ok\"; } }");
+        auto tokens = lex(
+            "main { for mut val i = 0; i < 10; i++ { if i == 5 { continue; } println \"ok\"; } }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -1741,7 +1738,8 @@ unittest
     }
 
     {
-        auto tokens = lex("main { loop { mut val x: int = 0; x++; if x > 5 { continue; } break; } }");
+        auto tokens = lex(
+            "main { loop { mut val x: int = 0; x++; if x > 5 { continue; } break; } }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -1779,7 +1777,8 @@ unittest
     }
 
     {
-        auto tokens = lex("main { for mut val i = 0; i < 20; i++ { if i < 5 { continue; } if i > 15 { break; } } }");
+        auto tokens = lex(
+            "main { for mut val i = 0; i < 20; i++ { if i < 5 { continue; } if i > 15 { break; } } }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -1842,7 +1841,8 @@ unittest
     }
 
     {
-        auto tokens = lex("main { mut val arr: int[3] = [1, 2, 3]; for mut val i = 0; i < 3; i++ { arr[i] = 0; } }");
+        auto tokens = lex(
+            "main { mut val arr: int[3] = [1, 2, 3]; for mut val i = 0; i < 3; i++ { arr[i] = 0; } }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -1855,7 +1855,8 @@ unittest
     }
 
     {
-        auto tokens = lex("main { mut val nums: int[] = [10, 20, 30]; for n in nums { println n; } }");
+        auto tokens = lex(
+            "main { mut val nums: int[] = [10, 20, 30]; for n in nums { println n; } }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -1863,7 +1864,7 @@ unittest
         writeln(cCode);
 
         assert(cCode.canFind("int nums[3] = {10, 20, 30};"), "Should have array declaration");
-        assert(cCode.canFind("for (size_t _i_n = 0; _i_n < sizeof(nums)/sizeof(nums[0]); _i_n++)"), 
+        assert(cCode.canFind("for (size_t _i_n = 0; _i_n < sizeof(nums)/sizeof(nums[0]); _i_n++)"),
             "Should have for-in loop converted to C for loop");
         assert(cCode.canFind("int n = nums[_i_n];"), "Should declare loop variable from array");
         assert(cCode.canFind("printf(\"%d\\n\", n);"), "Should have println with variable");
@@ -1878,7 +1879,7 @@ unittest
         writeln(cCode);
 
         assert(cCode.canFind("const int data[5] = {1, 2, 3, 4, 5};"), "Should have array declaration");
-        assert(cCode.canFind("printf(\"%d\\n\", (sizeof(data)/sizeof(data[0])));"), 
+        assert(cCode.canFind("printf(\"%d\\n\", (sizeof(data)/sizeof(data[0])));"),
             "Should convert .len to sizeof expression");
     }
 
