@@ -2363,7 +2363,13 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                             break;
 
                         if (tokens[pos].type != TokenType.WHITESPACE && tokens[pos].type != TokenType.NEWLINE)
-                            condition ~= tokens[pos].value ~ " ";
+                        {
+                            // Preserve quotes for string literals
+                            if (tokens[pos].type == TokenType.STR)
+                                condition ~= "\"" ~ tokens[pos].value ~ "\" ";
+                            else
+                                condition ~= tokens[pos].value ~ " ";
+                        }
                         pos++;
                     }
 

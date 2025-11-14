@@ -79,3 +79,8 @@ def arena_get_remaining(arena: ref Arena): int {
     }
     return result;
 }
+
+test {
+    assert(arena_create(1024).capacity == 1024, "arena_create should set capacity correctly");
+    assert(arena_create(2048).offset == 0, "new arena should have offset 0");
+}

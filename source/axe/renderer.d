@@ -989,11 +989,22 @@ string processExpression(string expr)
 
     // No transformation needed for 2D arrays - they work naturally in C!
 
-    // Handle ref_of() built-in function - replace all occurrences
-    while (expr.canFind("ref_of("))
+    // Handle ref_of() built-in function - replace all occurrences (with or without spaces)
+    import std.regex : regex, replaceAll;
+    while (expr.canFind("ref_of"))
     {
-        auto startIdx = expr.indexOf("ref_of(");
-        auto parenStart = startIdx + 7; // After "ref_of("
+        auto startIdx = expr.indexOf("ref_of");
+        if (startIdx == -1) break;
+        
+        // Skip past "ref_of" and any whitespace
+        size_t pos = startIdx + 6;
+        while (pos < expr.length && (expr[pos] == ' ' || expr[pos] == '\t'))
+            pos++;
+        
+        if (pos >= expr.length || expr[pos] != '(')
+            break;
+            
+        auto parenStart = pos + 1; // After "("
 
         // Find matching closing paren
         int depth = 1;
@@ -1012,11 +1023,21 @@ string processExpression(string expr)
         expr = expr[0 .. startIdx] ~ "&" ~ varName ~ expr[parenEnd + 1 .. $];
     }
 
-    // Handle addr_of() built-in function - replace all occurrences
-    while (expr.canFind("addr_of("))
+    // Handle addr_of() built-in function - replace all occurrences (with or without spaces)
+    while (expr.canFind("addr_of"))
     {
-        auto startIdx = expr.indexOf("addr_of(");
-        auto parenStart = startIdx + 8; // After "addr_of("
+        auto startIdx = expr.indexOf("addr_of");
+        if (startIdx == -1) break;
+        
+        // Skip past "addr_of" and any whitespace
+        size_t pos = startIdx + 7;
+        while (pos < expr.length && (expr[pos] == ' ' || expr[pos] == '\t'))
+            pos++;
+        
+        if (pos >= expr.length || expr[pos] != '(')
+            break;
+            
+        auto parenStart = pos + 1; // After "("
 
         // Find matching closing paren
         int depth = 1;

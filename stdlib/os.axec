@@ -46,3 +46,8 @@ def get_env(name: char*): char* {
     }
     return result;
 }
+
+test {
+    assert(exec("echo test > nul") == 0, "exec should return 0 for successful command");
+    assert(get_env("PATH") != 0, "PATH environment variable should exist");
+}
