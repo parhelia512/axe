@@ -67,6 +67,34 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
             // Replace slashes with underscores for valid C identifiers
             string sanitizedModuleName = useNode.moduleName.replace("/", "_");
 
+            // First pass: build complete mapping of ALL functions and models in the module
+            // This is needed so internal calls within the module can be renamed
+            string[string] moduleFunctionMap;
+            string[string] moduleModelMap;
+            
+            import std.stdio : writeln;
+            writeln("DEBUG imports: Building function map for module: ", useNode.moduleName);
+            
+            foreach (importChild; importProgram.children)
+            {
+                if (importChild.nodeType == "Function")
+                {
+                    auto funcNode = cast(FunctionNode) importChild;
+                    string prefixedName = sanitizedModuleName ~ "_" ~ funcNode.name;
+                    moduleFunctionMap[funcNode.name] = prefixedName;
+                    writeln("  DEBUG: Mapped function '", funcNode.name, "' -> '", prefixedName, "'");
+                }
+                else if (importChild.nodeType == "Model")
+                {
+                    auto modelNode = cast(ModelNode) importChild;
+                    string prefixedName = sanitizedModuleName ~ "_" ~ modelNode.name;
+                    moduleModelMap[modelNode.name] = prefixedName;
+                    writeln("  DEBUG: Mapped model '", modelNode.name, "' -> '", prefixedName, "'");
+                }
+            }
+
+            // Second pass: only add explicitly imported items to the program
+            writeln("DEBUG imports: Processing imported items");
             foreach (importChild; importProgram.children)
             {
                 if (importChild.nodeType == "Function")
@@ -74,11 +102,17 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
                     auto funcNode = cast(FunctionNode) importChild;
                     if (useNode.imports.canFind(funcNode.name))
                     {
-                        string prefixedName = sanitizedModuleName ~ "_" ~ funcNode.name;
+                        string prefixedName = moduleFunctionMap[funcNode.name];
                         importedFunctions[funcNode.name] = prefixedName;
                         auto newFunc = new FunctionNode(prefixedName, funcNode.params);
                         newFunc.returnType = funcNode.returnType;
                         newFunc.children = funcNode.children;
+                        
+                        writeln("  DEBUG: Renaming calls in function '", prefixedName, "'");
+                        // Rename internal calls within this function
+                        renameFunctionCalls(newFunc, moduleFunctionMap);
+                        renameTypeReferences(newFunc, moduleModelMap);
+                        
                         newChildren ~= newFunc;
                     }
                 }
@@ -87,7 +121,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
                     auto modelNode = cast(ModelNode) importChild;
                     if (useNode.imports.canFind(modelNode.name))
                     {
-                        string prefixedName = sanitizedModuleName ~ "_" ~ modelNode.name;
+                        string prefixedName = moduleModelMap[modelNode.name];
                         importedModels[modelNode.name] = prefixedName;
                         auto newModel = new ModelNode(prefixedName, null);
                         newModel.fields = modelNode.fields;
@@ -98,16 +132,11 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
         }
         else
         {
+            // This is user code - rename function calls and type references
+            renameFunctionCalls(child, importedFunctions);
+            renameTypeReferences(child, importedModels);
             newChildren ~= child;
         }
-    }
-
-    // Now rename all function calls and type references in ALL children
-    // This includes both imported functions and user code
-    foreach (child; newChildren)
-    {
-        renameFunctionCalls(child, importedFunctions);
-        renameTypeReferences(child, importedModels);
     }
 
     programNode.children = newChildren;
@@ -119,12 +148,20 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
  */
 void renameFunctionCalls(ASTNode node, string[string] nameMap)
 {
+    import std.stdio : writeln;
+    
     if (node.nodeType == "FunctionCall")
     {
         auto callNode = cast(FunctionCallNode) node;
         if (callNode.functionName in nameMap)
         {
+            string oldName = callNode.functionName;
             callNode.functionName = nameMap[callNode.functionName];
+            writeln("    DEBUG renameFunctionCalls: Renamed call '", oldName, "' -> '", callNode.functionName, "'");
+        }
+        else
+        {
+            writeln("    DEBUG renameFunctionCalls: Call '", callNode.functionName, "' not in map");
         }
     }
     else if (node.nodeType == "Println")
@@ -135,6 +172,45 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             foreach (oldName, newName; nameMap)
             {
                 printlnNode.message = printlnNode.message.replace(oldName ~ "(", newName ~ "(");
+            }
+        }
+    }
+    else if (node.nodeType == "Return")
+    {
+        auto returnNode = cast(ReturnNode) node;
+        foreach (oldName, newName; nameMap)
+        {
+            string oldCall = oldName ~ "(";
+            if (returnNode.expression.canFind(oldCall))
+            {
+                returnNode.expression = returnNode.expression.replace(oldCall, newName ~ "(");
+                writeln("    DEBUG renameFunctionCalls: Renamed call in return: '", oldName, "' -> '", newName, "'");
+            }
+        }
+    }
+    else if (node.nodeType == "Declaration")
+    {
+        auto declNode = cast(DeclarationNode) node;
+        foreach (oldName, newName; nameMap)
+        {
+            string oldCall = oldName ~ "(";
+            if (declNode.initializer.canFind(oldCall))
+            {
+                declNode.initializer = declNode.initializer.replace(oldCall, newName ~ "(");
+                writeln("    DEBUG renameFunctionCalls: Renamed call in declaration: '", oldName, "' -> '", newName, "'");
+            }
+        }
+    }
+    else if (node.nodeType == "Assignment")
+    {
+        auto assignNode = cast(AssignmentNode) node;
+        foreach (oldName, newName; nameMap)
+        {
+            string oldCall = oldName ~ "(";
+            if (assignNode.expression.canFind(oldCall))
+            {
+                assignNode.expression = assignNode.expression.replace(oldCall, newName ~ "(");
+                writeln("    DEBUG renameFunctionCalls: Renamed call in assignment: '", oldName, "' -> '", newName, "'");
             }
         }
     }

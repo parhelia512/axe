@@ -14,7 +14,7 @@ model Point {
 
 def process_points() {
     // Create an arena with 1MB of memory
-    mut val arena = arena_create(1048576);
+    mut val arena: Arena = arena_create(1048576);
     
     println "Arena created";
     print "Available memory: ";
@@ -42,7 +42,7 @@ def process_points() {
 
 def temporary_computation(): int {
     // Create a temporary arena for this computation
-    mut val temp_arena = arena_create(65536);  // 64KB
+    mut val temp_arena: Arena = arena_create(65536);  // 64KB
     
     // Allocate temporary working memory
     val workspace: long = arena_alloc(ref_of(temp_arena), 10000);
