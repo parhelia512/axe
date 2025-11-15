@@ -2735,6 +2735,10 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                     funcNode.children ~= parseLoopHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
                     break;
 
+                case TokenType.FOR:
+                    funcNode.children ~= parseStatementHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
+                    break;
+
                 case TokenType.LOOP_OLD_REMOVE_ME:
                     pos++;
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
@@ -3232,7 +3236,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                             tokens[pos].type.to!string,
                             [
                                 TokenType.IDENTIFIER, TokenType.IF, TokenType.LOOP,
-                                TokenType.PRINTLN, TokenType.BREAK
+                                TokenType.PRINTLN, TokenType.BREAK, TokenType.FOR
                             ].map!(
                             t => t.to!string).join(", ")));
                 }
