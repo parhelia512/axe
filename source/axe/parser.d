@@ -2549,6 +2549,28 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                         pos++;
 
+                    string leftSide = identName;
+
+                    // Handle array access on base identifier
+                    while (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
+                    {
+                        pos++; // Skip '['
+                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                            pos++;
+                        string indexExpr = "";
+                        while (pos < tokens.length && tokens[pos].type != TokenType.RBRACKET)
+                        {
+                            indexExpr ~= tokens[pos].value;
+                            pos++;
+                        }
+                        enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACKET,
+                            "Expected ']' after array index");
+                        pos++;
+                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                            pos++;
+                        leftSide ~= "[" ~ indexExpr ~ "]";
+                    }
+
                     // Check for member access (dot notation)
                     if (pos < tokens.length && tokens[pos].type == TokenType.DOT)
                     {
@@ -2560,6 +2582,26 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
 
                         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                             pos++;
+
+                        // Handle array access after field
+                        while (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
+                        {
+                            pos++; // Skip '['
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+                            string indexExpr = "";
+                            while (pos < tokens.length && tokens[pos].type != TokenType.RBRACKET)
+                            {
+                                indexExpr ~= tokens[pos].value;
+                                pos++;
+                            }
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACKET,
+                                "Expected ']' after array index");
+                            pos++;
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+                            fieldName ~= "[" ~ indexExpr ~ "]";
+                        }
 
                         if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
                         {
@@ -2587,7 +2629,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                 "Expected ';' after field assignment");
                             pos++;
                             // Use AssignmentNode with dot notation for field assignment
-                            funcNode.children ~= new AssignmentNode(identName ~ "." ~ fieldName, value.strip());
+                            funcNode.children ~= new AssignmentNode(leftSide ~ "." ~ fieldName, value.strip());
                         }
                         else
                         {
@@ -2618,7 +2660,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                             "Expected ';' after assignment");
                         pos++;
 
-                        funcNode.children ~= new AssignmentNode(identName, expr);
+                        funcNode.children ~= new AssignmentNode(leftSide, expr);
                     }
                     else if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
                     {
