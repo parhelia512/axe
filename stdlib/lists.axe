@@ -1,0 +1,78 @@
+use stdlib/arena (
+    Arena,
+    arena_create,
+    arena_destroy,
+    arena_alloc
+);
+
+use stdlib/memory (
+    copy,
+    size_of
+);
+
+/// Model for a dynamic integer list
+model IntList {
+    data: ref int;
+    length: int;
+    cap: int;
+}
+
+/// Initialize a new IntList with a given capacity
+def int_list_new(arena: ref Arena, capacity: int): ref IntList {
+    mut val lst: ref IntList = arena_alloc(arena, size_of(IntList));
+    lst.data = arena_alloc(arena, capacity * size_of(int));
+    lst.length = 0;
+    lst.cap = capacity;
+    return lst;
+}
+
+/// Append a value to the list, expanding if necessary
+def int_list_push(lst: ref IntList, arena: ref Arena, value: int) {
+    if lst.length >= lst.cap {
+        // Grow the list: allocate new array, copy old
+        val new_cap: int = lst.cap * 2;
+        val new_data: ref int = arena_alloc(arena, new_cap * size_of(int));
+        copy(lst.data[0], new_data[0], int[lst.length]);
+        lst.data = new_data;
+        lst.cap = new_cap;
+    }
+    lst.data[lst.length] = value;
+    lst.length = lst.length + 1;
+}
+
+/// Get element by index
+def int_list_get(lst: ref IntList, index: int): int {
+    if index < 0 or index >= lst.length {
+        println "Index out of bounds!";
+        return 0;
+    }
+    return lst.data[index];
+}
+
+/// Print the list
+def int_list_print(lst: ref IntList) {
+    for mut val i = 0; i < lst.length; i++ {
+        print lst.data[i];
+        print " ";
+    }
+    println "";
+}
+
+main {
+    mut val arena: Arena = arena_create(65536);
+    mut val my_list: ref IntList = int_list_new(ref_of(arena), 4);
+
+    int_list_push(my_list, ref_of(arena), 10);
+    int_list_push(my_list, ref_of(arena), 20);
+    int_list_push(my_list, ref_of(arena), 30);
+    int_list_push(my_list, ref_of(arena), 40);
+    int_list_push(my_list, ref_of(arena), 50);
+
+    println "IntList contents:";
+    int_list_print(my_list);
+
+    println "Element at index 2:";
+    println int_list_get(my_list, 2);
+
+    arena_destroy(ref_of(arena));
+}
