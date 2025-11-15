@@ -844,10 +844,18 @@ string generateC(ASTNode ast)
 
     case "Model":
         auto modelNode = cast(ModelNode) ast;
-        cCode ~= "typedef struct {\n";
+        // Forward declare the struct for self-referencing
+        cCode ~= "struct " ~ modelNode.name ~ ";\n";
+        cCode ~= "typedef struct " ~ modelNode.name ~ " {\n";
         foreach (field; modelNode.fields)
         {
-            cCode ~= "    " ~ field.type ~ " " ~ field.name ~ ";\n";
+            string fieldType = field.type;
+            // If field type is the same as the model name, make it a pointer
+            if (field.type == modelNode.name)
+            {
+                fieldType = "struct " ~ field.type ~ "*";
+            }
+            cCode ~= "    " ~ fieldType ~ " " ~ field.name ~ ";\n";
         }
         cCode ~= "} " ~ modelNode.name ~ ";\n\n";
         break;
@@ -2056,7 +2064,7 @@ unittest
         writeln("Model definition test:");
         writeln(cCode);
 
-        assert(cCode.canFind("typedef struct {"), "Should have struct definition");
+        assert(cCode.canFind("typedef struct Cat {"), "Should have struct definition");
         assert(cCode.canFind("char* name;"), "Should have name field");
         assert(cCode.canFind("int age;"), "Should have age field");
         assert(cCode.canFind("} Cat;"), "Should have Cat typedef");
@@ -2071,7 +2079,7 @@ unittest
         writeln("Model instantiation test:");
         writeln(cCode);
 
-        assert(cCode.canFind("typedef struct {"), "Should have struct definition");
+        assert(cCode.canFind("typedef struct Cat {"), "Should have struct definition");
         assert(cCode.canFind("const Cat cat = {"), "Should have const struct initialization");
         assert(cCode.canFind(".name = \"Garfield\""), "Should initialize name field");
         assert(cCode.canFind(".health = 100"), "Should initialize health field");
