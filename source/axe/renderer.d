@@ -140,21 +140,17 @@ string generateC(ASTNode ast)
                         {
                             import std.string : replace, split, strip;
                             string cParam = param;
-                            // Convert 'ref Type name' to 'Type* name' for C pointer syntax
                             if (param.canFind("ref "))
                             {
-                                // Remove 'ref ' prefix
                                 cParam = param.replace("ref ", "");
-                                // Split into type and name (e.g., "Arena arena" -> ["Arena", "arena"])
                                 auto parts = cParam.split();
                                 if (parts.length >= 2)
                                 {
-                                    // Reconstruct as "Type* name"
                                     cParam = parts[0] ~ "* " ~ parts[1];
                                 }
                             }
                             cCode ~= cParam;
-                            if (i < funcNode.params.length - 1)
+                            if (i < cast(int)funcNode.params.length - 1)
                                 cCode ~= ", ";
                         }
                     }
@@ -269,8 +265,8 @@ string generateC(ASTNode ast)
                 // Second pass: reorder so dimensions come before arrays
                 // and convert array syntax to VLA
                 string[] dimensionParams;
-                string[] otherParams; // Arrays and non-dimension params
-                int[] reorderMap; // Maps new position to original position
+                string[] otherParams;
+                int[] reorderMap;
 
                 // Collect all dimension parameter names referenced by arrays
                 bool[string] referencedDimensions;
@@ -307,7 +303,6 @@ string generateC(ASTNode ast)
 
                         if (info.dimNames.length > 0)
                         {
-                            // Use the dimension names from the type
                             string dimString = "";
                             foreach (dimName; info.dimNames)
                             {
@@ -323,31 +318,24 @@ string generateC(ASTNode ast)
                     }
                     else
                     {
-                        // Handle ref parameters - convert to pointers
                         string finalType = info.type;
                         if (finalType.startsWith("ref "))
                         {
                             finalType = finalType[4 .. $].strip() ~ "*";
                         }
 
-                        // Only include dimension params if they're referenced by arrays
                         if (info.name in referencedDimensions)
                         {
                             dimensionParams ~= finalType ~ " " ~ info.name;
                         }
                         else
                         {
-                            // Non-dimension params stay with arrays
                             otherParams ~= finalType ~ " " ~ info.name;
                         }
                     }
                 }
-
-                // Build reorder map: dimensions first, then others
                 reorderMap = dimensionIndices ~ otherIndices;
                 g_functionParamReordering[funcName] = reorderMap;
-
-                // Combine: dimensions first, then arrays and other params
                 string[] processedParams = dimensionParams ~ otherParams;
                 cCode ~= processedParams.join(", ");
             }
@@ -368,24 +356,20 @@ string generateC(ASTNode ast)
         auto callNode = cast(FunctionCallNode) ast;
         string callName = callNode.functionName;
 
-        // Check if this is a macro call
         if (callName in g_macros)
         {
             writeln("DEBUG: Expanding macro '", callName, "'");
             auto macroNode = g_macros[callName];
 
-            // Parse arguments from the call
             import std.string : split, strip;
 
             string[] callArgs;
             if (callNode.args.length > 0)
             {
-                // Arguments are already parsed as array
                 foreach (arg; callNode.args)
                     callArgs ~= arg.strip();
             }
 
-            // Build parameter substitution map
             string[string] paramMap;
             for (size_t i = 0; i < macroNode.params.length && i < callArgs.length;
                 i++)
@@ -394,7 +378,6 @@ string generateC(ASTNode ast)
                 writeln("  DEBUG: Mapping '", macroNode.params[i], "' -> '", callArgs[i], "'");
             }
 
-            // Expand macro body
             string indent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
             foreach (child; macroNode.children)
             {
@@ -403,7 +386,6 @@ string generateC(ASTNode ast)
                     auto rawNode = cast(RawCNode) child;
                     string expandedCode = rawNode.code;
 
-                    // Replace parameters in the raw code
                     foreach (paramName, paramValue; paramMap)
                     {
                         expandedCode = expandedCode.replace(paramName, paramValue);
@@ -415,13 +397,11 @@ string generateC(ASTNode ast)
             break;
         }
 
-        // Not a macro, handle as regular function call
         string[] processedArgs;
 
         foreach (arg; callNode.args)
             processedArgs ~= processExpression(arg);
 
-        // Reorder arguments if this function has reordered parameters
         if (callName in g_functionParamReordering)
         {
             int[] reorderMap = g_functionParamReordering[callName];
@@ -444,11 +424,10 @@ string generateC(ASTNode ast)
         import std.stdio : writeln;
 
         writeln("DEBUG Assignment: variable='", assignNode.variable, "'");
-        string dest = processExpression(assignNode.variable.strip()); // Transform array access in dest too
+        string dest = processExpression(assignNode.variable.strip());
         writeln("DEBUG Assignment: dest after processExpression='", dest, "'");
         string expr = assignNode.expression.strip();
 
-        // Extract base variable name for lookups (e.g., "arr[i]" -> "arr")
         import std.string : indexOf;
 
         string baseVarName = dest;
