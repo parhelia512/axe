@@ -1346,10 +1346,6 @@ string processExpression(string expr)
         return result;
     }
 
-
-    if (expr == "nil")
-        return "NULL";
-
     return expr;
 }
 
