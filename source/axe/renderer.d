@@ -123,7 +123,22 @@ string generateC(ASTNode ast)
                     {
                         foreach (i, param; funcNode.params)
                         {
-                            cCode ~= param;
+                            import std.string : replace, split, strip;
+                            string cParam = param;
+                            // Convert 'ref Type name' to 'Type* name' for C pointer syntax
+                            if (param.canFind("ref "))
+                            {
+                                // Remove 'ref ' prefix
+                                cParam = param.replace("ref ", "");
+                                // Split into type and name (e.g., "Arena arena" -> ["Arena", "arena"])
+                                auto parts = cParam.split();
+                                if (parts.length >= 2)
+                                {
+                                    // Reconstruct as "Type* name"
+                                    cParam = parts[0] ~ "* " ~ parts[1];
+                                }
+                            }
+                            cCode ~= cParam;
                             if (i < funcNode.params.length - 1)
                                 cCode ~= ", ";
                         }
@@ -950,7 +965,10 @@ string processExpression(string expr)
     import std.string : replace;
 
     // Use regex to replace operators that are not part of identifiers
-    // Match 'mod' when preceded/followed by non-letter/underscore characters
+    // First handle the common case with spaces explicitly
+    expr = expr.replace(" mod ", " % ");
+    
+    // Then match 'mod' when preceded/followed by non-letter/underscore characters
     expr = expr.replaceAll(regex(r"([^a-zA-Z_])mod([^a-zA-Z_])"), "$1%$2");
     expr = expr.replaceAll(regex(r"^mod([^a-zA-Z_])"), "%$1");
     expr = expr.replaceAll(regex(r"([^a-zA-Z_])mod$"), "$1%");
@@ -1887,7 +1905,7 @@ unittest
         writeln(cCode);
         assert(cCode.canFind("int add(int a, int b)"));
         assert(cCode.canFind("return (a+b);"));
-        assert(cCode.canFind("const int x = add(1,2);"));
+        assert(cCode.canFind("const int x = add( 1, 2);"));
     }
 
     {
@@ -2492,7 +2510,7 @@ unittest
         writeln("Array declaration with literal test:");
         writeln(cCode);
 
-        assert(cCode.canFind("int nums[5] = {1,2,3,4,5};"), "Should have array with initializer");
+        assert(cCode.canFind("int nums[5] = { 1, 2, 3, 4, 5 };"), "Should have array with initializer");
     }
 
     {
@@ -2516,7 +2534,7 @@ unittest
         writeln("Mixed array and variable test:");
         writeln(cCode);
 
-        assert(cCode.canFind("const int values[3] = {10,20,30};"), "Should have const array");
+        assert(cCode.canFind("const int values[3] = { 10, 20, 30 };"), "Should have const array");
         assert(cCode.canFind("int x = 0;"), "Should have variable");
         assert(cCode.canFind("x = 5;"), "Should have assignment");
     }
@@ -2530,7 +2548,7 @@ unittest
         writeln("Array in for loop test:");
         writeln(cCode);
 
-        assert(cCode.canFind("int arr[3] = {1,2,3};"), "Should have array with initializer");
+        assert(cCode.canFind("int arr[3] = { 1, 2, 3 };"), "Should have array with initializer");
         assert(cCode.canFind("for (int i = 0; (i<3); i++)"), "Should have for loop");
         assert(cCode.canFind("arr[i] = 0;"), "Should have array assignment in loop");
     }
@@ -2544,7 +2562,7 @@ unittest
         writeln("For-in loop test:");
         writeln(cCode);
 
-        assert(cCode.canFind("int nums[3] = {10,20,30};"), "Should have array declaration");
+        assert(cCode.canFind("int nums[3] = { 10, 20, 30 };"), "Should have array declaration");
         assert(cCode.canFind("for (size_t _i_n = 0; _i_n < sizeof(nums)/sizeof(nums[0]); _i_n++)"),
             "Should have for-in loop converted to C for loop");
         assert(cCode.canFind("int n = nums[_i_n];"), "Should declare loop variable from array");
@@ -2559,7 +2577,7 @@ unittest
         writeln("Array .len property test:");
         writeln(cCode);
 
-        assert(cCode.canFind("const int data[5] = {1,2,3,4,5};"), "Should have array declaration");
+        assert(cCode.canFind("const int data[5] = { 1, 2, 3, 4, 5 };"), "Should have array declaration");
         assert(cCode.canFind("printf(\"%d\\n\", (sizeof(data)/sizeof(data[0])));"),
             "Should convert .len to sizeof expression");
     }

@@ -3858,6 +3858,12 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                     while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
                     {
                         writeln("[VAL case] Initializer loop: pos=", pos, " token=", tokens[pos].type);
+                        if (initializer.length > 0 && tokens[pos].type != TokenType.LPAREN && 
+                            tokens[pos].type != TokenType.RPAREN && tokens[pos].type != TokenType.COMMA)
+                        {
+                            // Add space before token (except for parens and commas)
+                            initializer ~= " ";
+                        }
                         if (tokens[pos].type == TokenType.STR)
                             initializer ~= "\"" ~ tokens[pos].value ~ "\"";
                         else
@@ -3912,6 +3918,11 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 string value = "";
                 while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
                 {
+                    if (value.length > 0 && tokens[pos].type != TokenType.LPAREN && 
+                        tokens[pos].type != TokenType.RPAREN && tokens[pos].type != TokenType.COMMA)
+                    {
+                        value ~= " ";
+                    }
                     if (tokens[pos].type == TokenType.STR)
                         value ~= "\"" ~ tokens[pos].value ~ "\"";
                     else
@@ -3973,6 +3984,11 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                     string value = "";
                     while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
                     {
+                        if (value.length > 0 && tokens[pos].type != TokenType.LPAREN && 
+                            tokens[pos].type != TokenType.RPAREN && tokens[pos].type != TokenType.COMMA)
+                        {
+                            value ~= " ";
+                        }
                         if (tokens[pos].type == TokenType.STR)
                             value ~= "\"" ~ tokens[pos].value ~ "\"";
                         else
@@ -3996,6 +4012,11 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 string value = "";
                 while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
                 {
+                    if (value.length > 0 && tokens[pos].type != TokenType.LPAREN && 
+                        tokens[pos].type != TokenType.RPAREN && tokens[pos].type != TokenType.COMMA)
+                    {
+                        value ~= " ";
+                    }
                     if (tokens[pos].type == TokenType.STR)
                         value ~= "\"" ~ tokens[pos].value ~ "\"";
                     else
@@ -4054,6 +4075,11 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
             string value = "";
             while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
             {
+                if (value.length > 0 && tokens[pos].type != TokenType.LPAREN && 
+                    tokens[pos].type != TokenType.RPAREN && tokens[pos].type != TokenType.COMMA)
+                {
+                    value ~= " ";
+                }
                 value ~= tokens[pos].value;
                 pos++;
             }

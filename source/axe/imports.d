@@ -182,6 +182,17 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             writeln("    DEBUG renameFunctionCalls: Call '", callNode.functionName, "' not in map");
         }
     }
+    else if (node.nodeType == "Print")
+    {
+        auto printNode = cast(PrintNode) node;
+        if (printNode.isExpression)
+        {
+            foreach (oldName, newName; nameMap)
+            {
+                printNode.message = printNode.message.replace(oldName ~ "(", newName ~ "(");
+            }
+        }
+    }
     else if (node.nodeType == "Println")
     {
         auto printlnNode = cast(PrintlnNode) node;

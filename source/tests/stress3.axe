@@ -1,0 +1,151 @@
+use stdlib/arena (
+    Arena,
+    arena_create,
+    arena_destroy,
+    arena_alloc,
+    arena_alloc_array,
+    arena_get_remaining
+);
+
+use stdlib/memory (
+    copy,
+    size_of
+);
+
+model Particle {
+    x: int;
+    y: int;
+    vx: int;
+    vy: int;
+}
+
+main {
+    println "=== PARTICLE SNAPSHOT STRESS TEST ===";
+
+    // config
+    val PARTICLE_COUNT: int = 50;
+    val STEPS: int = 20;
+    val SNAPSHOT_INTERVAL: int = 5;
+    val MAX_SNAPSHOTS: int = (STEPS / SNAPSHOT_INTERVAL) + 1;
+
+    // arenas for temporary text buffers (exercise arena_alloc)
+    mut val arena: Arena = arena_create(131072);
+
+    // particle storage (stack / dependent arrays)
+    mut val particles: Particle[50];
+
+    // snapshot archive: MAX_SNAPSHOTS × PARTICLE_COUNT
+    mut val snapshots: Particle[10][50]; // MAX_SNAPSHOTS=5 by config above, 10 is safe upper bound
+
+    // initialize particles in a pattern
+    mut val i: int = 0;
+    loop {
+        if i >= PARTICLE_COUNT {
+            break;
+        }
+        particles[i].x = i * 2;
+        particles[i].y = 0;
+        particles[i].vx = (i mod 3) - 1; // -1,0,1 pattern
+        particles[i].vy = 0;
+        i = i + 1;
+    }
+
+    println "Initialized particles.";
+
+    mut val step: int = 0;
+    mut val snap_idx: int = 0;
+
+    loop {
+        if step > STEPS {
+            break;
+        }
+
+        // take snapshot at step 0 and every SNAPSHOT_INTERVAL
+        if step mod SNAPSHOT_INTERVAL == 0 {
+            if snap_idx < MAX_SNAPSHOTS {
+                // copy full particle array into snapshots[snap_idx]
+                // copy(src, dest, type)
+                copy(particles, snapshots[snap_idx], Particle[50]);
+                print "Taken snapshot ";
+                print snap_idx;
+                print " at step ";
+                println step;
+                snap_idx = snap_idx + 1;
+            } else {
+                println "Snapshot buffer full; skipping snapshot";
+            }
+        }
+
+        // update physics for this step (skip update at final step to keep last snapshot)
+        if step < STEPS {
+            mut val u: int = 0;
+            loop {
+                if u >= PARTICLE_COUNT {
+                    break;
+                }
+
+                // gravity
+                particles[u].vy = particles[u].vy + 1;
+
+                // integrate
+                particles[u].x = particles[u].x + particles[u].vx;
+                particles[u].y = particles[u].y + particles[u].vy;
+
+                // floor bounce at y = 20
+                if particles[u].y > 20 {
+                    particles[u].y = 20;
+                    particles[u].vy = -particles[u].vy / 2;
+                }
+
+                u = u + 1;
+            }
+        }
+
+        step = step + 1;
+    }
+
+    println "Simulation complete. Printing snapshots...";
+
+    // print all snapshots
+    mut val s: int = 0;
+    loop {
+        if s >= snap_idx {
+            break;
+        }
+
+        print "Snapshot ";
+        print s;
+        println ":";
+
+        mut val p: int = 0;
+        loop {
+            if p >= PARTICLE_COUNT {
+                break;
+            }
+
+            print "(";
+            print snapshots[s][p].x;
+            print ", ";
+            print snapshots[s][p].y;
+            print ") ";
+
+            p = p + 1;
+        }
+
+        println "";
+        println "----";
+        s = s + 1;
+    }
+
+    // allocate a text buffer in arena to exercise arena_alloc usage
+    val buf_ptr: long = arena_alloc(ref_of(arena), 1024);
+    // we won't dereference the numeric pointer here (std rules), but this ensures arena works under load
+    print "Arena remaining after allocations: ";
+    print arena_get_remaining(ref_of(arena));
+    println "";
+
+    arena_destroy(ref_of(arena));
+
+    println "Arena destroyed - memory freed!";
+    println "=== END TEST ===";
+}
