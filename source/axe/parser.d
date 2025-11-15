@@ -60,13 +60,18 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
         return refDepth;
     }
 
+    /** 
+     * Parses a type.
+     * 
+     * Returns: 
+     *   string = Type name (e.g., "int", "char")
+     */
     string parseType()
     {
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
         enforce(pos < tokens.length, "Expected type after ':'");
 
-        // Skip 'ref' keywords - they're handled separately by parseRefDepth
         while (pos < tokens.length && tokens[pos].type == TokenType.REF)
         {
             pos++;
