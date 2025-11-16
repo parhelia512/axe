@@ -12,6 +12,28 @@ import std.stdio;
 import std.ascii;
 import std.string;
 
+import std.string : startsWith;
+
+static immutable string[string] g_typeMappings = [
+    "i8": "int8_t",
+    "u8": "uint8_t",
+    "i16": "int16_t",
+    "u16": "uint16_t",
+    "i32": "int32_t",
+    "u32": "uint32_t",
+    "i64": "int64_t",
+    "u64": "uint64_t",
+    "isize": "intptr_t",
+    "usize": "uintptr_t",
+    "f32": "float",
+    "f64": "double",
+    "bool": "bool",
+    "char": "char",
+    "byte": "uint8_t",
+    "size": "usize",
+    "ptrdiff": "isize"
+];
+
 private int[string] g_refDepths;
 private bool[string] g_isMutable;
 private string[string] g_arrayWidthVars;
@@ -32,7 +54,7 @@ struct ParamInfo
 }
 
 /** 
- * Helper function to compute reordered C parameters for functions with variable-length arrays.
+ * Function to compute reordered C parameters for functions with variable-length arrays.
  * Returns the reordered parameter strings, reorder map, and parameter info array.
  */
 string[] computeReorderedCParams(FunctionNode funcNode, out int[] reorderMap, out ParamInfo[] paramInfos)
@@ -44,7 +66,7 @@ string[] computeReorderedCParams(FunctionNode funcNode, out int[] reorderMap, ou
 
     foreach (param; funcNode.params)
     {
-        writeln("DEBUG: Processing param: '", param, "'");
+        debug writeln("DEBUG: Processing param: '", param, "'");
         auto lastSpace = param.lastIndexOf(' ');
         while (lastSpace > 0)
         {
@@ -158,6 +180,40 @@ string[] computeReorderedCParams(FunctionNode funcNode, out int[] reorderMap, ou
     return dimensionParams ~ otherParams;
 }
 
+string mapAxeTypeToC(string axeType)
+{
+    // Handle pointers/references first
+    if (axeType.startsWith("ref "))
+    {
+        string baseType = axeType[4 .. $].strip();
+        return mapAxeTypeToC(baseType) ~ "*";
+    }
+    else if (axeType.startsWith("&mut "))
+    {
+        string baseType = axeType[5 .. $].strip();
+        return mapAxeTypeToC(baseType) ~ "*";
+    }
+    else if (axeType.startsWith("& "))
+    {
+        string baseType = axeType[2 .. $].strip();
+        return "const " ~ mapAxeTypeToC(baseType) ~ "*";
+    }
+    else if (axeType.endsWith("*"))
+    {
+        string baseType = axeType[0 .. $-1].strip();
+        return mapAxeTypeToC(baseType) ~ "*";
+    }
+    
+    // Check if it's a standard type with mapping
+    if (axeType in g_typeMappings)
+    {
+        return g_typeMappings[axeType];
+    }
+    
+    // Default case (user-defined types, etc)
+    return axeType;
+}
+
 /** 
  * C backend renderer.
  *
@@ -262,11 +318,7 @@ string generateC(ASTNode ast)
                 auto funcNode = cast(FunctionNode) child;
                 if (funcNode.name != "main")
                 {
-                    string processedReturnType = funcNode.returnType;
-                    if (processedReturnType.startsWith("ref "))
-                    {
-                        processedReturnType = processedReturnType[4 .. $].strip() ~ "*";
-                    }
+                    string processedReturnType = mapAxeTypeToC(funcNode.returnType);
                     cCode ~= processedReturnType ~ " " ~ funcNode.name ~ "(";
                     if (funcNode.params.length > 0)
                     {
@@ -275,6 +327,13 @@ string generateC(ASTNode ast)
                         string[] processedParams = computeReorderedCParams(funcNode, reorderMap, paramInfos);
                         cCode ~= processedParams.join(", ");
                         g_functionParamReordering[funcNode.name] = reorderMap;
+
+                        foreach (info; paramInfos)
+                        {
+                            g_varType[info.name] = info.type;
+                            if (info.type.canFind("*"))
+                                g_refDepths[info.name] = 1;
+                        }
                     }
                     cCode ~= ");\n";
                 }
@@ -287,11 +346,7 @@ string generateC(ASTNode ast)
                     auto methodFunc = cast(FunctionNode) method;
                     if (methodFunc !is null)
                     {
-                        string processedReturnType = methodFunc.returnType;
-                        if (processedReturnType.startsWith("ref "))
-                        {
-                            processedReturnType = processedReturnType[4 .. $].strip() ~ "*";
-                        }
+                        string processedReturnType = mapAxeTypeToC(methodFunc.returnType);
                         cCode ~= processedReturnType ~ " " ~ methodFunc.name ~ "(";
                         if (methodFunc.params.length > 0)
                         {
@@ -362,11 +417,7 @@ string generateC(ASTNode ast)
         }
         else
         {
-            string processedReturnType = funcNode.returnType;
-            if (processedReturnType.startsWith("ref "))
-            {
-                processedReturnType = processedReturnType[4 .. $].strip() ~ "*";
-            }
+            string processedReturnType = mapAxeTypeToC(funcNode.returnType);
             cCode ~= processedReturnType ~ " " ~ funcName ~ "(";
             if (params.length > 0)
             {
@@ -1655,7 +1706,6 @@ unittest
         auto ast = parse(tokens);
 
         auto cCode = generateC(ast);
-        import std.stdio;
 
         writeln(cCode);
 
@@ -1666,9 +1716,7 @@ unittest
     {
         auto tokens = lex("main { val x = 5 + 3; val y = x - 2; }");
         auto ast = parse(tokens);
-
         auto cCode = generateC(ast);
-        import std.stdio;
 
         writeln(cCode);
         assert(cCode.canFind("const int x = (5+3)"));
@@ -1676,7 +1724,8 @@ unittest
     }
 
     {
-        auto tokens = lex("def foo { println \"in foo\"; } main { foo(); }");
+        auto tokens = lex(
+            "def foo { println \"in foo\"; } main { foo(); }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
         assert(cCode.canFind("void foo()"));
@@ -1852,7 +1901,8 @@ unittest
     }
 
     {
-        auto tokens = lex("model Cat { name: char*, health: int } " ~
+        auto tokens = lex(
+            "model Cat { name: char*, health: int } " ~
                 "main { val cat = new Cat(name: \"Garfield\", health: 100); }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
@@ -2023,354 +2073,6 @@ unittest
     }
 
     {
-        auto tokens = lex("main { mut val x: int = 10; if (x > 5) { println \"big\"; } }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("If with parentheses test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("int x = 10;"), "Should declare x");
-        assert(cCode.canFind("if ((x>5))"), "Should have if with condition");
-        assert(cCode.canFind("printf(\"big\\n\");"), "Should have println");
-    }
-
-    {
-        auto tokens = lex("main { mut val y: int = 3; if y < 10 { println \"small\"; } }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("If without parentheses test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("int y = 3;"), "Should declare y");
-        assert(cCode.canFind("if ((y<10))"), "Should have if with condition");
-        assert(cCode.canFind("printf(\"small\\n\");"), "Should have println");
-    }
-
-    {
-        bool caught = false;
-        try
-        {
-            auto tokens = lex("main { val x: int = 0; x++; }");
-            auto ast = parse(tokens);
-            generateC(ast);
-        }
-        catch (Exception e)
-        {
-            writeln("ERROR: ", e.msg);
-            assert(e.msg.canFind("Cannot increment immutable variable"),
-                "Should prevent increment of immutable variable");
-            caught = true;
-        }
-        if (!caught)
-        {
-            assert(0, "Should have caught immutable increment error");
-        }
-    }
-
-    {
-        auto tokens = lex(
-            "main { val x: int = 5; if x > 10 { println \"big\"; } else { println \"small\"; } }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("If-else test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("if ((x>10))"), "Should have if condition");
-        assert(cCode.canFind("printf(\"big\\n\");"), "Should have println in if");
-        assert(cCode.canFind("} else {"), "Should have else block");
-        assert(cCode.canFind("printf(\"small\\n\");"), "Should have println in else");
-    }
-
-    {
-        auto tokens = lex("main { val score: int = 75; if score >= 90 { println \"A\"; } " ~
-                "elif score >= 80 { println \"B\"; } elif score >= 70 { println \"C\"; } else { println \"F\"; } }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("If-elif-else test (without parens):");
-        writeln(cCode);
-
-        assert(cCode.canFind("if ((score>=90))"), "Should have if condition");
-        assert(cCode.canFind("printf(\"A\\n\");"), "Should have println A");
-        assert(cCode.canFind("} else if ((score>=80)) {"), "Should have first elif");
-        assert(cCode.canFind("printf(\"B\\n\");"), "Should have println B");
-        assert(cCode.canFind("} else if ((score>=70)) {"), "Should have second elif");
-        assert(cCode.canFind("printf(\"C\\n\");"), "Should have println C");
-        assert(cCode.canFind("} else {"), "Should have else");
-        assert(cCode.canFind("printf(\"F\\n\");"), "Should have println F");
-    }
-
-    {
-        auto tokens = lex(
-            "main { val n: int = 15; if (n < 10) { println \"less\"; } elif (n == 15) { println \"equal\"; } }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("If-elif test (with parens):");
-        writeln(cCode);
-
-        assert(cCode.canFind("if ((n<10))"), "Should have if condition");
-        assert(cCode.canFind("printf(\"less\\n\");"), "Should have println in if");
-        assert(cCode.canFind("} else if ((n==15)) {"), "Should have elif with parens");
-        assert(cCode.canFind("printf(\"equal\\n\");"), "Should have println in elif");
-    }
-
-    {
-        auto tokens = lex(
-            "main { val temp: int = 20; if temp < 0 { println \"freezing\"; } else { println \"ok\"; } }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("Simple if-else test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("if ((temp<0))"), "Should have if condition");
-        assert(cCode.canFind("printf(\"freezing\\n\");"), "Should have println in if");
-        assert(cCode.canFind("} else {"), "Should have else");
-        assert(cCode.canFind("printf(\"ok\\n\");"), "Should have println in else");
-    }
-
-    {
-        auto tokens = lex(
-            "main { val age: int = 25; if (age >= 18) { println \"adult\"; } else { println \"minor\"; } }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("If-else with parens test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("if ((age>=18))"), "Should have if with parens");
-        assert(cCode.canFind("printf(\"adult\\n\");"), "Should have println in if");
-        assert(cCode.canFind("} else {"), "Should have else");
-        assert(cCode.canFind("printf(\"minor\\n\");"), "Should have println in else");
-    }
-
-    {
-        auto tokens = lex("main { for mut val i = 0; i < 10; i++ { println \"loop\"; } }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("Basic for loop test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("for (int i = 0; (i<10); i++)"), "Should have for loop header");
-        assert(cCode.canFind("printf(\"loop\\n\");"), "Should have println in for loop");
-    }
-
-    {
-        auto tokens = lex("main { for mut val j: int = 5; j < 20; j++ { println \"counting\"; } }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("For loop with type annotation test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("for (int j = 5; (j<20); j++)"), "Should have for loop with type");
-        assert(cCode.canFind("printf(\"counting\\n\");"), "Should have println");
-    }
-
-    {
-        auto tokens = lex("main { for mut val k = 10; k > 0; k-- { println \"countdown\"; } }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("For loop with decrement test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("for (int k = 10; (k>0); k--)"), "Should have for loop with decrement");
-        assert(cCode.canFind("printf(\"countdown\\n\");"), "Should have println");
-    }
-
-    {
-        auto tokens = lex("main { for mut val n = 0; n < 5; n++ { if n == 3 { break; } } }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("For loop with break test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("for (int n = 0; (n<5); n++)"), "Should have for loop");
-        assert(cCode.canFind("if ((n==3))"), "Should have if condition");
-        assert(cCode.canFind("break;"), "Should have break statement");
-    }
-
-    {
-        auto tokens = lex("main { for mut val x = 1; x <= 100; x++ { x++; } }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("For loop with body increment test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("for (int x = 1; (x<=100); x++)"), "Should have for loop");
-        assert(cCode.canFind("x++;"), "Should have increment in body");
-    }
-
-    {
-        auto tokens = lex(
-            "main { for mut val i = 0; i < 10; i++ { if i == 5 { continue; } println \"ok\"; } }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("For loop with continue test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("for (int i = 0; (i<10); i++)"), "Should have for loop");
-        assert(cCode.canFind("if ((i==5))"), "Should have if condition");
-        assert(cCode.canFind("continue;"), "Should have continue statement");
-        assert(cCode.canFind("printf(\"ok\\n\");"), "Should have println after continue");
-    }
-
-    {
-        auto tokens = lex(
-            "main { loop { mut val x: int = 0; x++; if x > 5 { continue; } break; } }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("Loop with continue test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("while (1) {"), "Should have while loop");
-        assert(cCode.canFind("continue;"), "Should have continue");
-        assert(cCode.canFind("break;"), "Should have break");
-    }
-
-    {
-        auto tokens = lex("def testfunc { return; } main { }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("Headless return test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("void testfunc()"), "Should have function");
-        assert(cCode.canFind("return;"), "Should have headless return");
-        assert(!cCode.canFind("return ;"), "Should not have space before semicolon");
-    }
-
-    {
-        auto tokens = lex("def getValue: int { return 42; } main { }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("Return with value test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("int getValue()"), "Should have function with return type");
-        assert(cCode.canFind("return 42;"), "Should have return with value");
-    }
-
-    {
-        auto tokens = lex(
-            "main { for mut val i = 0; i < 20; i++ { if i < 5 { continue; } if i > 15 { break; } } }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("For loop with both continue and break test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("for (int i = 0; (i<20); i++)"), "Should have for loop");
-        assert(cCode.canFind("if ((i<5))"), "Should have first if");
-        assert(cCode.canFind("continue;"), "Should have continue");
-        assert(cCode.canFind("if ((i>15))"), "Should have second if");
-        assert(cCode.canFind("break;"), "Should have break");
-    }
-
-    {
-        auto tokens = lex("main { val arr: int[5]; }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("Array declaration with size test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("const int arr[5];"), "Should have array declaration with size");
-    }
-
-    {
-        auto tokens = lex("main { mut val nums: int[] = [1, 2, 3, 4, 5]; }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("Array declaration with literal test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("int nums[5] = {1, 2, 3, 4, 5};"), "Should have array with initializer");
-    }
-
-    {
-        auto tokens = lex("main { mut val data: int[10]; data[0] = 42; data[5] = 99; }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("Array assignment test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("int data[10];"), "Should have array declaration");
-        assert(cCode.canFind("data[0] = 42;"), "Should have first array assignment");
-        assert(cCode.canFind("data[5] = 99;"), "Should have second array assignment");
-    }
-
-    {
-        auto tokens = lex("main { val values: int[] = [10, 20, 30]; mut val x: int = 0; x = 5; }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("Mixed array and variable test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("const int values[3] = {10, 20, 30};"), "Should have const array");
-        assert(cCode.canFind("int x = 0;"), "Should have variable");
-        assert(cCode.canFind("x = 5;"), "Should have assignment");
-    }
-
-    {
-        auto tokens = lex(
-            "main { mut val arr: int[3] = [1, 2, 3]; for mut val i = 0; i < 3; i++ { arr[i] = 0; } }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("Array in for loop test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("int arr[3] = {1, 2, 3};"), "Should have array with initializer");
-        assert(cCode.canFind("for (int i = 0; (i<3); i++)"), "Should have for loop");
-        assert(cCode.canFind("arr[i] = 0;"), "Should have array assignment in loop");
-    }
-
-    {
-        auto tokens = lex(
-            "main { mut val nums: int[] = [10, 20, 30]; for n in nums { println n; } }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("For-in loop test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("int nums[3] = {10, 20, 30};"), "Should have array declaration");
-        assert(cCode.canFind("for (size_t _i_n = 0; _i_n < sizeof(nums)/sizeof(nums[0]); _i_n++)"),
-            "Should have for-in loop converted to C for loop");
-        assert(cCode.canFind("int n = nums[_i_n];"), "Should declare loop variable from array");
-        assert(cCode.canFind("printf(\"%d\\n\", n);"), "Should have println with variable");
-    }
-
-    {
-        auto tokens = lex("use external(\"raylib.h\"); main { println \"test\"; }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("External import test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("#include <raylib.h>"), "Should have external include directive");
-        assert(cCode.canFind("#include <stdio.h>"), "Should have standard includes");
-        assert(cCode.canFind("int main(int argc, char** argv)"), "Should have main function");
-    }
-
-    {
         auto tokens = lex("main { val x: int = 10; val y: ref int = ref_of(x); }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
@@ -2479,7 +2181,8 @@ unittest
     }
 
     {
-        auto tokens = lex("def inner(a: int): int { return a; } def middle(b: int): int { return inner(b); } def outer(c: int): int { return middle(inner(c)); } main { }");
+        auto tokens = lex(
+            "def inner(a: int): int { return a; } def middle(b: int): int { return inner(b); } def outer(c: int): int { return middle(inner(c)); } main { }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 

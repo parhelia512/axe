@@ -1,12 +1,10 @@
-use external("string.h");
-use external("stdlib.h");
-use external("ctype.h");
+import stdlib.os;
 
 /// String model representing a dynamic string with length tracking.
 model String {
     data: char*;
-    len: int;
-    cap: int;
+    len: usize;
+    cap: usize;
 
     /// Creates a new string from a char pointer.
     def create(data: char*): String {
@@ -15,7 +13,7 @@ model String {
             String* ptr = (String*)malloc(sizeof(String));
             if (ptr != NULL) {
                 ptr->data = (char*)data;
-                ptr->len = (int)strlen((const char*)data);
+                ptr->len = (usize)strlen((const char*)data);
                 ptr->cap = ptr->len;
                 result = *ptr;
             }
@@ -24,33 +22,32 @@ model String {
     }
 }
 
-/// Returns the length of a null-terminated C string.
-def str_len(s: String): int {
-    mut val result: int = 0;
-    raw {
-        result = (int)strlen((const char*)s.data);
-    }
-    return result;
-}
-
-/// Compares two null-terminated C strings. Returns 0 if equal.
-def str_compare(s1: String, s2: String): int {
-    mut val result: int = 0;
-    raw {
-        result = strcmp((const char*)s1.data, (const char*)s2.data);
-    }
-    return result;
+/// Returns the length of a string.
+def str_len(s: String): usize {
+    return s.len;
 }
 
 /// Copies source string to destination. Modifies dest in place.
-def str_copy(dest: String, src: String) {
-    raw {
-        strcpy((char*)dest.data, (const char*)src.data);
+def str_copy(src: String, dest: String): void {
+    for usize i = 0; i < src.len; i++ {
+        dest.data[i] = src.data[i];
     }
 }
 
+/// Compares two strings. Returns 0 if equal.
+def str_cmp(a: String, b: String): i32 {
+    usize len = a.len < b.len ? a.len : b.len;
+    for usize i = 0; i < len; i++ {
+        if a.data[i] < b.data[i] return -1;
+        if a.data[i] > b.data[i] return 1;
+    }
+    if a.len < b.len return -1;
+    if a.len > b.len return 1;
+    return 0;
+}
+
 /// Concatenates source string to destination. Modifies dest in place.
-def concat(dest: String, src: String) {
+def concat(dest: String, src: String): void {
     raw {
         strcat((char*)dest.data, (const char*)src.data);
     }
