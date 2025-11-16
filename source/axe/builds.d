@@ -15,6 +15,23 @@ import std.string : replace, startsWith;
 import std.path : dirName, buildPath;
 
 /**
+ * Recursively check if AST contains parallel blocks
+ */
+bool hasParallelBlocks(ASTNode node)
+{
+    if (node.nodeType == "ParallelFor")
+        return true;
+    
+    foreach (child; node.children)
+    {
+        if (hasParallelBlocks(child))
+            return true;
+    }
+    
+    return false;
+}
+
+/**
  * Compiles and runs the generated assembly code.
  *
  * Returns NASM errors if any.
@@ -91,6 +108,10 @@ bool handleMachineArgs(string[] args)
             string cCode = generateC(ast);
             string ext = isAxec ? ".axec" : ".axe";
             std.file.write(replace(name, ext, ".c"), cCode);
+            
+            // Check if we need to link OpenMP
+            bool needsOpenMP = hasParallelBlocks(ast);
+            
             string[] clangCmd;
 
             if (args.canFind("--release"))
@@ -108,6 +129,13 @@ bool handleMachineArgs(string[] args)
                 {
                     clangCmd ~= "-ldbghelp";
                 }
+            }
+            
+            // Add OpenMP flags if needed
+            if (needsOpenMP)
+            {
+                writeln("Detected parallel blocks, adding OpenMP support (-fopenmp)");
+                clangCmd ~= ["-fopenmp"];
             }
 
             foreach (arg; args)

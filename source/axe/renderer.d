@@ -779,6 +779,42 @@ string generateC(ASTNode ast)
         cCode ~= "}\n";
         break;
 
+    case "Platform":
+        auto platformNode = cast(PlatformNode) ast;
+        
+        // Generate #ifdef for windows, #ifndef for posix
+        if (platformNode.platform == "windows")
+            cCode ~= "#ifdef _WIN32\n";
+        else if (platformNode.platform == "posix")
+            cCode ~= "#ifndef _WIN32\n";
+        
+        foreach (child; ast.children)
+        {
+            cCode ~= generateC(child);
+        }
+        
+        cCode ~= "#endif\n";
+        break;
+    
+    case "ParallelFor":
+        auto parallelForNode = cast(ParallelForNode) ast;
+        
+        string indent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
+        cCode ~= indent ~ "#pragma omp parallel for\n";
+        cCode ~= indent ~ "for (" ~ parallelForNode.initialization ~ "; " 
+            ~ processCondition(parallelForNode.condition) ~ "; " 
+            ~ parallelForNode.increment ~ ") {\n";
+        loopLevel++;
+        
+        foreach (child; ast.children)
+        {
+            cCode ~= generateC(child);
+        }
+        
+        loopLevel--;
+        cCode ~= indent ~ "}\n";
+        break;
+    
     case "For":
         auto forNode = cast(ForNode) ast;
 

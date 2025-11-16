@@ -69,6 +69,10 @@ enum TokenType
     MACRO,
     TEST,
     ASSERT,
+    PLATFORM,
+    PARALLEL,
+    WINDOWS,
+    POSIX,
 }
 
 /** 
@@ -548,5 +552,31 @@ class Scope
     bool isMutable(string name)
     {
         return mutability.get(name, false);
+    }
+}
+
+class PlatformNode : ASTNode
+{
+    string platform; // "windows" or "posix"
+    
+    this(string platform)
+    {
+        super("Platform");
+        this.platform = platform;
+    }
+}
+
+class ParallelForNode : ASTNode
+{
+    string initialization;
+    string condition;
+    string increment;
+    
+    this(string init, string cond, string incr)
+    {
+        super("ParallelFor");
+        this.initialization = init;
+        this.condition = cond;
+        this.increment = incr;
     }
 }

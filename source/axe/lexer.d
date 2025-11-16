@@ -319,6 +319,24 @@ Token[] lex(string source)
                 tokens ~= Token(TokenType.PRINT, "print");
                 pos += 5;
             }
+            else if (pos + 8 <= source.length && source[pos .. pos + 8] == "platform" &&
+                (pos + 8 >= source.length || !(source[pos + 8].isAlphaNum || source[pos + 8] == '_')))
+            {
+                tokens ~= Token(TokenType.PLATFORM, "platform");
+                pos += 8;
+            }
+            else if (pos + 8 <= source.length && source[pos .. pos + 8] == "parallel" &&
+                (pos + 8 >= source.length || !(source[pos + 8].isAlphaNum || source[pos + 8] == '_')))
+            {
+                tokens ~= Token(TokenType.PARALLEL, "parallel");
+                pos += 8;
+            }
+            else if (pos + 5 <= source.length && source[pos .. pos + 5] == "posix" &&
+                (pos + 5 >= source.length || !(source[pos + 5].isAlphaNum || source[pos + 5] == '_')))
+            {
+                tokens ~= Token(TokenType.POSIX, "posix");
+                pos += 5;
+            }
             else if (pos + 4 <= source.length && source[pos .. pos + 4] == "loop")
             {
                 tokens ~= Token(TokenType.LOOP, "loop");
@@ -455,6 +473,12 @@ Token[] lex(string source)
             {
                 tokens ~= Token(TokenType.EXTERNAL, "external");
                 pos += 8;
+            }
+            else if (pos + 7 <= source.length && source[pos .. pos + 7] == "windows" &&
+                (pos + 7 >= source.length || !(source[pos + 7].isAlphaNum || source[pos + 7] == '_')))
+            {
+                tokens ~= Token(TokenType.WINDOWS, "windows");
+                pos += 7;
             }
             else if (pos + 6 <= source.length && source[pos .. pos + 6] == "switch")
             {

@@ -380,6 +380,124 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
 
         switch (tokens[pos].type)
         {
+        case TokenType.PLATFORM:
+            pos++; // Skip 'platform'
+            
+            enforce(pos < tokens.length && (tokens[pos].type == TokenType.WINDOWS || 
+                    tokens[pos].type == TokenType.POSIX),
+                "Expected 'windows' or 'posix' after 'platform'");
+            string platformName = tokens[pos].value; // "windows" or "posix"
+            pos++;
+            
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+            
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                "Expected '{' after platform name");
+            pos++; // Skip '{'
+            
+            auto platformNode = new PlatformNode(platformName);
+            
+            // Parse statements/declarations inside the platform block (can include DEF, etc.)
+            while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+            {
+                if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE)
+                {
+                    pos++;
+                    continue;
+                }
+                
+                // Platform blocks at top-level can contain DEF and other top-level constructs
+                // We need to handle the parsing inline rather than using parseStatementHelper
+                if (tokens[pos].type == TokenType.DEF)
+                {
+                    // Parse function definition (similar to main parser)
+                    pos++; // Skip 'def'
+                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                        pos++;
+                    
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                        "Expected function name after 'def'");
+                    string funcName = tokens[pos].value;
+                    pos++;
+                    
+                    string[] params = parseArgs();
+                    string returnType = "void";
+                    
+                    if (pos < tokens.length && tokens[pos].type == TokenType.COLON)
+                    {
+                        pos++;
+                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                            pos++;
+                        
+                        int refDepth = 0;
+                        while (pos < tokens.length && tokens[pos].type == TokenType.REF)
+                        {
+                            refDepth++;
+                            pos++;
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+                        }
+                        
+                        returnType = parseType();
+                        for (int i = 0; i < refDepth; i++)
+                            returnType = "ref " ~ returnType;
+                    }
+                    
+                    auto funcNode = new FunctionNode(funcName, params, returnType);
+                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                        pos++;
+                    
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                        "Expected '{' after function declaration");
+                    pos++;
+                    
+                    Scope funcScope = new Scope();
+                    ASTNode funcScopeNode = funcNode;
+                    
+                    // Register function parameters in the scope
+                    foreach (param; params)
+                    {
+                        import std.string : split, strip;
+                        auto parts = param.strip().split();
+                        if (parts.length >= 2)
+                        {
+                            string paramName = parts[$ - 1];
+                            bool isMutable = param.canFind("ref ");
+                            funcScope.addVariable(paramName, isMutable);
+                        }
+                    }
+                    
+                    while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+                    {
+                        auto stmt = parseStatementHelper(pos, tokens, funcScope, funcScopeNode, isAxec);
+                        if (stmt !is null)
+                            funcNode.children ~= stmt;
+                    }
+                    
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                        "Expected '}' after function body");
+                    pos++;
+                    
+                    platformNode.children ~= funcNode;
+                }
+                else
+                {
+                    // Try parsing as a statement
+                    ASTNode platformScopeNode = platformNode;
+                    auto stmt = parseStatementHelper(pos, tokens, currentScope, platformScopeNode, isAxec);
+                    if (stmt !is null)
+                        platformNode.children ~= stmt;
+                }
+            }
+            
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                "Expected '}' after platform block");
+            pos++; // Skip '}'
+            
+            ast.children ~= platformNode;
+            continue;
+            
         case TokenType.MODEL:
             pos++; // Skip 'model'
 
@@ -2860,6 +2978,14 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                 case TokenType.FOR:
                     funcNode.children ~= parseStatementHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
                     break;
+                
+                case TokenType.PLATFORM:
+                    funcNode.children ~= parseStatementHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
+                    break;
+                
+                case TokenType.PARALLEL:
+                    funcNode.children ~= parseStatementHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
+                    break;
 
                 case TokenType.LOOP_OLD_REMOVE_ME:
                     pos++;
@@ -3507,6 +3633,52 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         pos++;
         return new ContinueNode();
 
+    case TokenType.PLATFORM:
+        pos++; // Skip 'platform'
+        
+        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+            pos++;
+        
+        enforce(pos < tokens.length && (tokens[pos].type == TokenType.WINDOWS || 
+                tokens[pos].type == TokenType.POSIX),
+            "Expected 'windows' or 'posix' after 'platform'");
+        string platformName = tokens[pos].value;
+        pos++;
+        
+        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+            pos++;
+        
+        enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+            "Expected '{' after platform name");
+        pos++; // Skip '{'
+        
+        auto platformNode = new PlatformNode(platformName);
+        
+        // Parse statements inside the platform block
+        while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+        {
+            auto stmt = parseStatementHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
+            if (stmt !is null)
+                platformNode.children ~= stmt;
+        }
+        
+        enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+            "Expected '}' after platform block");
+        pos++; // Skip '}'
+        
+        return platformNode;
+    
+    case TokenType.PARALLEL:
+        pos++; // Skip 'parallel'
+        
+        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+            pos++;
+        
+        enforce(pos < tokens.length && tokens[pos].type == TokenType.FOR,
+            "Expected 'for' after 'parallel'");
+        // Now parse as a FOR loop, but return a ParallelForNode instead
+        return parseParallelForHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
+    
     case TokenType.LOOP:
         return parseLoopHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
 
@@ -4566,6 +4738,140 @@ private IfNode parseIfHelper(ref size_t pos, Token[] tokens, ref Scope currentSc
 /**
  * Parse a loop statement recursively (module-level helper).
  */
+private ParallelForNode parseParallelForHelper(ref size_t pos, Token[] tokens, ref Scope currentScope, ref ASTNode currentScopeNode, bool isAxec)
+{
+    import std.stdio : writeln;
+    
+    // pos should be at 'for' token
+    enforce(pos < tokens.length && tokens[pos].type == TokenType.FOR,
+        "Expected 'for' in parallel for");
+    pos++; // Skip 'for'
+    
+    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+        pos++;
+    
+    // Parse the for loop parts (init; condition; increment)
+    string init = "";
+    string condition = "";
+    string increment = "";
+    string varName = "";
+    string varType = "";
+    bool isMutable = false;
+    
+    // Parse init - handle variable declaration
+    if (pos < tokens.length && tokens[pos].type == TokenType.MUT)
+    {
+        isMutable = true;
+        pos++;
+        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+            pos++;
+    }
+    
+    if (pos < tokens.length && tokens[pos].type == TokenType.VAL)
+    {
+        pos++;
+        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+            pos++;
+        
+        enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+            "Expected variable name in parallel for init");
+        varName = tokens[pos].value;
+        pos++;
+        
+        // Check for type annotation
+        if (pos < tokens.length && tokens[pos].type == TokenType.COLON)
+        {
+            pos++;
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+            if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
+            {
+                varType = tokens[pos].value;
+                pos++;
+            }
+        }
+        
+        // Parse initializer
+        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+            pos++;
+        if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
+        {
+            pos++;
+            while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+            {
+                if (tokens[pos].type != TokenType.WHITESPACE)
+                    init ~= tokens[pos].value;
+                pos++;
+            }
+        }
+        
+        currentScope.addVariable(varName, isMutable);
+    }
+    
+    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+        "Expected ';' after parallel for init");
+    pos++;
+    
+    // Parse condition (until semicolon)
+    while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+    {
+        if (tokens[pos].type != TokenType.WHITESPACE)
+            condition ~= tokens[pos].value;
+        pos++;
+    }
+    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+        "Expected ';' after parallel for condition");
+    pos++;
+    
+    // Parse increment (until '{')
+    while (pos < tokens.length && tokens[pos].type != TokenType.LBRACE)
+    {
+        if (tokens[pos].type != TokenType.WHITESPACE)
+            increment ~= tokens[pos].value;
+        pos++;
+    }
+    
+    enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+        "Expected '{' after parallel for increment");
+    pos++;
+    
+    // Build initialization string
+    string initStr = "";
+    if (varName.length > 0)
+    {
+        // Default to int if no type specified
+        if (varType.length == 0)
+            varType = "int";
+        
+        if (isMutable)
+            initStr = varType ~ " " ~ varName;
+        else
+            initStr = varType ~ " " ~ varName;
+        
+        if (init.length > 0)
+            initStr ~= " = " ~ init;
+    }
+    
+    auto parallelForNode = new ParallelForNode(initStr, condition.strip(), increment.strip());
+    auto prevScope = currentScopeNode;
+    currentScopeNode = parallelForNode;
+    
+    // Parse parallel for body
+    while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+    {
+        auto stmt = parseStatementHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
+        if (stmt !is null)
+            parallelForNode.children ~= stmt;
+    }
+    
+    enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+        "Expected '}' after parallel for body");
+    pos++;
+    
+    currentScopeNode = prevScope;
+    return parallelForNode;
+}
+
 private LoopNode parseLoopHelper(ref size_t pos, Token[] tokens, ref Scope currentScope, ref ASTNode currentScopeNode, bool isAxec)
 {
     import std.stdio : writeln;
