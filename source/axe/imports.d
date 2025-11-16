@@ -324,15 +324,12 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
         auto assignNode = cast(AssignmentNode) node;
         foreach (oldName, newName; nameMap)
         {
-            // Check for underscore notation: Model_method(
             string oldCall = oldName ~ "(";
             if (assignNode.expression.canFind(oldCall))
             {
                 assignNode.expression = assignNode.expression.replace(oldCall, newName ~ "(");
             }
 
-            // Also check for dot notation: Model.method( or Model . method(
-            // Use word boundary to ensure we don't match floating point literals like 0.5
             import std.regex : regex, replaceAll;
 
             if (assignNode.expression.canFind(".") && oldName.canFind("_"))
