@@ -1359,9 +1359,21 @@ string processExpression(string expr, string context = "")
             string first = parts[0].strip();
             string second = parts[1].strip();
             
+            // Skip if this is a numeric literal (e.g., 2.0, 3.14)
+            // Check if both parts are all digits
+            import std.algorithm : all;
+            import std.ascii : isDigit;
+            if (first.length > 0 && first.all!isDigit && second.length > 0 && second.all!isDigit)
+            {
+                // This is a float literal - return it with spaces removed
+                import std.array : replace;
+                return expr.replace(" ", "");
+            }
+            
             // Check if this is a function call (Model.method(...)) - convert to Model_method(...)
-            // But not if the first part is a numeric literal (e.g., 0.5)
-            if (second.canFind("(") && first.length > 0 && 
+            // But not if the first part is a numeric literal (e.g., 0.5) or contains operators
+            bool firstHasOps = first.canFind("/") || first.canFind("*") || first.canFind("+") || first.canFind("-");
+            if (second.canFind("(") && first.length > 0 && !firstHasOps &&
                 (first[0] >= 'A' && first[0] <= 'Z' || first[0] >= 'a' && first[0] <= 'z' || first[0] == '_'))
             {
                 // This is a static method call like IntList.new_list(...)
