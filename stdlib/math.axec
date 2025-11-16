@@ -1,3 +1,6 @@
+val PI: float = 3.141592653589793;
+val E: float = 2.718281828459045;
+
 /// Clamps a value between a minimum and maximum value
 def clamp(value: int, min: int, max: int): int {
     if value < min {
@@ -9,55 +12,155 @@ def clamp(value: int, min: int, max: int): int {
     }
 }
 
+/// Returns absolute value
+def absolute(value: float): float {
+    if value < 0.0 {
+        return -value;
+    } else {
+        return value;
+    }
+}
+
+/// Returns the minimum of two numbers
+def minimum(a: float, b: float): float {
+    if a < b { return a; } else { return b; }
+}
+
+/// Returns the maximum of two numbers
+def maximum(a: float, b: float): float {
+    if a > b { return a; } else { return b; }
+}
+
 /// Approximate square root using Newton-Raphson
 def sqrt(value: float): float {
-    if value <= 0.0 {
-        return 0.0;
-    }
-
+    if value <= 0.0 { return 0.0; }
     mut val x: float = value;
     mut val last: float = 0.0;
-
-    // Iterate until convergence
     for mut val i = 0; i < 20; i++ {
         last = x;
         x = 0.5 * (x + value / x);
-        if last == x {
-            break;
-        }
+        if last == x { break; }
     }
-
     return x;
 }
 
-/// Approximate sine using Taylor series expansion
-/// Input: angle in radians
+/// Power function for positive integer exponents
+def pow(base: float, exp: int): float {
+    mut val result: float = 1.0;
+    mut val b: float = base;
+    mut val e: int = exp;
+    if e < 0 {
+        b = 1.0 / b;
+        e = -e;
+    }
+    for mut val i = 0; i < e; i++ {
+        if e mod 2 == 1 {
+            result = result * b;
+        }
+        b = b * b;
+        e = e / 2;
+    }
+    return result;
+}
+
+/// Exponential function e^x using series
+def exp(x: float): float {
+    mut val sum: float = 1.0;
+    mut val term: float = 1.0;
+    for mut val n = 1; n < 20; n++ {
+        term = term * x / n;
+        sum = sum + term;
+    }
+    return sum;
+}
+
+/// Natural logarithm using Newton-Raphson
+def ln(x: float): float {
+    if x <= 0.0 { return 0.0; }
+    mut val y: float = x - 1.0;
+    mut val last: float = 0.0;
+    for mut val i = 0; i < 20; i++ {
+        last = y;
+        y = y - (exp(y) - x) / exp(y);
+        if last == y { break; }
+    }
+    return y;
+}
+
+/// Sine using Taylor series
 def sin(x: float): float {
     mut val term: float = x;
     mut val sum: float = x;
     mut val x_squared: float = x * x;
     mut val n: int = 1;
-
     for mut val i = 1; i < 10; i++ {
         term = -term * x_squared / ((2 * n) * (2 * n + 1));
         sum = sum + term;
         n = n + 1;
     }
+    return sum;
+}
 
+/// Cosine using Taylor series
+def cos(x: float): float {
+    mut val term: float = 1.0;
+    mut val sum: float = 1.0;
+    mut val x_squared: float = x * x;
+    mut val n: int = 1;
+    for mut val i = 1; i < 10; i++ {
+        term = -term * x_squared / ((2 * n - 1) * (2 * n));
+        sum = sum + term;
+        n = n + 1;
+    }
+    return sum;
+}
+
+/// Tangent
+def tan(x: float): float {
+    return sin(x) / cos(x);
+}
+
+/// Arcsine using series
+def asin(x: float): float {
+    mut val term: float = x;
+    mut val sum: float = x;
+    mut val n: int = 1;
+    mut val x_squared: float = x * x;
+    for mut val i = 1; i < 10; i++ {
+        term = term * x_squared * (2 * n - 1) / (2 * n);
+        sum = sum + term / (2 * n + 1);
+        n = n + 1;
+    }
+    return sum;
+}
+
+/// Arccosine
+def acos(x: float): float {
+    return PI / 2.0 - asin(x);
+}
+
+/// Arctangent using series
+def atan(x: float): float {
+    mut val term: float = x;
+    mut val sum: float = x;
+    mut val x_squared: float = x * x;
+    mut val sign: float = -1.0;
+    for mut val n = 3; n < 20; n += 2 {
+        term = term * x_squared;
+        sum = sum + sign * term / n;
+        sign = -sign;
+    }
     return sum;
 }
 
 test {
-    val a: float = 16.0;
-    val b: float = 2.0;
-    val c: float = 3.14159265 / 2;
-
-    println "sqrt(16) ≈";
-    println sqrt(a); // ≈ 4.0
-
-    println "sqrt(2) ≈";
-    println sqrt(b); // ≈ 1.4142
-
-    println "sin(pi/2) ≈";
-    println sin(c); // ≈ 1.0
+    println "sqrt(16) ≈"; print sqrt(16.0);
+    println "sin(PI/2) ≈"; print sin(PI/2.0);
+    println "cos(0) ≈"; prinn cos(0.0);
+    println "tan(PI/4) ≈"; print tan(PI/4.0);
+    println "asin(1) ≈"; print asin(1.0);
+    println "acos(0) ≈"; print acos(0.0);
+    println "atan(1) ≈"; print atan(1.0);
+    println "exp(1) ≈"; print exp(1.0);
+    println "ln(E) ≈"; print ln(E);
 }

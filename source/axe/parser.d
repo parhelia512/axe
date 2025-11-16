@@ -3502,6 +3502,66 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
             ast.children ~= funcNode;
             break;
 
+        case TokenType.MUT:
+            pos++; // Skip 'mut'
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+            
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.VAL,
+                "Expected 'val' after 'mut'");
+            goto case TokenType.VAL;
+
+        case TokenType.VAL:
+            bool isMutable = (pos > 0 && tokens[pos - 1].type == TokenType.MUT);
+            pos++; // Skip 'val'
+            
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+            
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                "Expected variable name after 'val'");
+            string varName = tokens[pos].value;
+            pos++;
+            
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+            
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.COLON,
+                "Expected ':' after variable name");
+            pos++;
+            
+            string varType = parseType();
+            string initializer = "";
+            
+            // Check for initializer
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+            
+            if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
+            {
+                pos++; // Skip '='
+                
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+                
+                // Collect initializer until semicolon
+                while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                {
+                    initializer ~= tokens[pos].value;
+                    if (tokens[pos].type != TokenType.WHITESPACE)
+                        initializer ~= " ";
+                    pos++;
+                }
+            }
+            
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                "Expected ';' after variable declaration");
+            pos++;
+            
+            auto declNode = new DeclarationNode(varName, isMutable, initializer.strip(), varType);
+            ast.children ~= declNode;
+            continue;
+
         case TokenType.WHITESPACE, TokenType.NEWLINE:
             pos++;
             break;
