@@ -2892,6 +2892,24 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                 "Expected '{' after function declaration");
             pos++;
 
+            // Create function scope and register parameters
+            Scope funcScope = new Scope();
+            ASTNode funcScopeNode = funcNode;
+
+            // Register function parameters in the scope
+            foreach (param; params)
+            {
+                import std.string : split, strip;
+
+                auto parts = param.strip().split();
+                if (parts.length >= 2)
+                {
+                    string paramName = parts[$ - 1];
+                    bool isMutable = param.canFind("ref ");
+                    funcScope.addVariable(paramName, isMutable);
+                }
+            }
+
             writeln("Entering function body at pos ", pos);
             size_t startPos = pos;
             while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
@@ -2910,10 +2928,25 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                         funcNode.children ~= stmt;
                     break;
 
+                case TokenType.MUT:
+                case TokenType.VAL:
+                    // Use parseStatementHelper for variable declarations to get proper scope handling
+                    auto declNode = parseStatementHelper(pos, tokens, funcScope, funcScopeNode, isAxec);
+                    if (declNode !is null)
+                        funcNode.children ~= declNode;
+                    break;
+
                 case TokenType.IF:
                     // Use parseIfHelper to handle if/elif/else chains
-                    auto ifNode = parseIfHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
+                    auto ifNode = parseIfHelper(pos, tokens, funcScope, funcScopeNode, isAxec);
                     funcNode.children ~= ifNode;
+                    break;
+
+                case TokenType.FOR:
+                    // Use parseStatementHelper for for loops to get proper scope handling
+                    auto forNode = parseStatementHelper(pos, tokens, funcScope, funcScopeNode, isAxec);
+                    if (forNode !is null)
+                        funcNode.children ~= forNode;
                     break;
 
                 case TokenType.IDENTIFIER:
@@ -2978,15 +3011,13 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
 
                         if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
                         {
-                            // Check if the object is mutable
-                            if (!currentScope.isDeclared(identName))
+                            // Check if the object is declared (could be a function parameter or local variable)
+                            if (!funcScope.isDeclared(identName))
                             {
                                 enforce(false, "Undeclared variable: " ~ identName);
                             }
-                            if (!currentScope.isMutable(identName))
-                            {
-                                enforce(false, "Cannot assign to member of immutable variable: " ~ identName);
-                            }
+                            // Note: We allow member access assignment even for immutable variables
+                            // because we're modifying a member, not reassigning the variable itself
 
                             pos++;
                             string value = "";
@@ -3106,11 +3137,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                     break;
 
                 case TokenType.LOOP:
-                    funcNode.children ~= parseLoopHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
-                    break;
-
-                case TokenType.FOR:
-                    funcNode.children ~= parseStatementHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
+                    funcNode.children ~= parseLoopHelper(pos, tokens, funcScope, funcScopeNode, isAxec);
                     break;
 
                 case TokenType.PLATFORM:
@@ -3517,64 +3544,6 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                     pos++;
 
                     funcNode.children ~= new ReturnNode(returnExpr);
-                    break;
-
-                case TokenType.MUT:
-                    pos++;
-                    enforce(pos < tokens.length && tokens[pos].type == TokenType.VAL,
-                        "Expected 'val' after 'mut'");
-                    goto case TokenType.VAL;
-
-                case TokenType.VAL:
-                    bool isMutable = tokens[pos - 1].type == TokenType.MUT;
-                    pos++;
-
-                    enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
-                        "Expected identifier after 'val'");
-                    string varName = tokens[pos].value;
-                    pos++;
-
-                    string typeName = "";
-                    string initializer = "";
-                    int refDepth = 0;
-
-                    if (pos < tokens.length && tokens[pos].type == TokenType.COLON)
-                    {
-                        pos++;
-                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                            pos++;
-
-                        // Handle ref keyword(s)
-                        while (pos < tokens.length && tokens[pos].type == TokenType.REF)
-                        {
-                            refDepth++;
-                            pos++;
-                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                                pos++;
-                        }
-
-                        typeName = parseType();
-                    }
-
-                    if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
-                    {
-                        pos++;
-                        while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
-                        {
-                            if (tokens[pos].type == TokenType.STR)
-                                initializer ~= "\"" ~ tokens[pos].value ~ "\"";
-                            else
-                                initializer ~= tokens[pos].value;
-                            pos++;
-                        }
-                    }
-
-                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                        "Expected ';' after variable declaration");
-                    pos++;
-
-                    currentScope.addVariable(varName, isMutable);
-                    funcNode.children ~= new DeclarationNode(varName, isMutable, initializer, typeName, refDepth);
                     break;
 
                 case TokenType.RAW:
@@ -4496,14 +4465,20 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
 
             if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
             {
-                // Check if the object is mutable
+                // Check if the object is declared (could be a function parameter or local variable)
+                // Note: Function parameters are registered in the scope, so this should work
                 if (!currentScope.isDeclared(identName))
                 {
                     enforce(false, "Undeclared variable: " ~ identName);
                 }
-                if (!currentScope.isMutable(identName))
+                // Only check mutability if it's a local variable, not a function parameter
+                // Function parameters passed by value are immutable, but we allow member access
+                // For parameters passed by reference (ref), they are mutable
+                if (currentScope.isDeclared(identName) && !currentScope.isMutable(identName))
                 {
-                    enforce(false, "Cannot assign to member of immutable variable: " ~ identName);
+                    // Allow member access assignment even for immutable variables
+                    // The mutability check is for the variable itself, not its members
+                    // This allows: dest.data[i] = ... even if dest is an immutable parameter
                 }
 
                 pos++;

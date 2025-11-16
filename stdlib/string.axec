@@ -11,7 +11,7 @@ model String {
             String* ptr = (String*)malloc(sizeof(String));
             if (ptr != NULL) {
                 ptr->data = (char*)data;
-                ptr->len = (usize)strlen((const char*)data);
+                ptr->len = (uintptr_t)strlen((const char*)data);
                 ptr->cap = ptr->len;
                 result = *ptr;
             }
@@ -34,18 +34,18 @@ def str_copy(src: String, dest: String): void {
 
 /// Compares two strings. Returns 0 if equal.
 def str_cmp(a: String, b: String): i32 {
-    usize len;
-    if (a.len < b.len) {
-        len = a.len;
+    mut val len: usize = 0;
+    if a.len < b.len {
+        len = a.len; //len undefined, how?
     } else {
         len = b.len;
     }
     for mut val i = 0; i < len; i++ {
-        if a.data[i] < b.data[i] return -1;
-        if a.data[i] > b.data[i] return 1;
+        if a.data[i] < b.data[i] { return -1; }
+        if a.data[i] > b.data[i] { return 1; }
     }
-    if a.len < b.len return -1;
-    if a.len > b.len return 1;
+    if a.len < b.len { return -1; }
+    if a.len > b.len { return 1; }
     return 0;
 }
 
@@ -57,7 +57,7 @@ def concat(dest: String, src: String): void {
 }
 
 /// Finds first occurrence of character in string. Returns pointer or 0.
-def first_occurrence(s: String, c: int): char* {
+def first_occurrence(s: String, c: i32): char* {
     mut val result: char* = 0;
     raw {
         result = strchr((const char*)s.data, c);
@@ -75,8 +75,8 @@ def substring(haystack: String, needle: String): char* {
 }
 
 /// Converts string to integer.
-def str_to_int(s: String): int {
-    mut val result: int = 0;
+def str_to_int(s: String): i32 {
+    mut val result: i32 = 0;
     raw {
         result = atoi((const char*)s.data);
     }
@@ -84,8 +84,8 @@ def str_to_int(s: String): int {
 }
 
 /// Converts string to long integer.
-def str_to_long(s: char*): long {
-    mut val result: long = 0;
+def str_to_long(s: char*): i64 {
+    mut val result: i64 = 0;
     raw {
         result = atol((const char*)s);
     }
@@ -93,8 +93,8 @@ def str_to_long(s: char*): long {
 }
 
 /// Checks if character is alphabetic.
-def is_alpha(c: int): int {
-    mut val result: int = 0;
+def is_alpha(c: i32): i32 {
+    mut val result: i32 = 0;
     raw {
         result = isalpha(c);
     }
@@ -102,8 +102,8 @@ def is_alpha(c: int): int {
 }
 
 /// Checks if character is numeric.
-def is_digit(c: int): int {
-    mut val result: int = 0;
+def is_digit(c: i32): i32 {
+    mut val result: i32 = 0;
     raw {
         result = isdigit(c);
     }
@@ -111,8 +111,8 @@ def is_digit(c: int): int {
 }
 
 /// Checks if character is alphanumeric.
-def is_alnum(c: int): int {
-    mut val result: int = 0;
+def is_alnum(c: i32): i32 {
+    mut val result: i32 = 0;
     raw {
         result = isalnum(c);
     }
@@ -120,8 +120,8 @@ def is_alnum(c: int): int {
 }
 
 /// Converts character to uppercase.
-def to_upper(c: int): int {
-    mut val result: int = 0;
+def to_upper(c: i32): i32 {
+    mut val result: i32 = 0;
     raw {
         result = toupper(c);
     }
@@ -129,8 +129,8 @@ def to_upper(c: int): int {
 }
 
 /// Converts character to lowercase.
-def to_lower(c: int): int {
-    mut val result: int = 0;
+def to_lower(c: i32): i32 {
+    mut val result: i32 = 0;
     raw {
         result = tolower(c);
     }
@@ -151,8 +151,8 @@ def str_dup(s: char*): char* {
 }
 
 /// Compares first n characters of two strings. Returns 0 if equal.
-def str_ncmp(s1: char*, s2: char*, n: int): int {
-    mut val result: int = 0;
+def str_ncmp(s1: char*, s2: char*, n: i32): i32 {
+    mut val result: i32 = 0;
     raw {
         result = strncmp((const char*)s1, (const char*)s2, n);
     }
@@ -160,7 +160,7 @@ def str_ncmp(s1: char*, s2: char*, n: int): int {
 }
 
 /// Copies at most n characters from source to destination.
-def str_ncopy(dest: char*, src: char*, n: int): char* {
+def str_ncopy(dest: char*, src: char*, n: i32): char* {
     mut val result: char* = 0;
     raw {
         result = strncpy((char*)dest, (const char*)src, n);
@@ -169,7 +169,7 @@ def str_ncopy(dest: char*, src: char*, n: int): char* {
 }
 
 /// Converts an integer to a string. Buffer must be at least 12 bytes.
-def int_to_str(value: int, buffer: char*): char* {
+def int_to_str(value: i32, buffer: char*): char* {
     raw {
         sprintf(buffer, "%d", value);
     }
@@ -177,7 +177,7 @@ def int_to_str(value: int, buffer: char*): char* {
 }
 
 /// Converts a long to a string. Buffer must be at least 21 bytes.
-def long_to_str(value: long, buffer: char*): char* {
+def long_to_str(value: i64, buffer: char*): char* {
     raw {
         sprintf(buffer, "%ld", value);
     }
@@ -185,7 +185,7 @@ def long_to_str(value: long, buffer: char*): char* {
 }
 
 /// Converts a float to a string. Buffer must be at least 32 bytes.
-def float_to_str(value: float, buffer: char*): char* {
+def float_to_str(value: f32, buffer: char*): char* {
     raw {
         sprintf(buffer, "%f", value);
     }
@@ -193,7 +193,7 @@ def float_to_str(value: float, buffer: char*): char* {
 }
 
 /// Converts a double to a string. Buffer must be at least 32 bytes.
-def double_to_str(value: double, buffer: char*): char* {
+def double_to_str(value: f64, buffer: char*): char* {
     raw {
         sprintf(buffer, "%lf", value);
     }
