@@ -643,12 +643,11 @@ string generateC(ASTNode ast)
                 }
             }
 
-            // Special case: char* with string literal should become char[] for writability
             if (baseType == "char*" && processedExpr.length > 0 && processedExpr[0] == '"')
             {
                 import std.string : replace;
 
-                size_t bufferSize = processedExpr.length - 2 + 1;
+                size_t bufferSize = cast(int)processedExpr.length - 2 + 1;
 
                 type = declNode.isMutable ? "char" : "const char";
                 decl = type ~ " " ~ declNode.name ~ "[" ~ bufferSize.to!string ~ "]";
