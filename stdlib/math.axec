@@ -1,59 +1,107 @@
-val PI: float = 3.141592653589793;
-val E: float = 2.718281828459045;
+val PI: float           = 3.141592653589793;
+val HALF_PI: float      = PI / 2.0;
+val QUARTER_PI: float   = PI / 4.0;
+val TWO_PI: float       = PI * 2.0;
+val E: float            = 2.718281828459045;
 
-/// Clamps a value between a minimum and maximum value
+/// Clamp integer
 def clamp(value: int, min: int, max: int): int {
-    if value < min {
-        return min;
-    } elif value > max {
-        return max;
-    } else {
-        return value;
-    }
+    if value < min { return min; }
+    elif value > max { return max; }
+    else { return value; }
 }
 
-/// Returns absolute value
+/// Clamp float
+def clamp_float(value: float, min: float, max: float): float {
+    if value < min { return min; }
+    elif value > max { return max; }
+    else { return value; }
+}
+
+/// Absolute value
 def absolute(value: float): float {
-    if value < 0.0 {
-        return -value;
-    } else {
-        return value;
-    }
+    if value < 0.0 { return -value; } else { return value; }
 }
 
-/// Returns true if two floats are approximately equal
+/// Approximately equal
 def approx_equal(a: float, b: float, eps: float): bool {
     return absolute(a - b) <= eps;
 }
 
-/// Returns the minimum of two numbers
-def minimum(a: float, b: float): float {
-    if a < b { return a; } else { return b; }
+/// Minimum
+def minimum(a: float, b: float): float { if a < b { return a; } else { return b; } }
+
+/// Maximum
+def maximum(a: float, b: float): float { if a > b { return a; } else { return b; } }
+
+/// Converts an integer to a float.
+def int_to_float(x: int): float {
+    return x + 0.0;
 }
 
-/// Returns the maximum of two numbers
-def maximum(a: float, b: float): float {
-    if a > b { return a; } else { return b; }
+/// Floor of the number.
+def floor(x: float): float {
+    val xi: int = x;
+    if x < 0.0 and (x - xi) != 0.0 {
+        return (xi - 1);
+    } else {
+        return xi;
+    }
 }
 
-/// Approximate square root using Newton-Raphson
+/// Ceiling of the number.
+def ceil(x: float): float {
+    val xi: int = x;     
+    val xf: float = xi;  
+    if x > 0.0 and (x - xf) != 0.0 {
+        val next: int = xi + 1;
+        return next;
+    } else {
+        return xf;
+    }
+}
+
+/// Round to the nearest float
+def round(x: float): float {
+    if x < 0.0 {
+        return ceil(x - 0.5);
+    } else {
+        return floor(x + 0.5);
+    }
+}
+
+/// Float modulus.
+def mod_float(a: float, b: float): float {
+    return a - b * floor(a / b);
+}
+
+/// Reduce angle to [0, 2PI]
+def reduce_angle(x: float): float {
+    return mod_float(x, TWO_PI);
+}
+
+/// Square root (Newton)
 def sqrt(value: float): float {
     if value <= 0.0 { return 0.0; }
+    if value < 0.0000001 { return 0.00001; }
 
-    mut val x: float = 1.0;
+    mut val x: float = 0.0;
+
     if value >= 1.0 {
         x = value * 0.5;
+    } else {
+        x = 1.0;
     }
-    
+
     for mut val i = 0; i < 50; i++ {
         mut val last: float = x;
         x = 0.5 * (x + value / x);
-        if approx_equal(last, x, 0.00000000000110) { break; }
+        if approx_equal(last, x, 0.0000000000001) { break; }
     }
     return x;
 }
 
-/// Power function for integer exponents
+/// Integer exponent
 def pow(base: float, exp: int): float {
     mut val result: float = 1.0;
     mut val b: float = base;
@@ -71,10 +119,11 @@ def pow(base: float, exp: int): float {
         b = b * b;
         e = e / 2;
     }
+
     return result;
 }
 
-/// Exponential using series (20 iterations)
+/// Exponential series
 def exp(x: float): float {
     mut val sum: float = 1.0;
     mut val term: float = 1.0;
@@ -85,7 +134,7 @@ def exp(x: float): float {
     return sum;
 }
 
-/// Natural logarithm using Newton-Raphson
+/// Natural logarithm
 def ln(x: float): float {
     if x <= 0.0 { return 0.0; }
 
@@ -99,8 +148,9 @@ def ln(x: float): float {
     return y;
 }
 
-/// Sine (Taylor)
+/// Sine (reduced angle)
 def sin(x: float): float {
+    x = reduce_angle(x);
     mut val term: float = x;
     mut val sum: float = x;
     mut val x2: float = x * x;
@@ -113,8 +163,9 @@ def sin(x: float): float {
     return sum;
 }
 
-/// Cosine (Taylor)
+/// Cosine
 def cos(x: float): float {
+    x = reduce_angle(x);
     mut val term: float = 1.0;
     mut val sum: float = 1.0;
     mut val x2: float = x * x;
@@ -132,8 +183,9 @@ def tan(x: float): float {
     return sin(x) / cos(x);
 }
 
-/// Arcsine (series)
+/// Arcsine
 def asin(x: float): float {
+    x = clamp_float(x, -1.0, 1.0);
     mut val term: float = x;
     mut val sum: float = x;
     mut val n: int = 1;
@@ -148,10 +200,10 @@ def asin(x: float): float {
 
 /// Arccosine
 def acos(x: float): float {
-    return PI / 2.0 - asin(x);
+    return HALF_PI - asin(x);
 }
 
-/// Arctangent (series)
+/// Arctangent
 def atan(x: float): float {
     mut val term: float = x;
     mut val sum: float = x;
