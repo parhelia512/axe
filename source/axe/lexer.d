@@ -308,7 +308,8 @@ Token[] lex(string source)
                 tokens ~= Token(TokenType.MAIN, "main");
                 pos += 4;
             }
-            else if (pos + 7 <= source.length && source[pos .. pos + 7] == "println")
+            else if (pos + 7 <= source.length && source[pos .. pos + 7] == "println" &&
+                (pos + 7 >= source.length || !(source[pos + 7].isAlphaNum || source[pos + 7] == '_')))
             {
                 tokens ~= Token(TokenType.PRINTLN, "println");
                 pos += 7;
