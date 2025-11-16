@@ -507,11 +507,8 @@ void renameTypeReferences(ASTNode node, string[string] typeMap)
     {
         auto funcNode = cast(FunctionNode) node;
 
-        // Handle return type renaming, including ref types
         if (funcNode.returnType in typeMap)
-        {
             funcNode.returnType = typeMap[funcNode.returnType];
-        }
         else if (funcNode.returnType.startsWith("ref "))
         {
             string baseType = funcNode.returnType[4 .. $].strip();
