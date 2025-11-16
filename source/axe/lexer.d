@@ -464,12 +464,14 @@ Token[] lex(string source)
                     }
                 }
             }
-            else if (pos + 3 <= source.length && source[pos .. pos + 3] == "use")
+            else if (pos + 3 <= source.length && source[pos .. pos + 3] == "use" &&
+                (pos + 3 >= source.length || !(source[pos + 3].isAlphaNum || source[pos + 3] == '_')))
             {
                 tokens ~= Token(TokenType.USE, "use");
                 pos += 3;
             }
-            else if (pos + 8 <= source.length && source[pos .. pos + 8] == "external")
+            else if (pos + 8 <= source.length && source[pos .. pos + 8] == "external" &&
+                (pos + 8 >= source.length || !(source[pos + 8].isAlphaNum || source[pos + 8] == '_')))
             {
                 tokens ~= Token(TokenType.EXTERNAL, "external");
                 pos += 8;
@@ -480,17 +482,20 @@ Token[] lex(string source)
                 tokens ~= Token(TokenType.WINDOWS, "windows");
                 pos += 7;
             }
-            else if (pos + 6 <= source.length && source[pos .. pos + 6] == "switch")
+            else if (pos + 6 <= source.length && source[pos .. pos + 6] == "switch" &&
+                (pos + 6 >= source.length || !(source[pos + 6].isAlphaNum || source[pos + 6] == '_')))
             {
                 tokens ~= Token(TokenType.SWITCH, "switch");
                 pos += 6;
             }
-            else if (pos + 4 <= source.length && source[pos .. pos + 4] == "case")
+            else if (pos + 4 <= source.length && source[pos .. pos + 4] == "case" &&
+                (pos + 4 >= source.length || !(source[pos + 4].isAlphaNum || source[pos + 4] == '_')))
             {
                 tokens ~= Token(TokenType.CASE, "case");
                 pos += 4;
             }
-            else if (pos + 4 <= source.length && source[pos .. pos + 4] == "enum")
+            else if (pos + 4 <= source.length && source[pos .. pos + 4] == "enum" &&
+                (pos + 4 >= source.length || !(source[pos + 4].isAlphaNum || source[pos + 4] == '_')))
             {
                 tokens ~= Token(TokenType.ENUM, "enum");
                 pos += 4;

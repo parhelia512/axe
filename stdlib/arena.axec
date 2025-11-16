@@ -3,85 +3,86 @@ use external("string.h");
 
 /// Arena for memory allocation.
 model Arena {
-    buffer: uintptr_t; 
+    buffer: uintptr_t;
     capacity: int;
-    offset: int;  
-}
+    offset: int;
 
-/// Creates a new arena with the specified size.
-def arena_create(size: int): Arena {
-    mut val arena: Arena;
-    
-    raw {
-        arena.buffer = (uintptr_t)malloc(size);
-        arena.capacity = size;
-        arena.offset = 0;
-    }
-    
-    return arena;
-}
-
-/// Destroys the arena and frees its memory.
-def arena_destroy(arena: ref Arena) {
-    raw {
-        free((void*)arena->buffer);
-        arena->buffer = 0;
-        arena->offset = 0;
-        arena->capacity = 0;
-    }
-}
-
-/// Allocates memory from the arena, returns a proper reference pointer.
-def arena_alloc(arena: ref Arena, size: int): ref void {
-    mut val result: ref void = nil;
-
-    raw {
-        if (arena->offset + size > arena->capacity) {
-            printf("Arena out of memory!\n");
-            return nil;
+    /// Creates a new arena with the specified size.
+    def create(size: int): Arena {
+        mut val arena: Arena;
+        
+        raw {
+            arena.buffer = (uintptr_t)malloc(size);
+            arena.capacity = size;
+            arena.offset = 0;
         }
-        result = (void *)(arena->buffer + arena->offset);
-        arena->offset += size;
-        arena->offset = (arena->offset + 7) & ~7;
+        
+        return arena;
     }
 
-    return result;
-}
-
-
-/// Allocates memory for an array from the arena.
-def arena_alloc_array(arena: ref Arena, element_size: int, count: int): long {
-    mut val total_size: int = element_size * count;
-    return arena_alloc(arena, total_size);
-}
-
-/// Resets the arena, clearing all allocated memory.
-def arena_reset(arena: ref Arena) {
-    raw {
-        arena->offset = 0;
-        memset((void*)arena->buffer, 0, arena->capacity);
+    /// Destroys the arena and frees its memory.
+    def destroy(arena: ref Arena) {
+        raw {
+            free((void*)arena->buffer);
+            arena->buffer = 0;
+            arena->offset = 0;
+            arena->capacity = 0;
+        }
     }
-}
 
-/// Returns the amount of memory used by the arena.
-def arena_get_used(arena: ref Arena): int {
-    mut val result: int = 0;
-    raw {
-        result = arena->offset;
-    }
-    return result;
-}
+    /// Allocates memory from the arena, returns a proper reference pointer.
+    def alloc(arena: ref Arena, size: int): ref void {
+        mut val result: ref void = nil;
 
-/// Returns the amount of remaining memory in the arena.
-def arena_get_remaining(arena: ref Arena): int {
-    mut val result: int = 0;
-    raw {
-        result = arena->capacity - arena->offset;
+        raw {
+            if (arena->offset + size > arena->capacity) {
+                printf("Arena out of memory!\n");
+                return nil;
+            }
+            result = (void *)(arena->buffer + arena->offset);
+            arena->offset += size;
+
+            // Align to 8 bytes
+            arena->offset = (arena->offset + 7) & ~7;
+        }
+
+        return result;
     }
-    return result;
+
+    /// Allocates memory for an array from the arena.
+    def alloc_array(arena: ref Arena, element_size: int, count: int): ref void {
+        mut val total_size: int = element_size * count;
+        return Arena.alloc(arena, total_size);
+    }
+
+    /// Resets the arena, clearing all allocated memory.
+    def reset(arena: ref Arena) {
+        raw {
+            arena->offset = 0;
+            memset((void*)arena->buffer, 0, arena->capacity);
+        }
+    }
+
+    /// Returns the amount of memory used by the arena.
+    def used(arena: ref Arena): int {
+        mut val result: int = 0;
+        raw {
+            result = arena->offset;
+        }
+        return result;
+    }
+
+    /// Returns the amount of remaining memory in the arena.
+    def remaining(arena: ref Arena): int {
+        mut val result: int = 0;
+        raw {
+            result = arena->capacity - arena->offset;
+        }
+        return result;
+    }
 }
 
 test {
-    assert(arena_create(1024).capacity == 1024, "arena_create should set capacity correctly");
-    assert(arena_create(2048).offset == 0, "new arena should have offset 0");
+    assert(Arena.create(1024).capacity == 1024, "Arena.create should set capacity correctly");
+    assert(Arena.create(2048).offset == 0, "new arena should have offset 0");
 }
