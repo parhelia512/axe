@@ -23,24 +23,20 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
     ASTNode[] newChildren;
     string[string] importedFunctions;
     string[string] importedModels;
-    
-    // Determine current module prefix
+
     string currentModulePrefix = "";
     if (currentFilePath.length > 0 && isAxec)
     {
         import std.path : baseName, stripExtension;
         import std.algorithm : canFind;
-        
-        // For stdlib files, extract module name from path
+
         if (currentFilePath.canFind("stdlib"))
         {
-            // e.g., "a:/Projects/Apps/Axe/axe/stdlib/string.axec" -> "stdlib_string"
             auto fileName = baseName(currentFilePath).stripExtension();
             currentModulePrefix = "stdlib_" ~ fileName;
         }
     }
-    
-    // Build a map of local models for .axec files
+
     string[string] localModels;
     string[string] localFunctions;
     if (currentModulePrefix.length > 0)
@@ -51,15 +47,14 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
             {
                 auto modelNode = cast(ModelNode) child;
                 localModels[modelNode.name] = currentModulePrefix ~ "_" ~ modelNode.name;
-                writeln("DEBUG: Added local model '", modelNode.name, "' -> '", currentModulePrefix ~ "_" ~ modelNode.name, "'");
+                writeln("DEBUG: Added local model '", modelNode.name, "' -> '", currentModulePrefix ~ "_" ~
+                        modelNode.name, "'");
 
                 foreach (method; modelNode.methods)
                 {
                     auto methodFunc = cast(FunctionNode) method;
                     if (methodFunc !is null)
                     {
-                        // methodFunc.name is already modelName_methodName from parser
-                        // Map the original call name (modelName_methodName) to the prefixed name
                         string methodName = methodFunc.name[modelNode.name.length + 1 .. $];
                         string originalCallName = modelNode.name ~ "_" ~ methodName;
                         string prefixedCallName = currentModulePrefix ~ "_" ~ modelNode.name ~ "_" ~ methodName;
@@ -146,6 +141,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 else if (importChild.nodeType == "Macro")
                 {
                     auto macroNode = cast(MacroNode) importChild;
+
                     // Macros don't get prefixed - they expand inline
                     moduleMacroMap[macroNode.name] = macroNode.name;
                 }
@@ -208,7 +204,6 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                     auto macroNode = cast(MacroNode) importChild;
                     if (useNode.imports.canFind(macroNode.name))
                     {
-                        // Macros are added directly without prefixing - they expand inline
                         newChildren ~= macroNode;
                     }
                 }
@@ -222,42 +217,35 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
             {
                 writeln("  DEBUG: importedFunctions['", key, "'] = '", value, "'");
             }
-            
+
             // If this is a model with methods in a .axec file, rename the model and its methods
             if (child.nodeType == "Model" && currentModulePrefix.length > 0)
             {
                 auto modelNode = cast(ModelNode) child;
                 string originalModelName = modelNode.name;
                 string prefixedModelName = currentModulePrefix ~ "_" ~ originalModelName;
-                
-                // Create a type map that includes the model's own type
+
                 string[string] modelTypeMap = importedModels.dup;
                 modelTypeMap[originalModelName] = prefixedModelName;
-                
-                // Rename the model itself for library files (.axec)
                 modelNode.name = prefixedModelName;
-                
-                // Rename methods to include the full model prefix
+
                 foreach (method; modelNode.methods)
                 {
                     auto methodFunc = cast(FunctionNode) method;
                     if (methodFunc !is null)
                     {
-                        // Method names come in as just the method name (e.g., "create")
-                        // They need to become prefixedModelName_methodName
                         string methodName = methodFunc.name;
-                        // Remove the original model name prefix if it exists
                         if (methodName.startsWith(originalModelName ~ "_"))
                         {
                             methodName = methodName[originalModelName.length + 1 .. $];
                         }
                         methodFunc.name = prefixedModelName ~ "_" ~ methodName;
                     }
-                    
+
                     renameFunctionCalls(method, importedFunctions);
                     renameTypeReferences(method, modelTypeMap);
                 }
-                
+
                 // Apply type renaming to the entire file (for all functions)
                 renameFunctionCalls(child, importedFunctions);
                 renameTypeReferences(child, modelTypeMap);
@@ -270,7 +258,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                     renameFunctionCalls(method, importedFunctions);
                     renameTypeReferences(method, importedModels);
                 }
-                
+
                 renameFunctionCalls(child, importedFunctions);
                 renameTypeReferences(child, importedModels);
             }
@@ -282,13 +270,13 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 {
                     localTypeMap[modelName] = prefixedName;
                 }
-                
+
                 string[string] combinedFunctions = importedFunctions.dup;
                 foreach (key, value; localFunctions)
                 {
                     combinedFunctions[key] = value;
                 }
-                
+
                 renameFunctionCalls(child, combinedFunctions);
                 renameTypeReferences(child, localTypeMap);
             }
@@ -300,13 +288,13 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 {
                     localTypeMap[modelName] = prefixedName;
                 }
-                
+
                 string[string] combinedFunctions = importedFunctions.dup;
                 foreach (key, value; localFunctions)
                 {
                     combinedFunctions[key] = value;
                 }
-                
+
                 renameFunctionCalls(child, combinedFunctions);
                 renameTypeReferences(child, localTypeMap);
             }
@@ -549,11 +537,11 @@ void renameTypeReferences(ASTNode node, string[string] typeMap)
                     {
                         parts[0] = newType;
                     }
-            else if (parts.length >= 3 && parts[0] == "ref" && parts[1] == oldType)
+                    else if (parts.length >= 3 && parts[0] == "ref" && parts[1] == oldType)
                     {
                         parts[1] = newType;
                     }
-            else if (parts[0].startsWith(oldType ~ "["))
+                    else if (parts[0].startsWith(oldType ~ "["))
                     {
                         parts[0] = parts[0].replace(oldType ~ "[", newType ~ "[");
                     }
@@ -590,7 +578,7 @@ void renameTypeReferences(ASTNode node, string[string] typeMap)
     {
         auto rawNode = cast(RawCNode) node;
         import std.regex : regex, replaceAll;
-        
+
         // Replace type names in raw C code blocks
         // We need to be careful to only replace whole words (type names)
         foreach (oldType, newType; typeMap)
