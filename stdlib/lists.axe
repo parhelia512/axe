@@ -1,8 +1,5 @@
 use stdlib/arena (
-    Arena,
-    arena_create,
-    arena_destroy,
-    arena_alloc
+    Arena
 );
 
 use stdlib/memory (
@@ -15,63 +12,63 @@ model IntList {
     data: ref int;
     length: int;
     cap: int;
-}
 
-/// Initialize a new IntList with a given capacity
-def int_list_new(arena: ref Arena, capacity: int): ref IntList {
-    mut val lst: ref IntList = arena_alloc(arena, size_of(IntList));
-    lst.data = arena_alloc(arena, capacity * size_of(int));
-    lst.length = 0;
-    lst.cap = capacity;
-    return lst;
-}
-
-/// Append a value to the list, expanding if necessary
-def int_list_push(lst: ref IntList, arena: ref Arena, value: int) {
-    if lst.length >= lst.cap {
-        val new_cap: int = lst.cap * 2;
-        mut val new_data: ref int = arena_alloc(arena, new_cap * size_of(int));
-        copy(lst.data[0], new_data[0], int[lst.length]);
-        lst.data = new_data;
-        lst.cap = new_cap;
+    /// Initialize a new IntList with a given capacity
+    def create(arena: ref Arena, capacity: int): ref IntList {
+        mut val lst: ref IntList = Arena.alloc(arena, size_of(IntList));
+        lst.data = Arena.alloc(arena, capacity * size_of(int));
+        lst.length = 0;
+        lst.cap = capacity;
+        return lst;
     }
-    lst.data[lst.length] = value;
-    lst.length = lst.length + 1;
-}
 
-/// Get element by index
-def int_list_get(lst: ref IntList, index: int): int {
-    if index < 0 or index >= lst.length {
-        println "Index out of bounds!";
-        return 0;
+    /// Append a value to the list, expanding if necessary
+    def push(lst: ref IntList, arena: ref Arena, value: int) {
+        if lst.length >= lst.cap {
+            val new_cap: int = lst.cap * 2;
+            mut val new_data: ref int = Arena.alloc(arena, new_cap * size_of(int));
+            copy(lst.data[0], new_data[0], int[lst.length]);
+            lst.data = new_data;
+            lst.cap = new_cap;
+        }
+        lst.data[lst.length] = value;
+        lst.length = lst.length + 1;
     }
-    return lst.data[index];
-}
 
-/// Print the list
-def int_list_print(lst: ref IntList) {
-    for mut val i = 0; i < lst.length; i++ {
-        print lst.data[i];
-        print " ";
+    /// Get element by index
+    def get(lst: ref IntList, index: int): int {
+        if index < 0 or index >= lst.length {
+            println "Index out of bounds!";
+            return 0;
+        }
+        return lst.data[index];
     }
-    println "";
+
+    /// Print the list
+    def print_all(lst: ref IntList) {
+        for mut val i = 0; i < lst.length; i++ {
+            print lst.data[i];
+            print " ";
+        }
+        println "";
+    }
 }
 
 test {
-    mut val arena: Arena = arena_create(65536);
-    mut val my_list: ref IntList = int_list_new(ref_of(arena), 4);
+    mut val arena: Arena = Arena.create(65536);
+    mut val my_list: ref IntList = IntList.create(ref_of(arena), 4);
 
-    int_list_push(my_list, ref_of(arena), 10);
-    int_list_push(my_list, ref_of(arena), 20);
-    int_list_push(my_list, ref_of(arena), 30);
-    int_list_push(my_list, ref_of(arena), 40);
-    int_list_push(my_list, ref_of(arena), 50);
+    IntList.push(my_list, ref_of(arena), 10);
+    IntList.push(my_list, ref_of(arena), 20);
+    IntList.push(my_list, ref_of(arena), 30);
+    IntList.push(my_list, ref_of(arena), 40);
+    IntList.push(my_list, ref_of(arena), 50);
 
     println "IntList contents:";
-    int_list_print(my_list);
+    IntList.print_all(my_list);
 
     println "Element at index 2:";
-    println int_list_get(my_list, 2);
+    println IntList.get(my_list, 2);
 
-    arena_destroy(ref_of(arena));
+    Arena.destroy(ref_of(arena));
 }
