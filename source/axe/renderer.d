@@ -2682,4 +2682,19 @@ unittest
         assert(cCode.canFind("void SomeModel_some_function("), "Should generate function declaration for model method");
         assert(cCode.canFind("obj_some_function();"), "Should generate function call in main");
     }
+
+    {
+        auto tokens = lex("def test_func(grid: int[height][width], width: int, height: int) { } main { }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Variable-length array parameter reordering test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("void test_func(int width, int height, int grid[height][width]);"), 
+               "Forward declaration should have dimension parameters before array parameter");
+        
+        assert(cCode.canFind("void test_func(int width, int height, int grid[height][width])"), 
+               "Function definition should have dimension parameters before array parameter");
+    }
 }
