@@ -3363,4 +3363,44 @@ unittest
         assert(cCode.canFind("counter.value++;"), "Should increment struct member correctly");
         assert(cCode.canFind("counter.value--;"), "Should decrement struct member correctly");
     }
+
+    {
+        auto tokens = lex(`
+        model error {
+            msg: string;
+
+            def create(msg: char*): error {
+                return new error(msg: string.create(msg));
+            }
+
+            def print_self(err: error) {
+                print_str(err.msg);
+            }
+        }
+
+        def panic(err: error) {
+            print "\nRuntimeError: ";
+            error.print_self(err);
+            
+            raw {
+                exit(1);
+            }
+        }
+
+        def __test_error(): error {
+            return new error(msg: string.create("Some bad thing happened"));
+        }
+
+        test {
+            println_str(__test_error().msg);
+            panic(error.create("Uh oh"));
+        }`);
+        auto ast = parse(tokens, true);
+        auto cCode = generateC(ast);
+        writeln("Model method calls test:");
+        writeln(cCode);
+        assert(cCode.canFind("void error_print_self(stdlib_errors_error err)"),
+            "Should generate method function with correct signature");
+        
+    }
 }
