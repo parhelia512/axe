@@ -95,11 +95,22 @@ string generateAsm(ASTNode ast)
             final switch (child.nodeType)
             {
             case "Println":
-                asmCode ~= `
+                {
+                    auto printlnNode = cast(PrintlnNode) child;
+                    // Concatenate all string literal messages
+                    string combinedMsg = "";
+                    foreach (i, msg; printlnNode.messages)
+                    {
+                        if (!printlnNode.isExpressions[i])
+                        {
+                            combinedMsg ~= msg;
+                        }
+                        // Note: expressions in assembly would need more complex handling
+                    }
+                    asmCode ~= `
                     section .data
                         msg_`
-                    ~ msgCounter.to!string ~ ` db '` ~ (cast(PrintlnNode) child)
-                    .message ~ `', 0
+                    ~ msgCounter.to!string ~ ` db '` ~ combinedMsg ~ `', 0
                     section .text
                         mov rcx, msg_`
                     ~ msgCounter.to!string ~ `
@@ -107,7 +118,8 @@ string generateAsm(ASTNode ast)
                         mov rcx, nl
                         call printf
                 `;
-                msgCounter++;
+                    msgCounter++;
+                }
                 break;
 
             case "FunctionCall":
@@ -153,11 +165,22 @@ string generateAsm(ASTNode ast)
                     final switch (loopChild.nodeType)
                     {
                     case "Println":
-                        asmCode ~= `
+                        {
+                            auto printlnNode = cast(PrintlnNode) loopChild;
+                            // Concatenate all string literal messages
+                            string combinedMsg = "";
+                            foreach (i, msg; printlnNode.messages)
+                            {
+                                if (!printlnNode.isExpressions[i])
+                                {
+                                    combinedMsg ~= msg;
+                                }
+                                // Note: expressions in assembly would need more complex handling
+                            }
+                            asmCode ~= `
                             section .data
                                 msg_`
-                            ~ msgCounter.to!string ~ ` db '` ~ (cast(PrintlnNode) loopChild)
-                            .message ~ `', 0
+                            ~ msgCounter.to!string ~ ` db '` ~ combinedMsg ~ `', 0
                             section .text
                                 mov rcx, msg_`
                             ~ msgCounter.to!string ~ `
@@ -165,7 +188,8 @@ string generateAsm(ASTNode ast)
                                 mov rcx, nl
                                 call printf
                         `;
-                        msgCounter++;
+                            msgCounter++;
+                        }
                         break;
                     case "Break":
                         asmCode ~= "    jmp loop_" ~ loopId.to!string ~ "_end\n";
@@ -265,11 +289,22 @@ string generateAsm(ASTNode ast)
             switch (child.nodeType)
             {
             case "Println":
-                asmCode ~= `
+                {
+                    auto printlnNode = cast(PrintlnNode) child;
+                    // Concatenate all string literal messages
+                    string combinedMsg = "";
+                    foreach (i, msg; printlnNode.messages)
+                    {
+                        if (!printlnNode.isExpressions[i])
+                        {
+                            combinedMsg ~= msg;
+                        }
+                        // Note: expressions in assembly would need more complex handling
+                    }
+                    asmCode ~= `
                     section .data
                         msg_`
-                    ~ msgCounter.to!string ~ ` db '` ~ (cast(PrintlnNode) child)
-                    .message ~ `', 0
+                    ~ msgCounter.to!string ~ ` db '` ~ combinedMsg ~ `', 0
                     section .text
                         mov rcx, msg_`
                     ~ msgCounter.to!string ~ `
@@ -277,7 +312,8 @@ string generateAsm(ASTNode ast)
                         mov rcx, nl
                         call printf
                 `;
-                msgCounter++;
+                    msgCounter++;
+                }
                 break;
 
             case "FunctionCall":
@@ -382,11 +418,22 @@ string generateAsm(ASTNode ast)
                         asmCode ~= "    jmp " ~ loopEnd ~ "\n";
                         break;
                     case "Println":
-                        asmCode ~= `
+                        {
+                            auto printlnNode = cast(PrintlnNode) loopChild;
+                            // Concatenate all string literal messages
+                            string combinedMsg = "";
+                            foreach (i, msg; printlnNode.messages)
+                            {
+                                if (!printlnNode.isExpressions[i])
+                                {
+                                    combinedMsg ~= msg;
+                                }
+                                // Note: expressions in assembly would need more complex handling
+                            }
+                            asmCode ~= `
                             section .data
                                 msg_`
-                            ~ msgCounter.to!string ~ ` db '` ~ (cast(PrintlnNode) loopChild)
-                            .message ~ `', 0
+                            ~ msgCounter.to!string ~ ` db '` ~ combinedMsg ~ `', 0
                             section .text
                                 mov rcx, msg_`
                             ~ msgCounter.to!string ~ `
@@ -394,7 +441,8 @@ string generateAsm(ASTNode ast)
                                 mov rcx, nl
                                 call printf
                         `;
-                        msgCounter++;
+                            msgCounter++;
+                        }
                         break;
                     case "If":
                         auto condition = (cast(IfNode) loopChild).condition;
@@ -482,10 +530,22 @@ string generateAsm(ASTNode ast)
             final switch (child.nodeType)
             {
             case "Println":
-                asmCode ~= `
+                {
+                    auto printlnNode = cast(PrintlnNode) child;
+                    // Concatenate all string literal messages
+                    string combinedMsg = "";
+                    foreach (i, msg; printlnNode.messages)
+                    {
+                        if (!printlnNode.isExpressions[i])
+                        {
+                            combinedMsg ~= msg;
+                        }
+                        // Note: expressions in assembly would need more complex handling
+                    }
+                    asmCode ~= `
                     section .data
                         msg_`
-                    ~ loopId.to!string ~ ` db '` ~ (cast(PrintlnNode) child).message ~ `', 0
+                    ~ loopId.to!string ~ ` db '` ~ combinedMsg ~ `', 0
                     section .text
                         mov rcx, msg_`
                     ~ loopId.to!string ~ `
@@ -493,6 +553,7 @@ string generateAsm(ASTNode ast)
                         mov rcx, nl
                         call printf
                 `;
+                }
                 break;
             case "Break":
                 asmCode ~= "    jmp loop_" ~ loopId.to!string ~ "_end\n";

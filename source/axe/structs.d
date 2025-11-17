@@ -268,27 +268,45 @@ class ProgramNode : ASTNode
 
 class PrintlnNode : ASTNode
 {
-    string message;
-    bool isExpression;
+    string[] messages;
+    bool[] isExpressions;
 
+    // Backward compatibility: single message constructor
     this(string message, bool isExpression = false)
     {
         super("Println");
-        this.message = message;
-        this.isExpression = isExpression;
+        this.messages = [message];
+        this.isExpressions = [isExpression];
+    }
+
+    // Multiple arguments constructor
+    this(string[] messages, bool[] isExpressions)
+    {
+        super("Println");
+        this.messages = messages;
+        this.isExpressions = isExpressions;
     }
 }
 
 class PrintNode : ASTNode
 {
-    string message;
-    bool isExpression;
+    string[] messages;
+    bool[] isExpressions;
 
+    // Backward compatibility: single message constructor
     this(string message, bool isExpression = false)
     {
         super("Print");
-        this.message = message;
-        this.isExpression = isExpression;
+        this.messages = [message];
+        this.isExpressions = [isExpression];
+    }
+
+    // Multiple arguments constructor
+    this(string[] messages, bool[] isExpressions)
+    {
+        super("Print");
+        this.messages = messages;
+        this.isExpressions = isExpressions;
     }
 }
 

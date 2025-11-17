@@ -359,28 +359,36 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
     else if (node.nodeType == "Print")
     {
         auto printNode = cast(PrintNode) node;
-        if (printNode.isExpression)
+        // Update all expression messages
+        for (size_t i = 0; i < printNode.messages.length; i++)
         {
-            foreach (oldName, newName; nameMap)
+            if (printNode.isExpressions[i])
             {
-                printNode.message = printNode.message.replace(oldName ~ "(", newName ~ "(");
+                foreach (oldName, newName; nameMap)
+                {
+                    printNode.messages[i] = printNode.messages[i].replace(oldName ~ "(", newName ~ "(");
 
-                // Also replace dot notation
-                string oldCallDot = oldName.replace("_", ".") ~ "(";
-                printNode.message = printNode.message.replace(oldCallDot, newName ~ "(");
+                    // Also replace dot notation
+                    string oldCallDot = oldName.replace("_", ".") ~ "(";
+                    printNode.messages[i] = printNode.messages[i].replace(oldCallDot, newName ~ "(");
+                }
             }
         }
     }
     else if (node.nodeType == "Println")
     {
         auto printlnNode = cast(PrintlnNode) node;
-        if (printlnNode.isExpression)
+        // Update all expression messages
+        for (size_t i = 0; i < printlnNode.messages.length; i++)
         {
-            foreach (oldName, newName; nameMap)
+            if (printlnNode.isExpressions[i])
             {
-                printlnNode.message = printlnNode.message.replace(oldName ~ "(", newName ~ "(");
-                string oldCallDot = oldName.replace("_", ".") ~ "(";
-                printlnNode.message = printlnNode.message.replace(oldCallDot, newName ~ "(");
+                foreach (oldName, newName; nameMap)
+                {
+                    printlnNode.messages[i] = printlnNode.messages[i].replace(oldName ~ "(", newName ~ "(");
+                    string oldCallDot = oldName.replace("_", ".") ~ "(";
+                    printlnNode.messages[i] = printlnNode.messages[i].replace(oldCallDot, newName ~ "(");
+                }
             }
         }
     }

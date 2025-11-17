@@ -814,27 +814,75 @@ string generateC(ASTNode ast)
 
     case "Println":
         auto printlnNode = cast(PrintlnNode) ast;
-        if (printlnNode.isExpression)
         {
-            string processedExpr = processExpression(printlnNode.message, "println");
-            cCode ~= "printf(\"%d\\n\", " ~ processedExpr ~ ");\n";
-        }
-        else
-        {
-            cCode ~= "printf(\"" ~ printlnNode.message ~ "\\n\");\n";
+            string formatString = "";
+            string[] exprArgs;
+            
+            // Build format string and collect expression arguments
+            for (size_t i = 0; i < printlnNode.messages.length; i++)
+            {
+                if (printlnNode.isExpressions[i])
+                {
+                    // Expression: determine format specifier based on type
+                    string formatSpec = getFormatSpecifier(printlnNode.messages[i]);
+                    formatString ~= formatSpec;
+                    string processedExpr = processExpression(printlnNode.messages[i], "println");
+                    exprArgs ~= processedExpr;
+                }
+                else
+                {
+                    // String literal: add directly to format string
+                    formatString ~= printlnNode.messages[i];
+                }
+            }
+            
+            formatString ~= "\\n";
+            
+            // Generate printf call
+            if (exprArgs.length > 0)
+            {
+                cCode ~= "printf(\"" ~ formatString ~ "\", " ~ exprArgs.join(", ") ~ ");\n";
+            }
+            else
+            {
+                cCode ~= "printf(\"" ~ formatString ~ "\");\n";
+            }
         }
         break;
 
     case "Print":
         auto printNode = cast(PrintNode) ast;
-        if (printNode.isExpression)
         {
-            string processedExpr = processExpression(printNode.message, "println");
-            cCode ~= "printf(\"%d\", " ~ processedExpr ~ ");\n";
-        }
-        else
-        {
-            cCode ~= "printf(\"" ~ printNode.message ~ "\");\n";
+            string formatString = "";
+            string[] exprArgs;
+            
+            // Build format string and collect expression arguments
+            for (size_t i = 0; i < printNode.messages.length; i++)
+            {
+                if (printNode.isExpressions[i])
+                {
+                    // Expression: determine format specifier based on type
+                    string formatSpec = getFormatSpecifier(printNode.messages[i]);
+                    formatString ~= formatSpec;
+                    string processedExpr = processExpression(printNode.messages[i], "println");
+                    exprArgs ~= processedExpr;
+                }
+                else
+                {
+                    // String literal: add directly to format string
+                    formatString ~= printNode.messages[i];
+                }
+            }
+            
+            // Generate printf call
+            if (exprArgs.length > 0)
+            {
+                cCode ~= "printf(\"" ~ formatString ~ "\", " ~ exprArgs.join(", ") ~ ");\n";
+            }
+            else
+            {
+                cCode ~= "printf(\"" ~ formatString ~ "\");\n";
+            }
         }
         break;
 
@@ -1697,6 +1745,46 @@ string processExpression(string expr, string context = "")
 }
 
 import std.array;
+
+/**
+ * Determines the printf format specifier for an expression.
+ * Returns "%s" for strings, "%d" for integers (default).
+ */
+private string getFormatSpecifier(string expr)
+{
+    // Check if expression contains .data (common for String types)
+    if (expr.canFind(".data"))
+    {
+        return "%s";
+    }
+    
+    // Check if it's a simple variable with string type
+    import std.string : strip;
+    string varName = expr.strip();
+    
+    // Remove any member access to get base variable name
+    if (varName.canFind("."))
+    {
+        varName = varName[0 .. varName.indexOf(".")];
+    }
+    else if (varName.canFind("->"))
+    {
+        varName = varName[0 .. varName.indexOf("->")];
+    }
+    
+    // Check if variable type is a string/pointer type
+    if (varName in g_varType)
+    {
+        string varType = g_varType[varName];
+        if (varType.canFind("*") || varType.canFind("char"))
+        {
+            return "%s";
+        }
+    }
+    
+    // Default to integer format (maintains backward compatibility)
+    return "%d";
+}
 
 private string processCondition(string condition)
 {

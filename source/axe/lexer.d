@@ -581,6 +581,7 @@ unittest
         assert(ast.children.length == 1);
         assert(ast.children[0].nodeType == "Function");
         assert(ast.children[0].children[0].nodeType == "Println");
-        assert((cast(PrintlnNode) ast.children[0].children[0]).message == "test");
+        assert((cast(PrintlnNode) ast.children[0].children[0]).messages.length == 1);
+        assert((cast(PrintlnNode) ast.children[0].children[0]).messages[0] == "test");
     }
 }

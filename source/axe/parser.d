@@ -183,69 +183,165 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
     }
 
     /** 
-     * Parses println argument (string literal or expression)
+     * Parses println arguments (string literals or expressions, comma-separated)
      * 
      * Returns: 
-     *   PrintlnNode = Node with message and isExpression flag
+     *   PrintlnNode = Node with messages and isExpression flags
      */
     PrintlnNode parsePrintln()
     {
         pos++;
-
-        if (pos < tokens.length && tokens[pos].type == TokenType.STR)
-        {
-            string msg = tokens[pos].value;
+        
+        string[] messages;
+        bool[] isExpressions;
+        
+        // Skip whitespace
+        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
-            return new PrintlnNode(msg, false);
-        }
-        else
+        
+        // Parse comma-separated arguments until semicolon
+        while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
         {
-            string expr = "";
-            while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
-            {
-                if (tokens[pos].type == TokenType.STR)
-                    expr ~= "\"" ~ tokens[pos].value ~ "\"";
-                else if (tokens[pos].type == TokenType.DOT)
-                    expr ~= ".";
-                else
-                    expr ~= tokens[pos].value;
+            // Skip whitespace before argument
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
+            
+            if (pos >= tokens.length || tokens[pos].type == TokenType.SEMICOLON)
+                break;
+            
+            // Check if it's a string literal
+            if (tokens[pos].type == TokenType.STR)
+            {
+                string msg = tokens[pos].value;
+                pos++;
+                messages ~= msg;
+                isExpressions ~= false;
             }
-            return new PrintlnNode(expr.strip(), true);
+            else
+            {
+                // Parse as expression until comma or semicolon
+                string expr = "";
+                while (pos < tokens.length && 
+                       tokens[pos].type != TokenType.SEMICOLON && 
+                       tokens[pos].type != TokenType.COMMA)
+                {
+                    if (tokens[pos].type == TokenType.STR)
+                        expr ~= "\"" ~ tokens[pos].value ~ "\"";
+                    else if (tokens[pos].type == TokenType.DOT)
+                        expr ~= ".";
+                    else
+                        expr ~= tokens[pos].value;
+                    pos++;
+                }
+                if (expr.length > 0)
+                {
+                    messages ~= expr.strip();
+                    isExpressions ~= true;
+                }
+            }
+            
+            // Skip whitespace after argument
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+            
+            // If comma, skip it and continue to next argument
+            if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
+            {
+                pos++;
+                // Skip whitespace after comma
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+            }
         }
+        
+        // If no arguments were parsed, return empty
+        if (messages.length == 0)
+        {
+            return new PrintlnNode("", false);
+        }
+        
+        return new PrintlnNode(messages, isExpressions);
     }
 
     /** 
-     * Parses print argument (string literal or expression)
+     * Parses print arguments (string literals or expressions, comma-separated)
      * 
      * Returns: 
-     *   PrintNode = Node with message and isExpression flag
+     *   PrintNode = Node with messages and isExpression flags
      */
     PrintNode parsePrint()
     {
         pos++;
-
-        if (pos < tokens.length && tokens[pos].type == TokenType.STR)
-        {
-            string msg = tokens[pos].value;
+        
+        string[] messages;
+        bool[] isExpressions;
+        
+        // Skip whitespace
+        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
-            return new PrintNode(msg, false);
-        }
-        else
+        
+        // Parse comma-separated arguments until semicolon
+        while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
         {
-            string expr = "";
-            while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
-            {
-                if (tokens[pos].type == TokenType.STR)
-                    expr ~= "\"" ~ tokens[pos].value ~ "\"";
-                else if (tokens[pos].type == TokenType.DOT)
-                    expr ~= ".";
-                else
-                    expr ~= tokens[pos].value;
+            // Skip whitespace before argument
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
+            
+            if (pos >= tokens.length || tokens[pos].type == TokenType.SEMICOLON)
+                break;
+            
+            // Check if it's a string literal
+            if (tokens[pos].type == TokenType.STR)
+            {
+                string msg = tokens[pos].value;
+                pos++;
+                messages ~= msg;
+                isExpressions ~= false;
             }
-            return new PrintNode(expr.strip(), true);
+            else
+            {
+                // Parse as expression until comma or semicolon
+                string expr = "";
+                while (pos < tokens.length && 
+                       tokens[pos].type != TokenType.SEMICOLON && 
+                       tokens[pos].type != TokenType.COMMA)
+                {
+                    if (tokens[pos].type == TokenType.STR)
+                        expr ~= "\"" ~ tokens[pos].value ~ "\"";
+                    else if (tokens[pos].type == TokenType.DOT)
+                        expr ~= ".";
+                    else
+                        expr ~= tokens[pos].value;
+                    pos++;
+                }
+                if (expr.length > 0)
+                {
+                    messages ~= expr.strip();
+                    isExpressions ~= true;
+                }
+            }
+            
+            // Skip whitespace after argument
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+            
+            // If comma, skip it and continue to next argument
+            if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
+            {
+                pos++;
+                // Skip whitespace after comma
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+            }
         }
+        
+        // If no arguments were parsed, return empty
+        if (messages.length == 0)
+        {
+            return new PrintNode("", false);
+        }
+        
+        return new PrintNode(messages, isExpressions);
     }
 
     /**
@@ -5230,36 +5326,80 @@ private LoopNode parseLoopHelper(ref size_t pos, Token[] tokens, ref Scope curre
 private PrintlnNode parsePrintlnHelper(ref size_t pos, Token[] tokens)
 {
     pos++;
-
-    if (pos < tokens.length && tokens[pos].type == TokenType.STR)
-    {
-        string msg = tokens[pos].value;
+    
+    string[] messages;
+    bool[] isExpressions;
+    
+    // Skip whitespace
+    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
         pos++;
+    
+    // Parse comma-separated arguments until semicolon
+    while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+    {
+        // Skip whitespace before argument
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
-        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-            "Expected ';' after println");
-        pos++;
-        return new PrintlnNode(msg, false);
-    }
-    else
-    {
-        string expr = "";
-        while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+        
+        if (pos >= tokens.length || tokens[pos].type == TokenType.SEMICOLON)
+            break;
+        
+        // Check if it's a string literal
+        if (tokens[pos].type == TokenType.STR)
         {
-            if (tokens[pos].type == TokenType.STR)
-                expr ~= "\"" ~ tokens[pos].value ~ "\"";
-            else if (tokens[pos].type == TokenType.DOT)
-                expr ~= ".";
-            else
-                expr ~= tokens[pos].value;
+            string msg = tokens[pos].value;
             pos++;
+            messages ~= msg;
+            isExpressions ~= false;
         }
-        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-            "Expected ';' after println");
-        pos++;
-        return new PrintlnNode(expr.strip(), true);
+        else
+        {
+            // Parse as expression until comma or semicolon
+            string expr = "";
+            while (pos < tokens.length && 
+                   tokens[pos].type != TokenType.SEMICOLON && 
+                   tokens[pos].type != TokenType.COMMA)
+            {
+                if (tokens[pos].type == TokenType.STR)
+                    expr ~= "\"" ~ tokens[pos].value ~ "\"";
+                else if (tokens[pos].type == TokenType.DOT)
+                    expr ~= ".";
+                else
+                    expr ~= tokens[pos].value;
+                pos++;
+            }
+            if (expr.length > 0)
+            {
+                messages ~= expr.strip();
+                isExpressions ~= true;
+            }
+        }
+        
+        // Skip whitespace after argument
+        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+            pos++;
+        
+        // If comma, skip it and continue to next argument
+        if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
+        {
+            pos++;
+            // Skip whitespace after comma
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+        }
     }
+    
+    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+        "Expected ';' after println");
+    pos++;
+    
+    // If no arguments were parsed, return empty
+    if (messages.length == 0)
+    {
+        return new PrintlnNode("", false);
+    }
+    
+    return new PrintlnNode(messages, isExpressions);
 }
 
 /**
@@ -5268,36 +5408,80 @@ private PrintlnNode parsePrintlnHelper(ref size_t pos, Token[] tokens)
 private PrintNode parsePrintHelper(ref size_t pos, Token[] tokens)
 {
     pos++;
-
-    if (pos < tokens.length && tokens[pos].type == TokenType.STR)
-    {
-        string msg = tokens[pos].value;
+    
+    string[] messages;
+    bool[] isExpressions;
+    
+    // Skip whitespace
+    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
         pos++;
+    
+    // Parse comma-separated arguments until semicolon
+    while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+    {
+        // Skip whitespace before argument
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
-        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-            "Expected ';' after print");
-        pos++;
-        return new PrintNode(msg, false);
-    }
-    else
-    {
-        string expr = "";
-        while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+        
+        if (pos >= tokens.length || tokens[pos].type == TokenType.SEMICOLON)
+            break;
+        
+        // Check if it's a string literal
+        if (tokens[pos].type == TokenType.STR)
         {
-            if (tokens[pos].type == TokenType.STR)
-                expr ~= "\"" ~ tokens[pos].value ~ "\"";
-            else if (tokens[pos].type == TokenType.DOT)
-                expr ~= ".";
-            else
-                expr ~= tokens[pos].value;
+            string msg = tokens[pos].value;
             pos++;
+            messages ~= msg;
+            isExpressions ~= false;
         }
-        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-            "Expected ';' after print");
-        pos++;
-        return new PrintNode(expr.strip(), true);
+        else
+        {
+            // Parse as expression until comma or semicolon
+            string expr = "";
+            while (pos < tokens.length && 
+                   tokens[pos].type != TokenType.SEMICOLON && 
+                   tokens[pos].type != TokenType.COMMA)
+            {
+                if (tokens[pos].type == TokenType.STR)
+                    expr ~= "\"" ~ tokens[pos].value ~ "\"";
+                else if (tokens[pos].type == TokenType.DOT)
+                    expr ~= ".";
+                else
+                    expr ~= tokens[pos].value;
+                pos++;
+            }
+            if (expr.length > 0)
+            {
+                messages ~= expr.strip();
+                isExpressions ~= true;
+            }
+        }
+        
+        // Skip whitespace after argument
+        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+            pos++;
+        
+        // If comma, skip it and continue to next argument
+        if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
+        {
+            pos++;
+            // Skip whitespace after comma
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+        }
     }
+    
+    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+        "Expected ';' after print");
+    pos++;
+    
+    // If no arguments were parsed, return empty
+    if (messages.length == 0)
+    {
+        return new PrintNode("", false);
+    }
+    
+    return new PrintNode(messages, isExpressions);
 }
 
 /**
