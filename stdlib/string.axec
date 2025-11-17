@@ -204,8 +204,8 @@ test {
     assert(is_alpha(65) != 0, "65 (A) should be alphabetic");
     assert(is_digit(48) != 0, "48 (0) should be a digit");
     assert(is_alnum(97) != 0, "97 (a) should be alphanumeric");
-    assert(to_upper(97) == 65, "to_upper(a) should return A");
-    assert(to_lower(65) == 97, "to_lower(A) should return a");
+    assert(to_upper(97) == 65, "to_upper('a') should return A");
+    assert(to_lower(65) == 97, "to_lower('A') should return a");
     assert(str_ncmp("hello", "help", 3) == 0, "first 3 chars of hello and help should match");
     
     mut val buffer: char[64];
