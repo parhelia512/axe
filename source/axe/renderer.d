@@ -203,7 +203,17 @@ string[] computeReorderedCParams(FunctionNode funcNode, out int[] reorderMap, ou
         {
             // Convert int[n][m] to VLA syntax: int arrayName[n][m]
             auto bracketPos = info.type.indexOf('[');
-            string baseType = info.type[0 .. bracketPos];
+            string baseType = info.type[0 .. bracketPos].strip();
+
+            // Array references like "ref i32[]" should not add an extra pointer
+            while (baseType.startsWith("ref "))
+            {
+                baseType = baseType[4 .. $].strip();
+            }
+            while (baseType.startsWith("mut "))
+            {
+                baseType = baseType[4 .. $].strip();
+            }
 
             // Apply type mapping to the base type
             baseType = mapAxeTypeToC(baseType);
@@ -3200,5 +3210,21 @@ unittest
         assert(cCode.canFind("typedef struct Node {"), "Model should emit typedef for struct Node");
         assert(cCode.canFind("struct Node* next;"),
             "Self-referential fields should use 'struct Node*' to avoid undeclared identifier errors");
+    }
+
+    {
+        auto tokens = lex(
+            "def use_grid(grid: ref i32[], width: i32) { } " ~
+            "main { use_grid(nil, 0); }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Ref array parameter test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("void use_grid(int32_t* grid, int32_t width);"),
+            "ref i32[] parameters should compile to single pointer");
+        assert(cCode.canFind("void use_grid(int32_t* grid, int32_t width)"),
+            "Function definition should also use single pointer");
     }
 }
