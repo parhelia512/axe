@@ -11,7 +11,6 @@ import std.string;
 import std.array;
 import std.exception;
 
-
 private string[string] g_processedModules;
 private bool[string] g_addedNodeNames;
 
