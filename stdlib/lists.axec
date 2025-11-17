@@ -11,7 +11,13 @@ use stdlib/string (
     string
 );
 
-macro make_list(name: string, type: string, nullval: untyped, cep: untyped, printer: untyped) {
+macro make_list(
+    name: string, 
+    type: string, 
+    nullval: untyped, 
+    cep: untyped, 
+    printer: untyped
+) {
     model name {
         data: ref type;
         len: i32;
