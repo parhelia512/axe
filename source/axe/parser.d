@@ -656,7 +656,35 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                         "Expected ':' after field name");
                     pos++; // Skip ':'
 
-                    string fieldType = parseType();
+                    // Check if this is an array type
+                    size_t savedPos = pos;
+                    string baseType = parseType();
+                    string fieldType;
+                    
+                    if (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
+                    {
+                        // It's an array type, parse it properly
+                        pos = savedPos;
+                        auto arrayInfo = parseArrayType();
+                        fieldType = arrayInfo.elementType;
+                        if (arrayInfo.size.length > 0)
+                            fieldType ~= "[" ~ arrayInfo.size ~ "]";
+                        else
+                            fieldType ~= "[]";
+                        
+                        if (arrayInfo.hasSecondDimension)
+                        {
+                            if (arrayInfo.size2.length > 0)
+                                fieldType ~= "[" ~ arrayInfo.size2 ~ "]";
+                            else
+                                fieldType ~= "[]";
+                        }
+                    }
+                    else
+                    {
+                        fieldType = baseType;
+                    }
+                    
                     orderedFields ~= ModelNode.Field(fieldName, fieldType);
                 }
                 else

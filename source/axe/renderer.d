@@ -1092,8 +1092,24 @@ string generateC(ASTNode ast)
         cCode ~= "typedef struct " ~ modelNode.name ~ " {\n";
         foreach (field; modelNode.fields)
         {
-            string fieldType = mapAxeTypeToC(field.type);
-            writeln("DEBUG model field: name='", field.name, "' type='", field.type, "' mapped='", fieldType, "'");
+            string fieldType;
+            string arrayPart = "";
+            
+            // Extract array part first, then map the base type to C
+            import std.string : indexOf;
+            auto bracketPos = field.type.indexOf('[');
+            if (bracketPos >= 0)
+            {
+                arrayPart = field.type[bracketPos .. $];
+                string rawBaseType = field.type[0 .. bracketPos].strip();
+                fieldType = mapAxeTypeToC(rawBaseType);
+            }
+            else
+            {
+                fieldType = mapAxeTypeToC(field.type);
+            }
+            
+            writeln("DEBUG model field: name='", field.name, "' type='", field.type, "' mapped='", fieldType, "' arrayPart='", arrayPart, "'");
 
             // Handle ref types - convert "ref T" to "T*"
             if (fieldType.startsWith("ref "))
@@ -1108,7 +1124,7 @@ string generateC(ASTNode ast)
             //     fieldType = "struct " ~ field.type ~ "*";
             // }
 
-            cCode ~= "    " ~ fieldType ~ " " ~ field.name ~ ";\n";
+            cCode ~= "    " ~ fieldType ~ " " ~ field.name ~ arrayPart ~ ";\n";
         }
         cCode ~= "} " ~ modelNode.name ~ ";\n\n";
         break;
@@ -3007,5 +3023,16 @@ unittest
         
         assert(cCode.canFind("dest.data = src.data;") || cCode.canFind("dest.data=src.data;"),
                "Function parameter should be usable in function body");
+    }
+
+    {
+        auto tokens = lex("model Test { data: i32[10][20]; } main { }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("2D array test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("int32_t data[10][20];"), "2D array should be rendered as int32_t data[10][20];");
     }
 }
