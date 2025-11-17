@@ -36,7 +36,7 @@ def str_copy(src: String, desta: mut String): void {
 def str_cmp(a: String, b: String): i32 {
     mut val len: usize = 0;
     if a.len < b.len {
-        len = a.len; //len undefined, how?
+        len = a.len;
     } else {
         len = b.len;
     }
