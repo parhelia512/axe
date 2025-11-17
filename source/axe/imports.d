@@ -20,6 +20,26 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
     if (programNode is null)
         return ast;
 
+    auto startsWithLower = (string s) {
+        return s.length > 0 && s[0] >= 'a' && s[0] <= 'z';
+    };
+
+    if (currentFilePath.length > 0 && !currentFilePath.canFind("stdlib"))
+    {
+        foreach (child; programNode.children)
+        {
+            if (child.nodeType == "Model")
+            {
+                auto modelNode = cast(ModelNode) child;
+                if (startsWithLower(modelNode.name))
+                {
+                    throw new Exception("Declaring primitive types outside of the standard library is disallowed: " ~
+                        modelNode.name);
+                }
+            }
+        }
+    }
+
     ASTNode[] newChildren;
     string[string] importedFunctions;
     string[string] importedModels;
@@ -109,6 +129,21 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
             bool importIsAxec = modulePath.endsWith(".axec");
             auto importAst = parse(importTokens, importIsAxec, false);
             auto importProgram = cast(ProgramNode) importAst;
+            if (!modulePath.canFind("stdlib") && importProgram !is null)
+            {
+                foreach (importChild; importProgram.children)
+                {
+                    if (importChild.nodeType == "Model")
+                    {
+                        auto mNode = cast(ModelNode) importChild;
+                        if (startsWithLower(mNode.name))
+                        {
+                            string msg = "Declaring primitive types outside of the standard library is disallowed: " ~ mNode.name;
+                            throw new Exception(msg);
+                        }
+                    }
+                }
+            }
             string sanitizedModuleName = useNode.moduleName.replace("/", "_");
 
             string[string] moduleFunctionMap;
