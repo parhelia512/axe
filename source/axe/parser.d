@@ -1094,8 +1094,42 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
 
                             mainNode.children ~= new MemberAccessNode(identName, memberName, value.strip());
                         }
+                        else if (pos < tokens.length && tokens[pos].type == TokenType.INCREMENT)
+                        {
+                            if (!currentScope.isDeclared(identName))
+                                enforce(false, "Undeclared variable: " ~ identName);
+
+                            if (!currentScope.isMutable(identName))
+                                enforce(false, "Cannot increment member of immutable variable: " ~ identName);
+
+                            pos++; // Skip '++'
+
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after member increment");
+                            pos++;
+
+                            mainNode.children ~= new MemberIncrementDecrementNode(identName, memberName, true);
+                        }
+                        else if (pos < tokens.length && tokens[pos].type == TokenType.DECREMENT)
+                        {
+                            if (!currentScope.isDeclared(identName))
+                                enforce(false, "Undeclared variable: " ~ identName);
+
+                            if (!currentScope.isMutable(identName))
+                                enforce(false, "Cannot decrement member of immutable variable: " ~ identName);
+
+                            pos++; // Skip '--'
+
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after member decrement");
+                            pos++;
+
+                            mainNode.children ~= new MemberIncrementDecrementNode(identName, memberName, false);
+                        }
                         else
                         {
+                            // TODO: Implement this.
+                            //
                             // Member read - this would be part of an expression
                             // For now, we'll handle it in println or other contexts
                             enforce(false, "Member read not yet supported in this context");
@@ -4719,6 +4753,40 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 pos++;
                 // Use AssignmentNode with the full left side expression
                 return new AssignmentNode(fullLeftSide, value.strip());
+            }
+            else if (pos < tokens.length && tokens[pos].type == TokenType.INCREMENT)
+            {
+                // Member increment: obj.member++
+                if (!currentScope.isDeclared(identName))
+                    enforce(false, "Undeclared variable: " ~ identName);
+
+                if (!currentScope.isMutable(identName))
+                    enforce(false, "Cannot increment member of immutable variable: " ~ identName);
+
+                pos++; // Skip '++'
+
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                    "Expected ';' after member increment");
+                pos++;
+
+                return new MemberIncrementDecrementNode(identName, memberName, true);
+            }
+            else if (pos < tokens.length && tokens[pos].type == TokenType.DECREMENT)
+            {
+                // Member decrement: obj.member--
+                if (!currentScope.isDeclared(identName))
+                    enforce(false, "Undeclared variable: " ~ identName);
+
+                if (!currentScope.isMutable(identName))
+                    enforce(false, "Cannot decrement member of immutable variable: " ~ identName);
+
+                pos++; // Skip '--'
+
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                    "Expected ';' after member decrement");
+                pos++;
+
+                return new MemberIncrementDecrementNode(identName, memberName, false);
             }
         }
         else if (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)

@@ -1397,6 +1397,16 @@ string generateC(ASTNode ast)
             cCode ~= indent ~ incDecNode.variable ~ "--;\n";
         break;
 
+    case "MemberIncrementDecrement":
+        auto memberIncDecNode = cast(MemberIncrementDecrementNode) ast;
+        string indent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
+
+        if (memberIncDecNode.isIncrement)
+            cCode ~= indent ~ memberIncDecNode.objectName ~ "." ~ memberIncDecNode.memberName ~ "++;\n";
+        else
+            cCode ~= indent ~ memberIncDecNode.objectName ~ "." ~ memberIncDecNode.memberName ~ "--;\n";
+        break;
+
     case "ExternalImport":
         auto extImportNode = cast(ExternalImportNode) ast;
         cCode ~= "#include <" ~ extImportNode.headerFile ~ ">\n";

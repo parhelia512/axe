@@ -562,6 +562,23 @@ class IncrementDecrementNode : ASTNode
     }
 }
 
+class MemberIncrementDecrementNode : ASTNode
+{
+    string objectName;
+    string memberName;
+
+    // true for ++, false for --
+    bool isIncrement;
+
+    this(string objectName, string memberName, bool isIncrement)
+    {
+        super("MemberIncrementDecrement");
+        this.objectName = objectName;
+        this.memberName = memberName;
+        this.isIncrement = isIncrement;
+    }
+}
+
 class Scope
 {
     string[string] variables;
