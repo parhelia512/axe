@@ -78,11 +78,6 @@ def write_file(path: string, contents: string): bool {
 
 test {
     assert(exec(string.create("echo test")) == 0, "exec should run successfully");
-
-    assert(write_file(string.create("testfile.txt"),
-                      string.create("hello")), 
-           "write_file should succeed");
-
-    assert(file_exists(string.create("testfile.txt")), 
-           "file should exist after writing");
+    assert(write_file(string.create("testfile.txt"), string.create("hello")), "write_file should succeed");
+    assert(file_exists(string.create("testfile.txt")), "file should exist after writing");
 }
