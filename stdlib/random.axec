@@ -17,6 +17,8 @@ def random_float(a: f32, b: f32): f32 {
 }
 
 test {
+    randomize();
+    
     assert(random(1, 10) >= 1, "Random number should be between 1 and 10");
     assert(random(1, 10) <= 10, "Random number should be between 1 and 10");
     
