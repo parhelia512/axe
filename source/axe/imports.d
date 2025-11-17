@@ -11,7 +11,6 @@ import std.string;
 import std.array;
 import std.exception;
 
-// Global set to track processed modules and prevent circular imports
 private string[string] g_processedModules;
 
 /**
