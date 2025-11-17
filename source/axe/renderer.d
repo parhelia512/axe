@@ -3263,4 +3263,27 @@ unittest
         assert(cCode.canFind("void use_grid(int32_t* grid, int32_t width)"),
             "Function definition should also use single pointer");
     }
+
+    {
+        auto tokens = lex(
+            `
+            model error {
+                msg: string;
+            }
+
+            def __test_error(): error {
+                return new error(msg: string.create("Some bad thing happened"));
+            }
+            `
+        );
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Prefixed model instantiation test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("struct stdlib_errors_error"), "Should have generated struct with prefixed name");
+        assert(cCode.canFind("struct stdlib_errors_error){(stdlib_string_string_create(\"test\"))}"), 
+        "Should instantiate with correct prefixed struct name");
+    }
 }
