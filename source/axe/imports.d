@@ -857,3 +857,11 @@ string getUserHomeDir()
         return environment.get("HOME", "");
     }
 }
+
+unittest
+{
+    import std.string : indexOf;
+
+    assert(convertToModelMethodPattern("Model_method") == r"Model\s*\.\s*method");
+    assert(convertToModelMethodPattern("Arena_create") == r"Arena\s*\.\s*create");
+}
