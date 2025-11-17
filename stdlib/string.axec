@@ -1,14 +1,14 @@
-/// String model representing a dynamic string with length tracking.
-model String {
+/// string model representing a dynamic string with length tracking.
+model string {
     data: char*;
     len: usize;
     cap: usize;
 
     /// Creates a new string from a char pointer.
-    def create(data: char*): String {
-        mut val result: String;
+    def create(data: char*): string {
+        mut val result: string;
         raw {
-            String* ptr = (String*)malloc(sizeof(String));
+            string* ptr = (string*)malloc(sizeof(string));
             if (ptr != NULL) {
                 ptr->data = (char*)data;
                 ptr->len = (uintptr_t)strlen((const char*)data);
@@ -21,19 +21,19 @@ model String {
 }
 
 /// Returns the length of a string.
-def str_len(s: String): usize {
+def str_len(s: string): usize {
     return s.len;
 }
 
 /// Copies source string to destination. Modifies dest in place.
-def str_copy(src: String, desta: mut String): void {
+def str_copy(src: string, desta: mut string): void {
     for mut val i = 0; i < src.len; i++ {
         desta.data[i] = src.data[i];
     }
 }
 
 /// Compares two strings. Returns 0 if equal.
-def str_cmp(a: String, b: String): i32 {
+def str_cmp(a: string, b: string): i32 {
     mut val len: usize = 0;
     if a.len < b.len {
         len = a.len;
@@ -50,14 +50,14 @@ def str_cmp(a: String, b: String): i32 {
 }
 
 /// Concatenates source string to destination. Modifies dest in place.
-def concat(dest: String, src: String): void {
+def concat(dest: string, src: string): void {
     raw {
         strcat((char*)dest.data, (const char*)src.data);
     }
 }
 
 /// Finds first occurrence of character in string. Returns pointer or 0.
-def first_occurrence(s: String, c: i32): char* {
+def first_occurrence(s: string, c: i32): char* {
     mut val result: char* = 0;
     raw {
         result = strchr((const char*)s.data, c);
@@ -66,7 +66,7 @@ def first_occurrence(s: String, c: i32): char* {
 }
 
 /// Finds first occurrence of substring in string. Returns pointer or 0.
-def substring(haystack: String, needle: String): char* {
+def substring(haystack: string, needle: string): char* {
     mut val result: char* = 0;
     raw {
         result = strstr((const char*)haystack.data, (const char*)needle.data);
@@ -75,7 +75,7 @@ def substring(haystack: String, needle: String): char* {
 }
 
 /// Converts string to integer.
-def str_to_int(s: String): i32 {
+def str_to_int(s: string): i32 {
     mut val result: i32 = 0;
     raw {
         result = atoi((const char*)s.data);
