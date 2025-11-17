@@ -71,44 +71,116 @@ main {
 }
 ```
 
-### Variables and Types
+### Game of Life
 
 ```
-main {
-    val x: i32 = 42;
-    mut val y: i32 = 10;
-
-    y = y + x;
-    println y;
+/// Convert 2D coordinate (x, y) into 1D index
+def idx(x: i32, y: i32, width: i32): i32 {
+    return y * width + x;
 }
-```
 
-### Control Flow
-
-```
-main {
-    val x = 5;
-
-    if x > 3 {
-        println "x is greater than 3";
-    } else {
-        println "x is not greater than 3";
-    }
-
-    for val i = 0; i < 5; i++ {
-        println i;
+/// Print the grid (1-D array)
+def print_grid(grid: ref i32[], width: i32, height: i32) {
+    for mut val y = 0; y < height; y++ {
+        for mut val x = 0; x < width; x++ {
+            if grid[idx(x, y, width)] == 1 {
+                print "■";
+            } else {
+                print "□";
+            }
+        }
+        println "";
     }
 }
-```
 
-### Arrays
+/// Count live neighbors around (x, y)
+def count_neighbors(grid: ref i32[], x: i32, y: i32, width: i32, height: i32): i32 {
+    mut val count: i32 = 0;
 
-```
+    for mut val dy = -1; dy <= 1; dy++ {
+        for mut val dx = -1; dx <= 1; dx++ {
+            if dx == 0 and dy == 0 {
+                continue;
+            }
+
+            val nx = x + dx;
+            val ny = y + dy;
+
+            if nx >= 0 and nx < width and ny >= 0 and ny < height {
+                if grid[idx(nx, ny, width)] == 1 {
+                    count = count + 1;
+                }
+            }
+        }
+    }
+
+    return count;
+}
+
+/// Compute next generation
+def next_generation(grid: ref i32[], new_grid: ref i32[], width: i32, height: i32) {
+    for mut val y = 0; y < height; y++ {
+        for mut val x = 0; x < width; x++ {
+
+            val i = idx(x, y, width);
+            val neighbors = count_neighbors(grid, x, y, width, height);
+
+            if grid[i] == 1 {
+                if neighbors == 2 or neighbors == 3 {
+                    new_grid[i] = 1;
+                } else {
+                    new_grid[i] = 0;
+                }
+            } else {
+                if neighbors == 3 {
+                    new_grid[i] = 1;
+                } else {
+                    new_grid[i] = 0;
+                }
+            }
+        }
+    }
+}
+
+/// Copy new_grid back into grid
+def copy_grid(src: ref i32[], dst: ref i32[], size: i32) {
+    for mut val i = 0; i < size; i++ {
+        dst[i] = src[i];
+    }
+}
+
 main {
-    val arr: i32[5] = {1, 2, 3, 4, 5};
+    val width: i32 = 20;
+    val height: i32 = 20;
+    val size: i32 = width * height;
 
-    for val i = 0; i < 5; i++ {
-        println arr[i];
+    mut val grid: i32[size];
+    mut val new_grid: i32[size];
+
+    for mut val i = 0; i < size; i++ {
+        grid[i] = 0;
+        new_grid[i] = 0;
+    }
+
+    grid[idx(2,1,width)] = 1;
+    grid[idx(3,2,width)] = 1;
+    grid[idx(1,3,width)] = 1;
+    grid[idx(2,3,width)] = 1;
+    grid[idx(3,3,width)] = 1;
+
+    println "Conway's Game of Life\n";
+
+    for mut val gen = 0; gen < 20; gen++ {
+        print "Generation ";
+        println gen;
+        println "";
+
+        print_grid(grid, width, height);
+
+        next_generation(grid, new_grid, width, height);
+        copy_grid(new_grid, grid, size);
+
+        println "\n---\n";
     }
 }
 ```

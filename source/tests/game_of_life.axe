@@ -23,8 +23,6 @@ def count_neighbors(grid: ref i32[], x: i32, y: i32, width: i32, height: i32): i
 
     for mut val dy = -1; dy <= 1; dy++ {
         for mut val dx = -1; dx <= 1; dx++ {
-
-            // Skip itself
             if dx == 0 and dy == 0 {
                 continue;
             }
@@ -32,7 +30,6 @@ def count_neighbors(grid: ref i32[], x: i32, y: i32, width: i32, height: i32): i
             val nx = x + dx;
             val ny = y + dy;
 
-            // Bound check
             if nx >= 0 and nx < width and ny >= 0 and ny < height {
                 if grid[idx(nx, ny, width)] == 1 {
                     count = count + 1;
@@ -53,14 +50,12 @@ def next_generation(grid: ref i32[], new_grid: ref i32[], width: i32, height: i3
             val neighbors = count_neighbors(grid, x, y, width, height);
 
             if grid[i] == 1 {
-                // Survive?
                 if neighbors == 2 or neighbors == 3 {
                     new_grid[i] = 1;
                 } else {
                     new_grid[i] = 0;
                 }
             } else {
-                // Birth?
                 if neighbors == 3 {
                     new_grid[i] = 1;
                 } else {
@@ -83,25 +78,21 @@ main {
     val height: i32 = 20;
     val size: i32 = width * height;
 
-    // 1-D grids
     mut val grid: i32[size];
     mut val new_grid: i32[size];
 
-    // Zero-init
     for mut val i = 0; i < size; i++ {
         grid[i] = 0;
         new_grid[i] = 0;
     }
 
-    // Classic glider
     grid[idx(2,1,width)] = 1;
     grid[idx(3,2,width)] = 1;
     grid[idx(1,3,width)] = 1;
     grid[idx(2,3,width)] = 1;
     grid[idx(3,3,width)] = 1;
 
-    println "Conway's Game of Life (1-D arrays)";
-    println "";
+    println "Conway's Game of Life\n";
 
     for mut val gen = 0; gen < 20; gen++ {
         print "Generation ";
@@ -113,8 +104,6 @@ main {
         next_generation(grid, new_grid, width, height);
         copy_grid(new_grid, grid, size);
 
-        println "";
-        println "---";
-        println "";
+        println "\n---\n";
     }
 }
