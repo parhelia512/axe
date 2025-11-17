@@ -254,14 +254,9 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                     {
                         string prefixedName = moduleFunctionMap[funcNode.name];
                         importedFunctions[funcNode.name] = prefixedName;
-                        auto newFunc = new FunctionNode(prefixedName, funcNode.params);
-                        newFunc.returnType = funcNode.returnType;
-                        newFunc.children = funcNode.children;
-
-                        renameFunctionCalls(newFunc, moduleFunctionMap);
-                        renameTypeReferences(newFunc, moduleModelMap);
-
-                        newChildren ~= newFunc;
+                        renameFunctionCalls(funcNode, moduleFunctionMap);
+                        renameTypeReferences(funcNode, moduleModelMap);
+                        newChildren ~= funcNode;
                         g_addedNodeNames[prefixedName] = true;
                     }
                     else
@@ -578,6 +573,13 @@ string convertToModelMethodPattern(string modelMethodName)
  */
 void renameFunctionCalls(ASTNode node, string[string] nameMap)
 {
+    if (node.nodeType == "Function")
+    {
+        auto funcNode = cast(FunctionNode) node;
+        if (funcNode.name in nameMap)
+            funcNode.name = nameMap[funcNode.name];
+    }
+
     if (node.nodeType == "FunctionCall")
     {
         auto callNode = cast(FunctionCallNode) node;

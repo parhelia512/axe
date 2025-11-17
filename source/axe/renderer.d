@@ -44,6 +44,8 @@ private string[string] g_varType;
 private string[string] g_isPointerVar;
 private string[string] g_functionPrefixes;
 private string[string] g_modelNames;
+private bool[string] g_generatedTypedefs;
+private bool[string] g_generatedFunctions;
 
 string canonicalModelCName(string name)
 {
@@ -327,6 +329,8 @@ string generateC(ASTNode ast)
         g_varType.clear();
         g_functionPrefixes.clear();
         g_modelNames.clear();
+        g_generatedTypedefs.clear();
+        g_generatedFunctions.clear();
 
         foreach (child; ast.children)
         {
@@ -516,6 +520,11 @@ string generateC(ASTNode ast)
         string prevFunction = currentFunction;
         currentFunction = funcName;
         functionParams = params;
+
+        if (funcName in g_generatedFunctions)
+            return "";
+
+        g_generatedFunctions[funcName] = true;
 
         if (funcNode.name == "main")
         {
@@ -1239,6 +1248,11 @@ string generateC(ASTNode ast)
         string modelName = canonicalModelCName(modelNode.name);
         if (modelName.length == 0)
             modelName = modelNode.name;
+
+        if (modelName in g_generatedTypedefs)
+            return "";
+
+        g_generatedTypedefs[modelName] = true;
 
         cCode ~= "struct " ~ modelName ~ ";\n";
         cCode ~= "typedef struct " ~ modelName ~ " {\n";
