@@ -627,6 +627,31 @@ string convertToModelMethodPattern(string modelMethodName)
     return modelMethodName[0 .. firstUnderscore] ~ "\\s*\\.\\s*" ~ modelMethodName[firstUnderscore + 1 .. $];
 }
 
+string escapeRegexLiteral(string value)
+{
+    import std.array : appender;
+
+    auto buffer = appender!string();
+    foreach (ch; value)
+    {
+        immutable bool needsEscape = ch == '\\' || ch == '.' || ch == '+' || ch == '*' || ch == '?' || ch == '|' ||
+            ch == '{' || ch == '}' || ch == '[' || ch == ']' || ch == '(' || ch == ')' || ch == '^' || ch == '$';
+        if (needsEscape)
+            buffer.put('\\');
+        buffer.put(ch);
+    }
+    return buffer.data;
+}
+
+string replaceStandaloneCall(string text, string oldName, string newName)
+{
+    import std.regex : regex, replaceAll;
+
+    auto escaped = escapeRegexLiteral(oldName);
+    auto pattern = regex("(?<![A-Za-z0-9_])" ~ escaped ~ "(\\s*)\\(");
+    return replaceAll(text, pattern, newName ~ "$1(");
+}
+
 /**
  * Recursively rename function calls to use prefixed names
  */
@@ -672,7 +697,7 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             {
                 foreach (oldName, newName; nameMap)
                 {
-                    printNode.messages[i] = printNode.messages[i].replace(oldName ~ "(", newName ~ "(");
+                    printNode.messages[i] = replaceStandaloneCall(printNode.messages[i], oldName, newName);
 
                     string oldCallDot = oldName.replace("_", ".") ~ "(";
                     printNode.messages[i] = printNode.messages[i].replace(oldCallDot, newName ~ "(");
@@ -689,7 +714,7 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             {
                 foreach (oldName, newName; nameMap)
                 {
-                    printlnNode.messages[i] = printlnNode.messages[i].replace(oldName ~ "(", newName ~ "(");
+                    printlnNode.messages[i] = replaceStandaloneCall(printlnNode.messages[i], oldName, newName);
                     string oldCallDot = oldName.replace("_", ".") ~ "(";
                     printlnNode.messages[i] = printlnNode.messages[i].replace(oldCallDot, newName ~ "(");
                 }
@@ -701,11 +726,7 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
         auto returnNode = cast(ReturnNode) node;
         foreach (oldName, newName; nameMap)
         {
-            string oldCall = oldName ~ "(";
-            if (returnNode.expression.canFind(oldCall))
-            {
-                returnNode.expression = returnNode.expression.replace(oldCall, newName ~ "(");
-            }
+            returnNode.expression = replaceStandaloneCall(returnNode.expression, oldName, newName);
 
             string oldCallDot = oldName.replace("_", ".") ~ "(";
             if (returnNode.expression.canFind(oldCallDot))
@@ -733,12 +754,12 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
         debug writeln("    DEBUG renameFunctionCalls Declaration: initializer='", declNode.initializer, "'");
         foreach (oldName, newName; nameMap)
         {
-            string oldCall = oldName ~ "(";
-            if (declNode.initializer.canFind(oldCall))
+            auto newInit = replaceStandaloneCall(declNode.initializer, oldName, newName);
+            if (newInit != declNode.initializer)
             {
-                debug writeln("    DEBUG renameFunctionCalls: Renamed call in declaration: '",
-                    oldName, "' -> '", newName, "'");
-                declNode.initializer = declNode.initializer.replace(oldCall, newName ~ "(");
+                debug writeln("    DEBUG renameFunctionCalls: Renamed call in declaration: '", oldName,
+                    "' -> '", newName, "'");
+                declNode.initializer = newInit;
             }
 
             string oldCallDot = oldName.replace("_", ".") ~ "(";
@@ -773,11 +794,7 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
         auto assignNode = cast(AssignmentNode) node;
         foreach (oldName, newName; nameMap)
         {
-            string oldCall = oldName ~ "(";
-            if (assignNode.expression.canFind(oldCall))
-            {
-                assignNode.expression = assignNode.expression.replace(oldCall, newName ~ "(");
-            }
+            assignNode.expression = replaceStandaloneCall(assignNode.expression, oldName, newName);
 
             string oldCallDot = oldName.replace("_", ".") ~ "(";
             if (assignNode.expression.canFind(oldCallDot))
@@ -804,11 +821,7 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
         auto assertNode = cast(AssertNode) node;
         foreach (oldName, newName; nameMap)
         {
-            string oldCall = oldName ~ "(";
-            if (assertNode.condition.canFind(oldCall))
-            {
-                assertNode.condition = assertNode.condition.replace(oldCall, newName ~ "(");
-            }
+            assertNode.condition = replaceStandaloneCall(assertNode.condition, oldName, newName);
 
             string oldCallDot = oldName.replace("_", ".") ~ "(";
             if (assertNode.condition.canFind(oldCallDot))

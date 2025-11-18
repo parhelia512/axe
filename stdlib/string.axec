@@ -37,7 +37,7 @@ def str_copy(src: string, desta: mut string): void {
 }
 
 /// Compares two strings. Returns 0 if equal.
-def str_cmp(a: string, b: string): i32 {
+def compare(a: string, b: string): i32 {
     mut val len: usize = 0;
     if a.len < b.len {
         len = a.len;
