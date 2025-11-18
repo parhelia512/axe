@@ -261,14 +261,12 @@ string[] computeReorderedCParams(FunctionNode funcNode, out int[] reorderMap, ou
 
 string mapAxeTypeToC(string axeType)
 {
-    // Strip mut keyword if present (mut is not needed in C, variables are mutable by default)
     if (axeType.startsWith("mut "))
     {
         string baseType = axeType[4 .. $].strip();
         return mapAxeTypeToC(baseType);
     }
 
-    // Handle pointers/references first
     if (axeType.startsWith("ref "))
     {
         string baseType = axeType[4 .. $].strip();
@@ -290,19 +288,16 @@ string mapAxeTypeToC(string axeType)
         return mapAxeTypeToC(baseType) ~ "*";
     }
 
-    // Check if it's a standard type with mapping
     if (axeType in g_typeMappings)
     {
         return g_typeMappings[axeType];
     }
 
-    // Check if it's a model name that needs prefixing
     if (axeType in g_modelNames)
     {
         return g_modelNames[axeType];
     }
 
-    // Default case (user-defined types, etc)
     return axeType;
 }
 
