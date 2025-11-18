@@ -149,6 +149,161 @@ def is_symbolic_link(path: string): bool {
     return out;
 }
 
+/// Delete a file.
+def delete_file(path: string): bool {
+    mut val ok: bool = false;
+    raw {
+        if (remove(path.data) == 0) {
+            ok = true;
+        }
+    }
+    return ok;
+}
+
+/// Delete some directory. It must be empty.
+def rm_dir(path: string): bool {
+    mut val ok: bool = false;
+    raw {
+        if (rmdir(path.data) == 0) {
+            ok = true;
+        }
+    }
+    return ok;
+}
+
+// platform windows {
+//     use external("io.h");
+//     use external("direct.h");
+// }
+
+// platform posix {
+//     use external("dirent.h");
+// }
+
+// /// Delete some directory, it does NOT have to be empty.
+// /// Use with caution.
+// def rm_dir_recursive(path: string): bool {
+//     mut val ok: bool = true;
+
+//     platform posix {
+//         raw {
+//             DIR *d = opendir(path.data);
+//             size_t path_len = strlen(path.data);
+//             int r = 0;
+
+//             if (d) {
+//                 struct dirent *p;
+//                 r = 0;
+                
+//                 while (!r && (p = readdir(d))) {
+//                     // Skip "." and ".."
+//                     if (!strcmp(p->d_name, ".") || !strcmp(p->d_name, "..")) {
+//                         continue;
+//                     }
+
+//                     // Build the full path for the entry
+//                     size_t len = path_len + strlen(p->d_name) + 2;
+//                     char *buf = malloc(len);
+//                     if (!buf) {
+//                         r = -1; // Memory allocation failed
+//                         break;
+//                     }
+//                     snprintf(buf, len, "%s/%s", path.data, p->d_name);
+
+//                     // Determine type and recurse/delete
+//                     struct stat statbuf;
+//                     if (!stat(buf, &statbuf)) {
+//                         if (S_ISDIR(statbuf.st_mode)) {
+//                             // Recursively call rm_dir_recursive (must be linked C function)
+//                             if (!stdlib_os_rm_dir_recursive(stdlib_string_string_create(buf))) {
+//                                 r = -1; // Sub-directory deletion failed
+//                             }
+//                         } else {
+//                             // Delete file
+//                             if (remove(buf)) {
+//                                 r = -1; // File deletion failed
+//                             }
+//                         }
+//                     } else {
+//                         r = -1; // stat failed
+//                     }
+//                     free(buf);
+//                 }
+//                 closedir(d);
+//             }
+            
+//             // Delete the top-level directory only if all contents were removed successfully
+//             if (!r) {
+//                 if (rmdir(path.data) != 0) {
+//                     r = -1; // Top-level deletion failed
+//                 }
+//             }
+            
+//             if (r != 0) {
+//                 ok = false;
+//             }
+//         }
+//     }
+
+//     platform windows {
+//         raw {
+//             // Windows implementation is simpler using a recursive Win32 API call 
+//             // if available, but a C wrapper requires using _findfirst/_findnext.
+//             // For a robust stdlib, we'll use the C wrappers.
+            
+//             struct _finddata_t fileinfo;
+//             char search_path[MAX_PATH];
+//             int handle;
+//             int r = 0;
+
+//             // Prepare search path: "path/*"
+//             snprintf(search_path, MAX_PATH, "%s\\*", path.data);
+            
+//             handle = _findfirst(search_path, &fileinfo);
+            
+//             if (handle != -1) {
+//                 do {
+//                     // Skip "." and ".."
+//                     if (!strcmp(fileinfo.name, ".") || !strcmp(fileinfo.name, "..")) {
+//                         continue;
+//                     }
+
+//                     // Build the full path for the entry
+//                     char sub_path[MAX_PATH];
+//                     snprintf(sub_path, MAX_PATH, "%s\\%s", path.data, fileinfo.name);
+                    
+//                     if (fileinfo.attrib & _A_SUBDIR) {
+//                         // Recursively call rm_dir_recursive
+//                         if (!stdlib_os_rm_dir_recursive(stdlib_string_string_create(sub_path))) {
+//                              r = -1;
+//                         }
+//                     } else {
+//                         // Delete file
+//                         if (remove(sub_path)) {
+//                             r = -1;
+//                         }
+//                     }
+//                 } while (_findnext(handle, &fileinfo) == 0 && r == 0);
+                
+//                 _findclose(handle);
+//             }
+            
+//             // Delete the top-level directory
+//             if (r == 0) {
+//                 if (rmdir(path.data) != 0) {
+//                     r = -1;
+//                 }
+//             }
+
+//             if (r != 0) {
+//                 ok = false;
+//             }
+//         }
+//     }
+
+//     return ok;
+// }
+
 test {
     assert(exec("echo test") == 0, "exec should run successfully");
     assert(write_file(string.create("testfile.txt"), string.create("hello")), "write_file should succeed");
