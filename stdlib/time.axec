@@ -1,3 +1,17 @@
+use stdlib/io (
+    print_i32
+);
+
+model DateTime {
+    year: i32;
+    month: i32;
+    day: i32;
+    hour: i32;
+    minute: i32;
+    second: i32;
+    millisecond: i32;
+}
+
 def wait(ms: i32) {
     platform posix {
         raw {
@@ -11,7 +25,64 @@ def wait(ms: i32) {
     }
 }
 
+def now(): DateTime {
+    platform posix {
+        raw {
+            struct tm;
+            time_t t;
+            time(&t);
+            struct tm *tm = localtime(&t);
+            stdlib_time_DateTime dt;
+            dt.year = tm->tm_year + 1900;
+            dt.month = tm->tm_mon + 1;
+            dt.day = tm->tm_mday;
+            dt.hour = tm->tm_hour;
+            dt.minute = tm->tm_min;
+            dt.second = tm->tm_sec;
+            dt.millisecond = 0;
+            return dt;
+        }
+    }
+    platform windows {
+        raw {
+            SYSTEMTIME st;
+            GetLocalTime(&st);
+            stdlib_time_DateTime dt;
+            dt.year = st.wYear;
+            dt.month = st.wMonth;
+            dt.day = st.wDay;
+            dt.hour = st.wHour;
+            dt.minute = st.wMinute;
+            dt.second = st.wSecond;
+            dt.millisecond = st.wMilliseconds;
+            return dt;
+        }
+    }
+}
+
+def print_time(dt: DateTime, newline: bool) {
+    print_i32(dt.year);
+    print "-";
+    print_i32(dt.month);
+    print "-";
+    print_i32(dt.day);
+    print " ";
+    print_i32(dt.hour);
+    print ":";
+    print_i32(dt.minute);
+    print ":";
+    print_i32(dt.second);
+    print ".";
+    print_i32(dt.millisecond);
+    if newline {
+        println "";
+    }
+}
+
 test {
+    print "Started waiting at:\t";
+    print_time(now(), true);
     wait(1000);
-    println "Done waiting";
+    print "Done waiting at:\t";
+    print_time(now(), true);
 }
