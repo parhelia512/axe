@@ -174,7 +174,29 @@ bool handleMachineArgs(string[] args)
 
             if (hasExternalHeader(ast, "pcre.h"))
             {
-                clangCmd ~= "-lpcre";
+                import std.file : thisExePath;
+
+                string exePath = thisExePath();
+                string toolchainRoot = dirName(exePath);
+                string pcreInclude = buildPath(toolchainRoot, "external", "pcre", "include");
+
+                clangCmd ~= ["-DPCRE_STATIC"];
+
+                version (Windows)
+                {
+                    string pcreLib = buildPath(toolchainRoot, "external", "x64-windows", "pcre.lib").replace("\\", "/");
+                    clangCmd ~= ["-I" ~ pcreInclude, pcreLib];
+                }
+                version (Linux)
+                {
+                    string pcreLib = buildPath(toolchainRoot, "external", "x64-linux", "libpcre.a");
+                    clangCmd ~= ["-I" ~ pcreInclude, pcreLib];
+                }
+                version (OSX)
+                {
+                    string pcreLib = buildPath(toolchainRoot, "external", "x64-macos", "libpcre.a");
+                    clangCmd ~= ["-I" ~ pcreInclude, pcreLib];
+                }
             }
 
             if (makeDll)
@@ -199,6 +221,8 @@ bool handleMachineArgs(string[] args)
             auto e = execute(clangCmd);
             if (e[0] != 0)
             {
+                writeln("CLANGCMD: ", clangCmd);
+
                 stderr.writeln(
                     "Fallthrough error, report the bug at https://github.com/axelang/axe/issues\nTrace:\n",
                     e[1]
