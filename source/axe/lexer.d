@@ -310,6 +310,24 @@ Token[] lex(string source)
             }
             break;
 
+        case 'u':
+            if (pos + 4 < source.length && source[pos .. pos + 5] == "union" &&
+                (pos + 5 >= source.length || !(source[pos + 5].isAlphaNum || source[pos + 5] == '_')))
+            {
+                tokens ~= Token(TokenType.UNION, "union");
+                pos += 5;
+            }
+            else
+            {
+                size_t start = pos;
+                while (pos < source.length && (source[pos].isAlphaNum || source[pos] == '_'))
+                {
+                    pos++;
+                }
+                tokens ~= Token(TokenType.IDENTIFIER, source[start .. pos]);
+            }
+            break;
+
         default:
             if (pos + 4 <= source.length && source[pos .. pos + 4] == "main")
             {

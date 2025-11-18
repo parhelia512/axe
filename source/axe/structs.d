@@ -81,6 +81,7 @@ enum TokenType
     PARALLEL,
     WINDOWS,
     POSIX,
+    UNION,
 }
 
 /** 
@@ -468,6 +469,23 @@ class ModelNode : ASTNode
         {
             fields ~= Field(fieldName, fieldType);
         }
+    }
+}
+
+class UnionNode : ASTNode
+{
+    // Array of (fieldName, fieldType) tuples to preserve order
+    struct Field {
+        string name;
+        string type;
+    }
+
+    Field[] fields;
+
+    this(Field[] fields)
+    {
+        super("Union");
+        this.fields = fields;
     }
 }
 

@@ -16,6 +16,15 @@ import axe.structs;
 
 private string[string] g_typeAliases;
 private MacroDef[string] g_macros;
+private UnionNode[string] g_unions;
+
+/**
+ * Get the parsed unions
+ */
+public UnionNode[string] getUnions()
+{
+    return g_unions;
+}
 
 /**
  * Parses an array of tokens into an abstract syntax tree (AST).
@@ -100,8 +109,58 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                 pos++;
         }
 
-        string typeName;
-        if (tokens[pos].type == TokenType.IDENTIFIER)
+        string typeName;       
+        if (tokens[pos].type == TokenType.UNION)
+        {
+            pos++; // consume 'union'
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE, "Expected '{' after 'union'");
+            pos++; // consume '{'}
+
+            UnionNode.Field[] unionFields;
+            while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+            {
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+                if (pos >= tokens.length || tokens[pos].type == TokenType.RBRACE)
+                    break;
+
+                enforce(tokens[pos].type == TokenType.IDENTIFIER, "Expected field name in union");
+                string fieldName = tokens[pos].value;
+                pos++;
+
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.COLON, "Expected ':' after field name");
+                pos++;
+
+                string fieldType = parseType();
+                unionFields ~= UnionNode.Field(fieldName, fieldType);
+
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+                if (pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON)
+                    pos++; // consume optional ';'
+            }
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE, "Expected '}' to close union");
+            pos++; // consume '}'
+
+
+            // Create a unique name for this union type
+            import std.conv;
+            static int unionCounter = 0;
+            string unionName = "__Union" ~ unionCounter.to!string;
+            unionCounter++;
+
+            // Store the union
+            g_unions[unionName] = new UnionNode(unionFields);
+
+            // For now, return a placeholder - we'll handle this in the renderer
+            typeName = "union{" ~ unionName ~ "}";
+        }
+        else if (tokens[pos].type == TokenType.IDENTIFIER)
         {
             typeName = tokens[pos].value;
             pos++;

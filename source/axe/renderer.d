@@ -290,6 +290,14 @@ string mapAxeTypeToC(string axeType)
         return mapAxeTypeToC(baseType) ~ "*";
     }
 
+    // Check if it's a union type
+    if (axeType.startsWith("union{") && axeType.endsWith("}"))
+    {
+        // Extract union name
+        string unionName = axeType[6 .. $ - 1];
+        return unionName;
+    }
+
     // Check if it's a standard type with mapping
     if (axeType in g_typeMappings)
     {
@@ -435,6 +443,30 @@ string generateC(ASTNode ast)
         {
             if (child.nodeType == "Enum")
                 cCode ~= generateC(child) ~ "\n";
+        }
+
+        // Generate union structs
+        import axe.parser;
+        foreach (unionName, unionNode; axe.parser.getUnions())
+        {
+            cCode ~= "typedef struct {\n";
+            cCode ~= "    enum {\n";
+            foreach (i, field; unionNode.fields)
+            {
+                cCode ~= "        " ~ unionName ~ "_KIND_" ~ field.name.toUpper();
+                if (i < unionNode.fields.length - 1)
+                    cCode ~= ",";
+                cCode ~= "\n";
+            }
+            cCode ~= "    } kind;\n";
+            cCode ~= "    union {\n";
+            foreach (field; unionNode.fields)
+            {
+                string cType = mapAxeTypeToC(field.type);
+                cCode ~= "        " ~ cType ~ " " ~ field.name ~ "_value;\n";
+            }
+            cCode ~= "    };\n";
+            cCode ~= "} " ~ unionName ~ ";\n\n";
         }
 
         foreach (child; ast.children)
