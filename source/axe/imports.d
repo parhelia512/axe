@@ -38,7 +38,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
         string normalizedPath = currentFilePath.replace("\\", "/");
         if (normalizedPath in g_processedModules)
         {
-            writeln("DEBUG: Module already processed, skipping: ", normalizedPath);
+            debug writeln("DEBUG: Module already processed, skipping: ", normalizedPath);
             return ast;
         }
         g_processedModules[normalizedPath] = "1";
@@ -92,7 +92,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
             {
                 auto modelNode = cast(ModelNode) child;
                 localModels[modelNode.name] = currentModulePrefix ~ "_" ~ modelNode.name;
-                writeln("DEBUG: Added local model '", modelNode.name, "' -> '", currentModulePrefix ~ "_" ~
+                debug writeln("DEBUG: Added local model '", modelNode.name, "' -> '", currentModulePrefix ~ "_" ~
                         modelNode.name, "'");
 
                 foreach (method; modelNode.methods)
@@ -104,13 +104,13 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         string originalCallName = modelNode.name ~ "_" ~ methodName;
                         string prefixedCallName = currentModulePrefix ~ "_" ~ modelNode.name ~ "_" ~ methodName;
                         localFunctions[originalCallName] = prefixedCallName;
-                        writeln("DEBUG: Added local function '", originalCallName, "' -> '", prefixedCallName, "'");
+                        debug writeln("DEBUG: Added local function '", originalCallName, "' -> '", prefixedCallName, "'");
                     }
                 }
             }
         }
-        writeln("DEBUG: Total local models: ", localModels.length);
-        writeln("DEBUG: Total local functions: ", localFunctions.length);
+        debug writeln("DEBUG: Total local models: ", localModels.length);
+        debug writeln("DEBUG: Total local functions: ", localFunctions.length);
     }
 
     bool[string] isTransitiveDependency;
@@ -319,7 +319,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                                 if (existingFunc.name == funcNode.name)
                                 {
                                     alreadyAdded = true;
-                                    writeln("DEBUG: Skipping duplicate transitive function: ", funcNode.name);
+                                    debug writeln("DEBUG: Skipping duplicate transitive function: ", funcNode.name);
                                     break;
                                 }
                             }
@@ -327,7 +327,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         
                         if (!alreadyAdded)
                         {
-                            writeln("DEBUG: Adding transitive function: ", funcNode.name);
+                            debug writeln("DEBUG: Adding transitive function: ", funcNode.name);
 
                             renameFunctionCalls(funcNode, moduleFunctionMap);
                             renameTypeReferences(funcNode, moduleModelMap);
@@ -393,7 +393,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                                 if (existingModel.name == modelNode.name)
                                 {
                                     alreadyAdded = true;
-                                    writeln("DEBUG: Skipping duplicate transitive model: ", modelNode.name);
+                                    debug writeln("DEBUG: Skipping duplicate transitive model: ", modelNode.name);
                                     break;
                                 }
                             }
@@ -402,7 +402,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         if (!alreadyAdded)
                         {
                             isTransitiveDependency[modelNode.name] = true;
-                            writeln("DEBUG: Adding transitive model: ", modelNode.name);
+                            debug writeln("DEBUG: Adding transitive model: ", modelNode.name);
                             
                             foreach (method; modelNode.methods)
                             {
@@ -471,10 +471,10 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
         else
         {
             // This is user code - rename function calls and type references
-            writeln("DEBUG imports: Renaming user code with ", importedFunctions.length, " imported functions");
+            debug writeln("DEBUG imports: Renaming user code with ", importedFunctions.length, " imported functions");
             foreach (key, value; importedFunctions)
             {
-                writeln("  DEBUG: importedFunctions['", key, "'] = '", value, "'");
+                debug writeln("  DEBUG: importedFunctions['", key, "'] = '", value, "'");
             }
 
             // If this is a model with methods in a .axec file, rename the model and its methods

@@ -613,7 +613,7 @@ string generateC(ASTNode ast)
 
         if (callName in g_macros)
         {
-            writeln("DEBUG: Expanding macro '", callName, "'");
+            debug writeln("DEBUG: Expanding macro '", callName, "'");
             auto macroNode = g_macros[callName];
 
             import std.string : split, strip;
@@ -717,7 +717,7 @@ string generateC(ASTNode ast)
 
         debug writeln("DEBUG Assignment: variable='", assignNode.variable, "'");
         string dest = processExpression(assignNode.variable.strip());
-        writeln("DEBUG Assignment: variable='", assignNode.variable, "' dest='", dest, "'");
+        debug writeln("DEBUG Assignment: variable='", assignNode.variable, "' dest='", dest, "'");
         string expr = assignNode.expression.strip();
 
         string baseVarName = dest;
@@ -754,9 +754,9 @@ string generateC(ASTNode ast)
     case "ArrayDeclaration":
         auto arrayNode = cast(ArrayDeclarationNode) ast;
         // Map the element type to C type (e.g., i32 -> int32_t)
-        writeln("DEBUG ArrayDeclaration: elementType='", arrayNode.elementType, "' name='", arrayNode.name, "'");
+        debug writeln("DEBUG ArrayDeclaration: elementType='", arrayNode.elementType, "' name='", arrayNode.name, "'");
         string mappedElementType = mapAxeTypeToC(arrayNode.elementType);
-        writeln("DEBUG ArrayDeclaration: mappedElementType='", mappedElementType, "'");
+        debug writeln("DEBUG ArrayDeclaration: mappedElementType='", mappedElementType, "'");
         string arrayType = arrayNode.isMutable ? mappedElementType : "const " ~ mappedElementType;
 
         if (arrayNode.size2.length > 0)
@@ -1242,7 +1242,7 @@ string generateC(ASTNode ast)
         // Store macro for later expansion, don't generate code now
         auto macroNode = cast(MacroNode) ast;
         g_macros[macroNode.name] = macroNode;
-        writeln("DEBUG: Stored macro '", macroNode.name, "' with ", macroNode.params.length, " parameters");
+        debug writeln("DEBUG: Stored macro '", macroNode.name, "' with ", macroNode.params.length, " parameters");
         break;
 
     case "Model":
@@ -1296,7 +1296,7 @@ string generateC(ASTNode ast)
                 fieldType = mapAxeTypeToC(field.type);
             }
 
-            writeln("DEBUG model field: name='", field.name, "' type='", field.type, "' mapped='", fieldType, "' arrayPart='", arrayPart, "'");
+            debug writeln("DEBUG model field: name='", field.name, "' type='", field.type, "' mapped='", fieldType, "' arrayPart='", arrayPart, "'");
 
             // Handle ref types - convert "ref T" to "T*"
             if (fieldType.startsWith("ref "))
@@ -1479,8 +1479,8 @@ string processExpression(string expr, string context = "")
     expr = expr.replace(" xor ", " ^ ");
 
     // Check for macro calls in expressions
-    writeln("DEBUG processExpression: Checking for macros in expr: '", expr, "'");
-    writeln("DEBUG processExpression: Available macros: ", g_macros.keys);
+    debug writeln("DEBUG processExpression: Checking for macros in expr: '", expr, "'");
+    debug writeln("DEBUG processExpression: Available macros: ", g_macros.keys);
     foreach (macroName, macroNode; g_macros)
     {
         import std.string : indexOf, split, strip;
@@ -1492,7 +1492,7 @@ string processExpression(string expr, string context = "")
 
         if (match)
         {
-            writeln("DEBUG processExpression: Found macro call '", macroName, "' in expression");
+            debug writeln("DEBUG processExpression: Found macro call '", macroName, "' in expression");
         }
 
         while (match)
@@ -1856,8 +1856,8 @@ string processExpression(string expr, string context = "")
             string result = first;
             string currentType = g_varType.get(first, "");
             bool isPointer = g_isPointerVar.get(first, "false") == "true";
-            writeln("DEBUG get g_isPointerVar for '", first, "' = ", g_isPointerVar.get(first, "false"));
-            writeln("DEBUG: processExpression member access: first='", first, "' isPointer=", isPointer, " expr='", expr, "'");
+            debug writeln("DEBUG get g_isPointerVar for '", first, "' = ", g_isPointerVar.get(first, "false"));
+            debug writeln("DEBUG: processExpression member access: first='", first, "' isPointer=", isPointer, " expr='", expr, "'");
 
             for (size_t i = 1; i < parts.length; i++)
             {
@@ -2017,7 +2017,7 @@ private string processCondition(string condition)
     import std.string : indexOf;
     import std.stdio : writeln;
 
-    writeln("DEBUG processCondition input: '", condition, "'");
+    debug writeln("DEBUG processCondition input: '", condition, "'");
 
     condition = condition.replace(" mod ", " % ");
     condition = condition.replace(" and ", " && ");
@@ -2029,7 +2029,7 @@ private string processCondition(string condition)
     condition = condition.replace(" or ", " || ");
     condition = condition.replace(" xor ", " ^ ");
 
-    writeln("DEBUG processCondition after replace: '", condition, "'");
+    debug writeln("DEBUG processCondition after replace: '", condition, "'");
 
     // Handle logical operators (&&, ||) first - they have lowest precedence
     foreach (op; ["&&", "||"])

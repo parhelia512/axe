@@ -154,26 +154,26 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                 writeln("DEBUG parseArrayType: After first ], pos=", pos, " token=", tokens[pos].type, " value='", tokens[pos]
                         .value, "'");
             else
-                writeln("DEBUG parseArrayType: After first ], pos=", pos, " END OF TOKENS");
+                debug writeln("DEBUG parseArrayType: After first ], pos=", pos, " END OF TOKENS");
 
             if (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
             {
-                writeln("DEBUG parseArrayType: Found second [");
+                debug writeln("DEBUG parseArrayType: Found second [");
                 hasSecondDimension = true;
                 pos++; // Skip '['
 
                 if (pos < tokens.length)
-                    writeln("DEBUG parseArrayType: After second [, token=", tokens[pos].type, " value='", tokens[pos]
+                    debug writeln("DEBUG parseArrayType: After second [, token=", tokens[pos].type, " value='", tokens[pos]
                             .value, "'");
 
                 while (pos < tokens.length && tokens[pos].type != TokenType.RBRACKET)
                 {
-                    writeln("DEBUG parseArrayType: Adding to size2: '", tokens[pos].value, "'");
+                    debug writeln("DEBUG parseArrayType: Adding to size2: '", tokens[pos].value, "'");
                     size2 ~= tokens[pos].value;
                     pos++;
                 }
 
-                writeln("DEBUG parseArrayType: size2='", size2, "' hasSecondDimension=", hasSecondDimension);
+                debug writeln("DEBUG parseArrayType: size2='", size2, "' hasSecondDimension=", hasSecondDimension);
 
                 enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACKET,
                     "Expected ']' after second array size");
@@ -448,7 +448,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                         {
                             pos = savedPos;
                             auto arrayInfo = parseArrayType();
-                            writeln("DEBUG parseArgs: elementType='", arrayInfo.elementType, "' size='", arrayInfo.size, "' size2='", arrayInfo
+                            debug writeln("DEBUG parseArgs: elementType='", arrayInfo.elementType, "' size='", arrayInfo.size, "' size2='", arrayInfo
                                     .size2, "' hasSecondDimension=", arrayInfo.hasSecondDimension);
                             string fullType = refPrefix ~ arrayInfo.elementType;
                             if (arrayInfo.size.length > 0)
@@ -464,11 +464,11 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                                     fullType ~= "[]";
                             }
 
-                            writeln("DEBUG parseArgs: fullType='", fullType, "' paramName='", paramName, "' isMutable=", isMutable);
+                            debug writeln("DEBUG parseArgs: fullType='", fullType, "' paramName='", paramName, "' isMutable=", isMutable);
                             // Prefix with "mut " if parameter is mutable
                             string mutPrefix = isMutable ? "mut " : "";
                             string paramStr = mutPrefix ~ fullType ~ " " ~ paramName;
-                            writeln("DEBUG parseArgs: storing param as '", paramStr, "'");
+                            debug writeln("DEBUG parseArgs: storing param as '", paramStr, "'");
                             args ~= paramStr;
                         }
                         else
@@ -476,7 +476,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                             // Prefix with "mut " if parameter is mutable
                             string mutPrefix = isMutable ? "mut " : "";
                             string paramStr = mutPrefix ~ refPrefix ~ baseType ~ " " ~ paramName;
-                            writeln("DEBUG parseArgs: storing param as '", paramStr, "' (non-array, isMutable=", isMutable, ")");
+                            debug writeln("DEBUG parseArgs: storing param as '", paramStr, "' (non-array, isMutable=", isMutable, ")");
                             args ~= paramStr;
                         }
                     }
@@ -597,7 +597,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                     // Check for both "mut " prefix and "ref " in type
                     // Check if param starts with "mut " or contains " ref " (with spaces to avoid false matches)
                     bool isMutable = param.startsWith("mut ") || param.canFind(" ref ") || param.startsWith("ref ");
-                    writeln("DEBUG: Registering parameter '", paramName, "' from param string '", param, "' as mutable=", isMutable);
+                    debug writeln("DEBUG: Registering parameter '", paramName, "' from param string '", param, "' as mutable=", isMutable);
                     funcScope.addVariable(paramName, isMutable);
                 }
             }
@@ -2839,9 +2839,9 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
 
                 // Substitute parameters in the token stream
                 // Use {{param}} syntax for explicit macro parameter substitution
-                writeln("DEBUG macro expansion: Substituting parameters for macro '", identName, "'");
-                writeln("  Macro params: ", macroDef.params);
-                writeln("  Macro args: ", macroArgs);
+                debug writeln("DEBUG macro expansion: Substituting parameters for macro '", identName, "'");
+                debug writeln("  Macro params: ", macroDef.params);
+                debug writeln("  Macro args: ", macroArgs);
                 macroArgs[2] = balanceParentheses(macroArgs[2]);
                 foreach (ref token; expandedTokens)
                 {
@@ -3129,9 +3129,9 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
             }
 
             auto funcNode = new FunctionNode(currentFuncName, params, returnType);
-            writeln("DEBUG: Function '", currentFuncName, "' has ", params.length, " parameters:");
+            debug writeln("DEBUG: Function '", currentFuncName, "' has ", params.length, " parameters:");
             foreach (p; params)
-                writeln("  DEBUG: param='", p, "'");
+                debug writeln("  DEBUG: param='", p, "'");
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
 
@@ -3155,12 +3155,12 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                     // Check for both "mut " prefix and "ref " in type
                     // Check if param starts with "mut " or contains " ref " (with spaces to avoid false matches)
                     bool isMutable = param.startsWith("mut ") || param.canFind(" ref ") || param.startsWith("ref ");
-                    writeln("DEBUG: Registering parameter '", paramName, "' from param string '", param, "' as mutable=", isMutable);
+                    debug writeln("DEBUG: Registering parameter '", paramName, "' from param string '", param, "' as mutable=", isMutable);
                     funcScope.addVariable(paramName, isMutable);
                 }
             }
 
-            writeln("Entering function body at pos ", pos);
+            debug writeln("Entering function body at pos ", pos);
             size_t startPos = pos;
             while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
             {
@@ -4877,7 +4877,7 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                     enforce(false, "Undeclared variable: " ~ identName);
                 }
                 bool isVarMutable = currentScope.isMutable(identName);
-                writeln("DEBUG: Member access check for '", identName, "': isMutable=", isVarMutable);
+                debug writeln("DEBUG: Member access check for '", identName, "': isMutable=", isVarMutable);
                 if (!isVarMutable)
                 {
                     enforce(false, "Cannot assign to member '" ~ memberName ~
