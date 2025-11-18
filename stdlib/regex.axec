@@ -4,7 +4,6 @@ use stdlib/string (
 use external("pcre.h");
 
 /// Simple regex-like support built on substring search.
-/// For now, this treats the pattern as a literal substring.
 model regex {
     pattern: string;
 }
@@ -26,7 +25,6 @@ def match(pattern: string, text: string): bool {
     raw {
         const char *error = NULL;
         int erroffset = 0;
-        // Compile the pattern using PCRE (treats pattern as a regular expression).
         pcre *re = pcre_compile((const char*)pattern.data,
                                 0,
                                 &error,
@@ -49,7 +47,6 @@ def match(pattern: string, text: string): bool {
             }
             pcre_free(re);
         } else {
-            // Compilation failed; consider this a non-match.
             result = false;
         }
     }
