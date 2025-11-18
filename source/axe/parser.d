@@ -4854,10 +4854,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
 
-        // Build full left side including chained member access and array indices
         string fullLeftSide = identName;
 
-        // Handle any number of member accesses: obj.field, obj.field.subfield, etc.
         while (pos < tokens.length && tokens[pos].type == TokenType.DOT)
         {
             pos++; // Skip '.'
@@ -4869,7 +4867,6 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
 
-            // Check if this is a namespaced function call like Model.method(...)
             if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
             {
                 string namespacedFunction = fullLeftSide ~ "." ~ memberName;
@@ -4929,10 +4926,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 return new FunctionCallNode(namespacedFunction, args.join(", "));
             }
 
-            // Otherwise treat it as part of the left-hand side chain
             fullLeftSide ~= "." ~ memberName;
 
-            // Handle array access on this member: obj.field[index]
             while (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
             {
                 pos++; // Skip '['
@@ -4956,9 +4951,6 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 pos++;
         }
 
-        // At this point fullLeftSide may be a simple identifier or a chained member/array access
-
-        // Handle assignment to the built left-hand side
         if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
         {
             if (!currentScope.isDeclared(identName))
@@ -5024,7 +5016,6 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
 
-            // Check for member access on array element (e.g., grid[r][c].temperature)
             if (pos < tokens.length && tokens[pos].type == TokenType.DOT)
             {
                 pos++; // Skip '.'
@@ -5057,7 +5048,6 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                         "Expected ';' after field assignment");
                     pos++;
-                    // Build the full member access expression
                     string fullExpr = identName ~ "[" ~ index.strip() ~ "]";
                     if (index2.length > 0)
                         fullExpr ~= "[" ~ index2.strip() ~ "]";
@@ -5090,7 +5080,6 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         }
         else if (pos < tokens.length && tokens[pos].type == TokenType.INCREMENT)
         {
-            // Increment: x++ or obj.field++ / obj.field.subfield++
             if (!currentScope.isDeclared(identName))
             {
                 enforce(false, "Undeclared variable: " ~ identName);
@@ -5107,7 +5096,6 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         }
         else if (pos < tokens.length && tokens[pos].type == TokenType.DECREMENT)
         {
-            // Decrement: x-- or obj.field-- / obj.field.subfield--
             if (!currentScope.isDeclared(identName))
             {
                 enforce(false, "Undeclared variable: " ~ identName);
@@ -5124,7 +5112,6 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         }
         else if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
         {
-            // Simple variable assignment (no member or array access encountered)
             if (!currentScope.isDeclared(identName))
             {
                 enforce(false, "Undeclared variable: " ~ identName);
@@ -5152,7 +5139,6 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         }
         else if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
         {
-            // Function call
             pos++;
             string[] args;
             string currentArg = "";
