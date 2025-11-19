@@ -590,8 +590,7 @@ string generateC(ASTNode ast)
 
             if (modelName in g_modelNames)
             {
-                string prefixedModelName = g_modelNames[modelName];
-                callName = prefixedModelName ~ "_" ~ methodName;
+                callName = modelName ~ "_" ~ methodName;
             }
             else
             {
@@ -601,10 +600,6 @@ string generateC(ASTNode ast)
         else if (callName in g_functionPrefixes)
         {
             callName = g_functionPrefixes[callName];
-        }
-        else if (currentFunction.canFind("stdlib_arena_"))
-        {
-            callName = "stdlib_arena_" ~ callName;
         }
 
         if (callName in g_macros)

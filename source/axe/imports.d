@@ -530,7 +530,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 string prefixedModelName = currentModulePrefix ~ "_" ~ originalModelName;
                 string[string] modelTypeMap = importedModels.dup;
                 modelTypeMap[originalModelName] = prefixedModelName;
-                modelNode.name = prefixedModelName;
+                // modelNode.name = prefixedModelName; // Removed to keep base names in local unit
 
                 foreach (method; modelNode.methods)
                 {
@@ -542,21 +542,22 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         {
                             methodName = methodName[originalModelName.length + 1 .. $];
                         }
-                        methodFunc.name = prefixedModelName ~ "_" ~ methodName;
+                        // methodFunc.name = prefixedModelName ~ "_" ~ methodName; // Removed to keep base names
+                        methodFunc.name = originalModelName ~ "_" ~ methodName;
+
+                        // renameFunctionCalls(method, importedFunctions); // Removed
+                        // renameTypeReferences(method, modelTypeMap); // Removed
                     }
-
-                    renameFunctionCalls(method, importedFunctions);
-                    renameTypeReferences(method, modelTypeMap);
                 }
 
-                foreach (ref field; modelNode.fields)
-                {
-                    if (field.type in modelTypeMap)
-                        field.type = modelTypeMap[field.type];
-                }
+                // foreach (ref field; modelNode.fields) // Removed
+                // {
+                //     if (field.type in modelTypeMap)
+                //         field.type = modelTypeMap[field.type];
+                // }
 
-                renameFunctionCalls(child, importedFunctions);
-                renameTypeReferences(child, modelTypeMap);
+                // renameFunctionCalls(child, importedFunctions); // Removed
+                // renameTypeReferences(child, modelTypeMap); // Removed
             }
             else if (child.nodeType == "Model")
             {
@@ -598,30 +599,22 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                     localTypeMap[modelName] = prefixedName;
                 }
 
-                string[string] combinedFunctions = importedFunctions.dup;
-                foreach (key, value; localFunctions)
-                {
-                    combinedFunctions[key] = value;
-                }
-
-                renameFunctionCalls(child, combinedFunctions);
+                // Don't apply localFunctions renaming - they're in the same compilation unit
+                // and should not be prefixed when called from main
+                renameFunctionCalls(child, importedFunctions);
                 renameTypeReferences(child, localTypeMap);
             }
             else if (child.nodeType == "Test" && currentModulePrefix.length > 0)
             {
                 string[string] localTypeMap = importedModels.dup;
-                foreach (modelName, prefixedName; localModels)
-                {
-                    localTypeMap[modelName] = prefixedName;
-                }
+                // foreach (modelName, prefixedName; localModels) // Removed to keep base names in test
+                // {
+                //     localTypeMap[modelName] = prefixedName;
+                // }
 
-                string[string] combinedFunctions = importedFunctions.dup;
-                foreach (key, value; localFunctions)
-                {
-                    combinedFunctions[key] = value;
-                }
-
-                renameFunctionCalls(child, combinedFunctions);
+                // Don't apply localFunctions renaming - they're in the same compilation unit
+                // and should not be prefixed when called from test
+                renameFunctionCalls(child, importedFunctions);
                 renameTypeReferences(child, localTypeMap);
             }
             else
