@@ -30,7 +30,7 @@ macro make_list(
         cap: i32;
 
         def create(arena: ref Arena, capacity: i32): ref name {
-            mut val lst: ref name;
+            mut lst: ref name;
             raw {
                 lst = ({{name}}*)stdlib_arena_Arena_alloc(arena, sizeof({{name}}));
                 lst->data = ({{cep}}*)stdlib_arena_Arena_alloc_array(arena, sizeof({{cep}}), capacity);
@@ -43,7 +43,7 @@ macro make_list(
         def push(lst: ref name, arena: ref Arena, value: type) {
             if lst.len >= lst.cap {
                 val new_cap: i32 = lst.cap * 2;
-                mut val new_data: ref type;
+                mut new_data: ref type;
                 raw {
                     new_data = ({{cep}}*)stdlib_arena_Arena_alloc_array(arena, sizeof({{cep}}), new_cap);
                     for (int i = 0; i < lst->len; i++) {
@@ -66,7 +66,7 @@ macro make_list(
         }
 
         def print_all(lst: ref name) {
-            for mut val i = 0; i < lst.len; i++ {
+            for mut i = 0; i < lst.len; i++ {
                 printer(lst.data[i]);
                 print " ";
             }
@@ -83,8 +83,8 @@ make_list(DoubleList, f64, 0.0, double, print_i32);
 make_list(StringList, stdlib_string_string, string.create(""), stdlib_string_string, print_str);
 
 test {
-    mut val arena: Arena = Arena.create(65536);
-    mut val my_list: ref IntList = IntList.create(ref_of(arena), 4);
+    mut arena: Arena = Arena.create(65536);
+    mut my_list: ref IntList = IntList.create(ref_of(arena), 4);
 
     IntList.push(my_list, ref_of(arena), 10);
     IntList.push(my_list, ref_of(arena), 20);

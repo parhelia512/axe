@@ -4052,6 +4052,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                 isMutable = true;
             }
 
+
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
 
@@ -4486,7 +4487,6 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
             string varType = "";
             bool isMutable = false;
 
-            // Parse init - handle variable declaration
             if (pos < tokens.length && tokens[pos].type == TokenType.MUT)
             {
                 isMutable = true;
@@ -4495,18 +4495,22 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                     pos++;
             }
 
-            if (pos < tokens.length && tokens[pos].type == TokenType.VAL)
+            bool hasValKeyword = (pos < tokens.length && tokens[pos].type == TokenType.VAL);
+            if (hasValKeyword)
             {
                 pos++;
                 while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                     pos++;
+            }
 
+            // Declaration in header: 'val i = 0', 'mut val i = 0', or 'mut i = 0'
+            if (hasValKeyword || (isMutable && pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER))
+            {
                 enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
-                    "Expected variable name in for init");
+                    hasValKeyword ? "Expected variable name in for init" : "Expected variable name after 'mut' in for init");
                 varName = tokens[pos].value;
                 pos++;
 
-                // Check for type annotation
                 if (pos < tokens.length && tokens[pos].type == TokenType.COLON)
                 {
                     pos++;
@@ -4519,7 +4523,6 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                     }
                 }
 
-                // Parse initializer
                 while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                     pos++;
                 if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
@@ -4537,7 +4540,6 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
             }
             else
             {
-                // No variable declaration, just an expression
                 while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
                 {
                     init ~= tokens[pos].value;
@@ -4739,7 +4741,6 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         {
             debugWriteln("[VAL case] Starting at pos=", pos);
             bool hasValKeyword = (pos < tokens.length && tokens[pos].type == TokenType.VAL);
-            // Check if previous non-whitespace token was MUT
             size_t checkPos = pos - 1;
             while (checkPos > 0 && (tokens[checkPos].type == TokenType.WHITESPACE || tokens[checkPos].type == TokenType
                     .NEWLINE))
@@ -4751,6 +4752,7 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 pos++;
                 debugWriteln("[VAL case] After pos++, pos=", pos);
             }
+
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
             debugWriteln("[VAL case] After whitespace skip, pos=", pos, " token=", tokens[pos]

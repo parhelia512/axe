@@ -20,7 +20,7 @@ def is_match(re: regex, text: string): bool {
 
 /// Returns true if the given text contains pattern as a substring.
 def match(pattern: string, text: string): bool {
-    mut val result: bool = false;
+    mut result: bool = false;
 
     raw {
         const char *error = NULL;

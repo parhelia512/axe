@@ -1056,12 +1056,10 @@ string generateC(ASTNode ast)
             string formatString = "";
             string[] exprArgs;
 
-            // Build format string and collect expression arguments
             for (size_t i = 0; i < printlnNode.messages.length; i++)
             {
                 if (printlnNode.isExpressions[i])
                 {
-                    // Expression: determine format specifier based on type
                     string formatSpec = getFormatSpecifier(printlnNode.messages[i]);
                     formatString ~= formatSpec;
                     string processedExpr = processExpression(printlnNode.messages[i], "println");
@@ -1069,14 +1067,12 @@ string generateC(ASTNode ast)
                 }
                 else
                 {
-                    // String literal: add directly to format string
                     formatString ~= printlnNode.messages[i];
                 }
             }
 
             formatString ~= "\\n";
 
-            // Generate printf call
             if (exprArgs.length > 0)
             {
                 cCode ~= "printf(\"" ~ formatString ~ "\", " ~ exprArgs.join(", ") ~ ");\n";
@@ -1094,12 +1090,10 @@ string generateC(ASTNode ast)
             string formatString = "";
             string[] exprArgs;
 
-            // Build format string and collect expression arguments
             for (size_t i = 0; i < printNode.messages.length; i++)
             {
                 if (printNode.isExpressions[i])
                 {
-                    // Expression: determine format specifier based on type
                     string formatSpec = getFormatSpecifier(printNode.messages[i]);
                     formatString ~= formatSpec;
                     string processedExpr = processExpression(printNode.messages[i], "println");
@@ -1107,12 +1101,10 @@ string generateC(ASTNode ast)
                 }
                 else
                 {
-                    // String literal: add directly to format string
                     formatString ~= printNode.messages[i];
                 }
             }
 
-            // Generate printf call
             if (exprArgs.length > 0)
             {
                 cCode ~= "printf(\"" ~ formatString ~ "\", " ~ exprArgs.join(", ") ~ ");\n";
@@ -1188,7 +1180,6 @@ string generateC(ASTNode ast)
     case "Platform":
         auto platformNode = cast(PlatformNode) ast;
 
-        // Generate #ifdef for windows, #ifndef for posix
         if (platformNode.platform == "windows")
             cCode ~= "#ifdef _WIN32\n";
         else if (platformNode.platform == "posix")
@@ -1224,10 +1215,17 @@ string generateC(ASTNode ast)
 
     case "For":
         auto forNode = cast(ForNode) ast;
+        string forInit;
+        if (forNode.varName.length > 0)
+        {
+            string forType = forNode.isMutable ? forNode.varType : "const " ~ forNode.varType;
+            forInit = forType ~ " " ~ forNode.varName ~ " = " ~ processExpression(forNode.initValue);
+        }
+        else
+        {
+            forInit = processExpression(forNode.initValue);
+        }
 
-        string forType = forNode.isMutable ? forNode.varType : "const " ~ forNode.varType;
-        string forInit = forType ~ " " ~ forNode.varName ~ " = " ~ processExpression(
-            forNode.initValue);
         string forCond = processCondition(forNode.condition);
         string forIncr = forNode.increment;
 
