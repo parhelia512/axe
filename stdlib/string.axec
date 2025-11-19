@@ -457,6 +457,58 @@ def trim_suffix(s: string, suffix: string): string {
     return substr(s, 0, s.len - suffix.len);
 }
 
+/// Strip leading whitespace from a string.
+def lstrip(s: string): string {
+    if s.len == 0 {
+        return s;
+    }
+
+    mut start: usize = 0;
+    loop {
+        if start >= s.len {
+            break;
+        }
+        val ch: char = s.data[start];
+        if ch == ' ' or ch == '\t' or ch == '\r' or ch == '\n' {
+            start++;
+        } else {
+            break;
+        }
+    }
+
+    if start >= s.len {
+        return string.create("");
+    }
+
+    return substr(s, start, s.len - start);
+}
+
+/// Strip trailing whitespace from a string.
+def rstrip(s: string): string {
+    if s.len == 0 {
+        return s;
+    }
+
+    mut end: usize = s.len;
+    loop {
+        if end == 0 {
+            break;
+        }
+        val ch: char = s.data[end - 1];
+        if ch == ' ' or ch == '\t' or ch == '\r' or ch == '\n' {
+            end--;
+        } else {
+            break;
+        }
+    }
+
+    if end == 0 {
+        return string.create("");
+    }
+
+    return substr(s, 0, end);
+}
+
 /// String trailing and leading whitespace.
 def strip(s: string): string {
     if s.len == 0 {
@@ -547,4 +599,12 @@ test {
     val str8: string = string.create("  \thello world   ");
     val str9: string = strip(str8);
     assert(compare(str9, string.create("hello world")) == 0, "strip should remove leading and trailing whitespace");
+
+    val str10: string = string.create("  \thello world   ");
+    val str11: string = lstrip(str10);
+    assert(compare(str11, string.create("hello world   ")) == 0, "lstrip should remove leading whitespace only");
+
+    val str12: string = string.create("  hello world   \t\n");
+    val str13: string = rstrip(str12);
+    assert(compare(str13, string.create("  hello world")) == 0, "rstrip should remove trailing whitespace only");
 }
