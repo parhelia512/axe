@@ -493,7 +493,13 @@ string generateC(ASTNode ast)
                 }
             }
 
-            enum VisitState { unvisited, visiting, visited }
+            enum VisitState
+            {
+                unvisited,
+                visiting,
+                visited
+            }
+
             VisitState[string] state;
             string[] orderedModels;
 
@@ -772,7 +778,7 @@ string generateC(ASTNode ast)
                                 writeln("  DEBUG: WARNING - replacement didn't change code!");
                             }
                         }
-                else if (expandedCode == paramName)
+                        else if (expandedCode == paramName)
                         {
                             writeln("  DEBUG: Exact match (legacy) - replacing '", paramName, "' with '", paramValue, "'");
                             expandedCode = paramValue;
@@ -1277,7 +1283,7 @@ string generateC(ASTNode ast)
         foreach (i, value; enumNode.values)
         {
             cCode ~= "    " ~ value;
-            if (i < cast(int)enumNode.values.length - 1)
+            if (i < cast(int) enumNode.values.length - 1)
                 cCode ~= ",";
             cCode ~= "\n";
         }
@@ -1641,19 +1647,19 @@ string processExpression(string expr, string context = "")
                 expr[bracketEnd + 1] == '{')
             {
                 string elementType = expr[bracketStart + 1 .. bracketEnd].strip();
-                
+
                 // Check if this looks like a type (identifier, possibly with * for pointers)
                 bool isType = true;
                 foreach (c; elementType)
                 {
                     if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-                        (c >= '0' && c <= '9') || c == '_' || c == '*'))
+                            (c >= '0' && c <= '9') || c == '_' || c == '*'))
                     {
                         isType = false;
                         break;
                     }
                 }
-                
+
                 if (isType && elementType.length > 0)
                 {
                     size_t braceStart = bracketEnd + 1;
@@ -1661,7 +1667,7 @@ string processExpression(string expr, string context = "")
                     if (braceEnd != -1)
                     {
                         string arrayContent = expr[braceStart + 1 .. braceEnd];
-                        
+
                         // Map Axe types to C types
                         static immutable string[string] typeMap = [
                             "i8": "int8_t",
@@ -1680,16 +1686,16 @@ string processExpression(string expr, string context = "")
                             "char": "char",
                             "byte": "uint8_t"
                         ];
-                        
+
                         string cType = (elementType in typeMap) ?
                             typeMap[elementType] : elementType;
                         string result = expr[0 .. bracketStart] ~ "(" ~ cType ~
                             "[]){" ~ arrayContent ~ "}";
-                        
+
                         // Include any content after the array literal
                         if (braceEnd + 1 < expr.length)
                             result ~= expr[braceEnd + 1 .. $];
-                        
+
                         return result;
                     }
                 }
@@ -3698,7 +3704,6 @@ unittest
         writeln(cCode);
         assert(cCode.canFind("void error_print_self(stdlib_errors_error err)"),
             "Should generate method function with correct signature");
-
     }
 
     {
