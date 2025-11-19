@@ -31,38 +31,38 @@ def println_str(value: string) {
 }
 
 /// Print out some float with no newline
-def print_float(value: f32) {
+def print_f32(value: f32) {
     raw {
         printf("%.10f", value);
     }
 }
 
 /// Print a float with newline
-def println_float(value: f32) {
+def println_f32(value: f32) {
     raw {
         printf("%.10f\n", value);
     }
 }
 
-def println_double(value: f64) {
+def println_f64(value: f64) {
     raw {
         printf("%.10f\n", value);
     }
 }
 
-def print_double(value: f64) {
+def print_f64(value: f64) {
     raw {
         printf("%.10f", value);
     }
 }
 
-def println_long(value: i64) {
+def println_i64(value: i64) {
     raw {
         printf("%ld\n", value);
     }
 }
 
-def print_long(value: i64) {
+def print_i64(value: i64) {
     raw {
         printf("%ld", value);
     }
@@ -101,10 +101,10 @@ test {
     val y: f32 = 2.71828;
 
     print "Testing print_float: ";
-    print_float(x);
+    print_f32(x);
     println "";
     println "Testing println_float:";
-    println_float(y);
+    println_f32(y);
 
     print "Testing print_int: ";
     print_i32(42);
