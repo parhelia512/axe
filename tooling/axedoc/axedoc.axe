@@ -194,7 +194,7 @@ main {
         println_str(string.create("Usage: axedoc <file>"));
         return 1;
     }
-    val path: string = args[1];
+    val path: string = StringList.get(args, 1);
     if !generate_docs_for_file(path) {
         return 1;
     }
