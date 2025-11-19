@@ -379,6 +379,7 @@ test {
     val lower_case_string: string = string.create("hello, world");
     val upper_case_string: string = to_upper(lower_case_string);
     assert(compare(upper_case_string, string.create("HELLO, WORLD")) == 0, "to_upper should convert to uppercase");
+
     print_str(upper_case_string);
     print_i32(compare(upper_case_string, string.create("HELLO, WORLD")));
 }
