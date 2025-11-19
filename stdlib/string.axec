@@ -128,6 +128,54 @@ def is_alnum(c: i32): i32 {
     return result;
 }
 
+/// Converts string to uppercase
+def to_upper(s: string): string {
+    mut val result: string = string.create("");
+    for mut val i = 0; i < s.len; i++ {
+        result.data[i] = to_upper_chr(s.data[i]);
+    }
+    return result;
+}
+
+/// Converts string to lowercase
+def to_lower(s: string): string {
+    mut val result: string = string.create("");
+    for mut val i = 0; i < s.len; i++ {
+        result.data[i] = to_lower_chr(s.data[i]);
+    }
+    return result;
+}
+
+/// Converts char* to uppercase.
+def to_upper_chrptr(s: char*): char* {
+    mut val result: char* = 0;
+    raw {
+        result = (char*)malloc(strlen((const char*)s) + 1);
+        if (result != 0) {
+            strcpy((char*)result, (const char*)s);
+            for (int i = 0; i < strlen((const char*)result); i++) {
+                result[i] = toupper(result[i]);
+            }
+        }
+    }
+    return result;
+}
+
+/// Converts char* to lowercase.
+def to_lower_chrptr(s: char*): char* {
+    mut val result: char* = 0;
+    raw {
+        result = (char*)malloc(strlen((const char*)s) + 1);
+        if (result != 0) {
+            strcpy((char*)result, (const char*)s);
+            for (int i = 0; i < strlen((const char*)result); i++) {
+                result[i] = tolower(result[i]);
+            }
+        }
+    }
+    return result;
+}
+
 /// Converts character to uppercase.
 def to_upper_chr(c: i32): i32 {
     mut val result: i32 = 0;
