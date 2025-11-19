@@ -20,8 +20,6 @@ import std.stdio;
 import std.ascii;
 import std.string;
 
-import std.string : startsWith;
-
 static immutable string[string] g_typeMappings = [
     "i8": "int8_t",
     "u8": "uint8_t",
