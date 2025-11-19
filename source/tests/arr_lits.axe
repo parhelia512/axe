@@ -1,0 +1,15 @@
+def arr_length(a: i32[]): usize {
+    return 4;
+}
+
+def func_that_takes_arr_literal(a: i32[]) {
+    for mut val i = 0; i < arr_length(a); i++ {
+        print_i32(a[i]);
+        print " ";
+    }
+    println "";
+}
+
+main {
+    func_that_takes_arr_literal(<i32>[10, 20, 30, 40]); //should become (int32_t[]){10, 20, 30, 40}
+}
