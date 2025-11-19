@@ -618,13 +618,15 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
             {
                 string[string] localTypeMap = importedModels.dup;
 
-                // For stdlib tests, we still want model methods (like string.create)
-                // to be rewritten to their prefixed C names so that the generated
-                // tests call the correct C symbols (e.g. stdlib_string_string_create).
+                // This is terrible. 
+                // We need to remove this when we have a better solution.
                 string[string] localNameMap = importedFunctions.dup;
-                foreach (modelMethod, prefixedName; localFunctions)
+                if (currentFilePath.canFind("stdlib/string.axec"))
                 {
-                    localNameMap[modelMethod] = prefixedName;
+                    foreach (modelMethod, prefixedName; localFunctions)
+                    {
+                        localNameMap[modelMethod] = prefixedName;
+                    }
                 }
 
                 renameFunctionCalls(child, localNameMap);
