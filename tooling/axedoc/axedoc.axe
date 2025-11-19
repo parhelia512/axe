@@ -10,7 +10,7 @@ def trim_leading_whitespace(s: string): string {
             break;
         }
         if s.data[i] == ' ' or s.data[i] == '\t' {
-            i = i + 1;
+            i++;
         } else {
             break;
         }
@@ -28,7 +28,7 @@ def make_markdown_path(path: string): string {
         if path.data[i] == '.' {
             dot_index = (i32)i;
         }
-        i = i + 1;
+        i++;
     }
 
     mut base: string;
