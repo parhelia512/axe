@@ -14,6 +14,7 @@ import axe.renderer;
 import axe.renderer_asm;
 import axe.imports;
 import axe.structs;
+import axe.gstate;
 import std.file;
 import std.process;
 import std.array;
@@ -229,7 +230,7 @@ bool handleMachineArgs(string[] args)
             auto e = execute(clangCmd);
             if (e[0] != 0)
             {
-                debug writeln("CLANGCMD: ", clangCmd);
+                debugWriteln("CLANGCMD: ", clangCmd);
 
                 stderr.writeln(
                     "Fallthrough error, report the bug at https://github.com/axelang/axe/issues\nTrace:\n",

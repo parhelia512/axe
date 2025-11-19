@@ -11,6 +11,7 @@ module axe.imports;
 import axe.structs;
 import axe.lexer;
 import axe.parser;
+import axe.gstate;
 import std.file;
 import std.path;
 import std.stdio;
@@ -46,7 +47,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
         string normalizedPath = currentFilePath.replace("\\", "/");
         if (normalizedPath in g_processedModules)
         {
-            debug writeln("DEBUG: Module already processed, skipping: ", normalizedPath);
+            debugWriteln("DEBUG: Module already processed, skipping: ", normalizedPath);
             return ast;
         }
         g_processedModules[normalizedPath] = "1";
@@ -100,7 +101,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
             {
                 auto modelNode = cast(ModelNode) child;
                 localModels[modelNode.name] = currentModulePrefix ~ "_" ~ modelNode.name;
-                debug writeln("DEBUG: Added local model '", modelNode.name, "' -> '", currentModulePrefix ~ "_" ~
+                debugWriteln("DEBUG: Added local model '", modelNode.name, "' -> '", currentModulePrefix ~ "_" ~
                         modelNode.name, "'");
 
                 foreach (method; modelNode.methods)
@@ -112,14 +113,14 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         string originalCallName = modelNode.name ~ "_" ~ methodName;
                         string prefixedCallName = currentModulePrefix ~ "_" ~ modelNode.name ~ "_" ~ methodName;
                         localFunctions[originalCallName] = prefixedCallName;
-                        debug writeln("DEBUG: Added local function '", originalCallName, "' -> '",
+                        debugWriteln("DEBUG: Added local function '", originalCallName, "' -> '",
                             prefixedCallName, "'");
                     }
                 }
             }
         }
-        debug writeln("DEBUG: Total local models: ", localModels.length);
-        debug writeln("DEBUG: Total local functions: ", localFunctions.length);
+        debugWriteln("DEBUG: Total local models: ", localModels.length);
+        debugWriteln("DEBUG: Total local functions: ", localFunctions.length);
     }
 
     bool[string] isTransitiveDependency;
@@ -344,7 +345,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                                 if (existingFunc.name == funcNode.name)
                                 {
                                     alreadyAdded = true;
-                                    debug writeln("DEBUG: Skipping duplicate transitive function: ", funcNode
+                                    debugWriteln("DEBUG: Skipping duplicate transitive function: ", funcNode
                                             .name);
                                     break;
                                 }
@@ -353,7 +354,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
 
                         if (!alreadyAdded)
                         {
-                            debug writeln("DEBUG: Adding transitive function: ", funcNode.name);
+                            debugWriteln("DEBUG: Adding transitive function: ", funcNode.name);
 
                             renameFunctionCalls(funcNode, moduleFunctionMap);
                             renameTypeReferences(funcNode, moduleModelMap);
@@ -415,7 +416,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                                 if (existingModel.name == modelNode.name)
                                 {
                                     alreadyAdded = true;
-                                    debug writeln("DEBUG: Skipping duplicate transitive model: ", modelNode
+                                    debugWriteln("DEBUG: Skipping duplicate transitive model: ", modelNode
                                             .name);
                                     break;
                                 }
@@ -425,7 +426,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         if (!alreadyAdded)
                         {
                             isTransitiveDependency[modelNode.name] = true;
-                            debug writeln("DEBUG: Adding transitive model: ", modelNode.name);
+                            debugWriteln("DEBUG: Adding transitive model: ", modelNode.name);
 
                             foreach (method; modelNode.methods)
                             {
@@ -518,10 +519,10 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
         }
         else
         {
-            debug writeln("DEBUG imports: Renaming user code with ", importedFunctions.length, " imported functions");
+            debugWriteln("DEBUG imports: Renaming user code with ", importedFunctions.length, " imported functions");
             foreach (key, value; importedFunctions)
             {
-                debug writeln("  DEBUG: importedFunctions['", key, "'] = '", value, "'");
+                debugWriteln("  DEBUG: importedFunctions['", key, "'] = '", value, "'");
             }
 
             if (child.nodeType == "Model" && currentModulePrefix.length > 0)
@@ -731,7 +732,7 @@ string fixDoublePrefix(string expr)
     
     if (fixes > 0)
     {
-        debug writeln("      DEBUG fixDoublePrefix: Fixed ", fixes, " double-prefix patterns");
+        debugWriteln("      DEBUG fixDoublePrefix: Fixed ", fixes, " double-prefix patterns");
     }
     
     return fixedExpr;
@@ -829,21 +830,21 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
     else if (node.nodeType == "Return")
     {
         auto returnNode = cast(ReturnNode) node;
-        debug writeln("    DEBUG Return before processing: '", returnNode.expression, "'");
-        debug writeln("    DEBUG Return nameMap: ", nameMap);
+        debugWriteln("    DEBUG Return before processing: '", returnNode.expression, "'");
+        debugWriteln("    DEBUG Return nameMap: ", nameMap);
         foreach (oldName, newName; nameMap)
         {
             string before = returnNode.expression;
             returnNode.expression = replaceStandaloneCall(returnNode.expression, oldName, newName);
             if (before != returnNode.expression)
-                debug writeln("      DEBUG Return replaced '", oldName, "' -> '", newName, "': '", returnNode.expression, "'");
+                debugWriteln("      DEBUG Return replaced '", oldName, "' -> '", newName, "': '", returnNode.expression, "'");
 
             string oldCallDot = oldName.replace("_", ".") ~ "(";
             if (returnNode.expression.canFind(oldCallDot))
             {
                 before = returnNode.expression;
                 returnNode.expression = returnNode.expression.replace(oldCallDot, newName ~ "(");
-                debug writeln("      DEBUG Return replaced dot call '", oldCallDot, "' -> '", newName, "(': '", returnNode.expression, "'");
+                debugWriteln("      DEBUG Return replaced dot call '", oldCallDot, "' -> '", newName, "(': '", returnNode.expression, "'");
             }
 
             import std.regex : regex, replaceAll;
@@ -855,7 +856,7 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
                 string newExpr = replaceAll(returnNode.expression, dotPattern, newName ~ "(");
                 if (newExpr != returnNode.expression)
                 {
-                    debug writeln("      DEBUG Return regex replaced pattern: '", returnNode.expression, "' -> '", newExpr, "'");
+                    debugWriteln("      DEBUG Return regex replaced pattern: '", returnNode.expression, "' -> '", newExpr, "'");
                     returnNode.expression = newExpr;
                 }
             }
@@ -864,18 +865,18 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
         // FIX DOUBLE-PREFIXING: Apply post-processing fix
         returnNode.expression = fixDoublePrefix(returnNode.expression);
         
-        debug writeln("    DEBUG Return after processing: '", returnNode.expression, "'");
+        debugWriteln("    DEBUG Return after processing: '", returnNode.expression, "'");
     }
     else if (node.nodeType == "Declaration")
     {
         auto declNode = cast(DeclarationNode) node;
-        debug writeln("    DEBUG renameFunctionCalls Declaration: initializer='", declNode.initializer, "'");
+        debugWriteln("    DEBUG renameFunctionCalls Declaration: initializer='", declNode.initializer, "'");
         foreach (oldName, newName; nameMap)
         {
             auto newInit = replaceStandaloneCall(declNode.initializer, oldName, newName);
             if (newInit != declNode.initializer)
             {
-                debug writeln("    DEBUG renameFunctionCalls: Renamed call in declaration: '", oldName,
+                debugWriteln("    DEBUG renameFunctionCalls: Renamed call in declaration: '", oldName,
                     "' -> '", newName, "'");
                 declNode.initializer = newInit;
             }
@@ -883,7 +884,7 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             string oldCallDot = oldName.replace("_", ".") ~ "(";
             if (declNode.initializer.canFind(oldCallDot))
             {
-                debug writeln("    DEBUG renameFunctionCalls: Renamed dot call in declaration: '",
+                debugWriteln("    DEBUG renameFunctionCalls: Renamed dot call in declaration: '",
                     oldCallDot, "' -> '", newName, "(");
                 declNode.initializer = declNode.initializer.replace(oldCallDot, newName ~ "(");
             }
@@ -896,12 +897,12 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             {
                 string modelMethod = convertToModelMethodPattern(oldName);
                 auto dotPattern = regex("\\b" ~ modelMethod ~ "\\s*\\(");
-                debug writeln("    DEBUG: Trying regex pattern '\\b", modelMethod, "\\s*\\(' on '",
+                debugWriteln("    DEBUG: Trying regex pattern '\\b", modelMethod, "\\s*\\(' on '",
                     declNode.initializer, "'");
                 string regexInit = replaceAll(declNode.initializer, dotPattern, newName ~ "(");
                 if (regexInit != declNode.initializer)
                 {
-                    debug writeln("    DEBUG: Regex matched! Replaced '", declNode.initializer,
+                    debugWriteln("    DEBUG: Regex matched! Replaced '", declNode.initializer,
                         "' -> '", regexInit, "'");
                     declNode.initializer = regexInit;
                 }

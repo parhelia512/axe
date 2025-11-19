@@ -13,6 +13,7 @@ import std.conv;
 import std.string;
 import std.algorithm;
 import axe.structs;
+import axe.gstate;
 
 private string[string] g_typeAliases;
 private MacroDef[string] g_macros;
@@ -40,10 +41,10 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
 
     debug
     {
-        writeln("Starting parse with tokens:");
+        debugWriteln("Starting parse with tokens:");
 
         foreach (i, token; tokens)
-            writeln(i, ": ", token.type, " ('", token.value, "')");
+            debugWriteln(i, ": ", token.type, " ('", token.value, "')");
     }
 
     if (!isAxec)
@@ -162,29 +163,29 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
             pos++; // Skip ']'
 
             if (pos < tokens.length)
-                writeln("DEBUG parseArrayType: After first ], pos=", pos, " token=", tokens[pos].type, " value='", tokens[pos]
+                debugWriteln("DEBUG parseArrayType: After first ], pos=", pos, " token=", tokens[pos].type, " value='", tokens[pos]
                         .value, "'");
             else
-                debug writeln("DEBUG parseArrayType: After first ], pos=", pos, " END OF TOKENS");
+                debugWriteln("DEBUG parseArrayType: After first ], pos=", pos, " END OF TOKENS");
 
             if (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
             {
-                debug writeln("DEBUG parseArrayType: Found second [");
+                debugWriteln("DEBUG parseArrayType: Found second [");
                 hasSecondDimension = true;
                 pos++; // Skip '['
 
                 if (pos < tokens.length)
-                    debug writeln("DEBUG parseArrayType: After second [, token=", tokens[pos].type, " value='", tokens[pos]
+                    debugWriteln("DEBUG parseArrayType: After second [, token=", tokens[pos].type, " value='", tokens[pos]
                             .value, "'");
 
                 while (pos < tokens.length && tokens[pos].type != TokenType.RBRACKET)
                 {
-                    debug writeln("DEBUG parseArrayType: Adding to size2: '", tokens[pos].value, "'");
+                    debugWriteln("DEBUG parseArrayType: Adding to size2: '", tokens[pos].value, "'");
                     size2 ~= tokens[pos].value;
                     pos++;
                 }
 
-                debug writeln("DEBUG parseArrayType: size2='", size2, "' hasSecondDimension=", hasSecondDimension);
+                debugWriteln("DEBUG parseArrayType: size2='", size2, "' hasSecondDimension=", hasSecondDimension);
 
                 enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACKET,
                     "Expected ']' after second array size");
@@ -437,7 +438,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                         {
                             pos = savedPos;
                             auto arrayInfo = parseArrayType();
-                            debug writeln("DEBUG parseArgs: elementType='", arrayInfo.elementType, "' size='", arrayInfo.size, "' size2='", arrayInfo
+                            debugWriteln("DEBUG parseArgs: elementType='", arrayInfo.elementType, "' size='", arrayInfo.size, "' size2='", arrayInfo
                                     .size2, "' hasSecondDimension=", arrayInfo.hasSecondDimension);
                             string fullType = refPrefix ~ arrayInfo.elementType;
                             if (arrayInfo.size.length > 0)
@@ -453,17 +454,17 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                                     fullType ~= "[]";
                             }
 
-                            debug writeln("DEBUG parseArgs: fullType='", fullType, "' paramName='", paramName, "' isMutable=", isMutable);
+                            debugWriteln("DEBUG parseArgs: fullType='", fullType, "' paramName='", paramName, "' isMutable=", isMutable);
                             string mutPrefix = isMutable ? "mut " : "";
                             string paramStr = mutPrefix ~ fullType ~ " " ~ paramName;
-                            debug writeln("DEBUG parseArgs: storing param as '", paramStr, "'");
+                            debugWriteln("DEBUG parseArgs: storing param as '", paramStr, "'");
                             args ~= paramStr;
                         }
                         else
                         {
                             string mutPrefix = isMutable ? "mut " : "";
                             string paramStr = mutPrefix ~ refPrefix ~ baseType ~ " " ~ paramName;
-                            debug writeln("DEBUG parseArgs: storing param as '", paramStr, "' (non-array, isMutable=", isMutable, ")");
+                            debugWriteln("DEBUG parseArgs: storing param as '", paramStr, "' (non-array, isMutable=", isMutable, ")");
                             args ~= paramStr;
                         }
                     }
@@ -492,7 +493,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
 
     while (pos < tokens.length)
     {
-        debug writeln("Current token at pos ", pos, ": ", tokens[pos].type, " ('", tokens[pos].value, "')");
+        debugWriteln("Current token at pos ", pos, ": ", tokens[pos].type, " ('", tokens[pos].value, "')");
 
         switch (tokens[pos].type)
         {
@@ -585,7 +586,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                             // Check if param starts with "mut " or contains " ref " (with spaces to avoid false matches)
                             bool isMutable = param.startsWith("mut ") || param.canFind(" ref ") || param.startsWith(
                                 "ref ");
-                            debug writeln("DEBUG: Registering parameter '", paramName, "' from param string '", param, "' as mutable=", isMutable);
+                            debugWriteln("DEBUG: Registering parameter '", paramName, "' from param string '", param, "' as mutable=", isMutable);
                             funcScope.addVariable(paramName, isMutable);
                         }
                     }
@@ -735,7 +736,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                     size_t savedPos = pos;
                     string baseType = parseType();
 
-                    if (baseType == "union" && pos < tokens.length && tokens[pos].type == TokenType.LBRACE)
+                    if (baseType == "union" && pos < tokens.length && tokens[pos].type == TokenType
+                        .LBRACE)
                     {
                         ModelNode.Field unionField;
                         unionField.name = fieldName;
@@ -984,7 +986,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                 // Assume imports that start with uppercase are types
                 if (importName.length > 0 && importName[0] >= 'A' && importName[0] <= 'Z')
                 {
-                    writeln("Storing alias, ", importName, " -> ", modulePrefix ~ "_" ~ importName);
+                    debugWriteln("Storing alias, ", importName, " -> ", modulePrefix ~ "_" ~ importName);
                     g_typeAliases[importName] = modulePrefix ~ "_" ~ importName;
                 }
             }
@@ -2414,8 +2416,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                 startPos = pos;
             }
 
-            debug writeln("Exited main block at pos ", pos);
-            debug writeln("Current token: ", pos < tokens.length ? to!string(tokens[pos].type) : "EOF", " ('",
+            debugWriteln("Exited main block at pos ", pos);
+            debugWriteln("Current token: ", pos < tokens.length ? to!string(tokens[pos].type) : "EOF", " ('",
                 pos < tokens.length ? tokens[pos].value : "", "')");
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
@@ -2444,7 +2446,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                 pos++;
 
                 auto mainNode = new FunctionNode("main", []);
-                debug writeln("Entering main block at pos ", pos);
+                debugWriteln("Entering main block at pos ", pos);
 
                 auto previousScope = currentScopeNode;
                 currentScopeNode = mainNode;
@@ -2821,8 +2823,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                     }
                 }
 
-                debug writeln("Exited main block at pos ", pos);
-                debug writeln("Current token: ", pos < tokens.length ? to!string(
+                debugWriteln("Exited main block at pos ", pos);
+                debugWriteln("Current token: ", pos < tokens.length ? to!string(
                         tokens[pos].type) : "EOF", " ('",
                     pos < tokens.length ? tokens[pos].value : "", "')");
                 while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
@@ -2922,9 +2924,9 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
 
                 // Substitute parameters in the token stream
                 // Use {{param}} syntax for explicit macro parameter substitution
-                debug writeln("DEBUG macro expansion: Substituting parameters for macro '", identName, "'");
-                debug writeln("  Macro params: ", macroDef.params);
-                debug writeln("  Macro args: ", macroArgs);
+                debugWriteln("DEBUG macro expansion: Substituting parameters for macro '", identName, "'");
+                debugWriteln("  Macro params: ", macroDef.params);
+                debugWriteln("  Macro args: ", macroArgs);
                 macroArgs[2] = balanceParentheses(macroArgs[2]);
                 foreach (ref token; expandedTokens)
                 {
@@ -2942,25 +2944,25 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                             if (token.value.canFind(pattern))
                             {
                                 string oldValue = token.value;
-                                writeln("  DEBUG: Found pattern '", pattern, "' in token value (type: ", token.type, ")");
-                                writeln("    Token value: '", oldValue, "'");
+                                debugWriteln("  DEBUG: Found pattern '", pattern, "' in token value (type: ", token.type, ")");
+                                debugWriteln("    Token value: '", oldValue, "'");
                                 // replace() in std.string replaces all occurrences
                                 token.value = token.value.replace(pattern, macroArgs[i]);
                                 if (oldValue != token.value)
                                 {
-                                    writeln("  DEBUG: Replaced '", pattern, "' with '", macroArgs[i], "'");
-                                    writeln("    Result: '", token.value, "'");
+                                    debugWriteln("  DEBUG: Replaced '", pattern, "' with '", macroArgs[i], "'");
+                                    debugWriteln("    Result: '", token.value, "'");
                                 }
                                 else
                                 {
-                                    writeln(
+                                    debugWriteln(
                                         "  DEBUG: WARNING - pattern found but replacement didn't change value!");
                                 }
                             }
                             // Also support exact match for backward compatibility (but prefer {{param}})
                         else if (token.value == macroDef.params[i])
                             {
-                                writeln("  DEBUG: Exact match (legacy) - replacing '", token.value, "' with '", macroArgs[i], "'");
+                                debugWriteln("  DEBUG: Exact match (legacy) - replacing '", token.value, "' with '", macroArgs[i], "'");
                                 token.value = macroArgs[i];
                             }
                         }
@@ -3214,9 +3216,9 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
             }
 
             auto funcNode = new FunctionNode(currentFuncName, params, returnType);
-            debug writeln("DEBUG: Function '", currentFuncName, "' has ", params.length, " parameters:");
+            debugWriteln("DEBUG: Function '", currentFuncName, "' has ", params.length, " parameters:");
             foreach (p; params)
-                debug writeln("  DEBUG: param='", p, "'");
+                debugWriteln("  DEBUG: param='", p, "'");
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
 
@@ -3241,16 +3243,16 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                     // Check if param starts with "mut " or contains " ref " (with spaces to avoid false matches)
                     bool isMutable = param.startsWith("mut ") || param.canFind(" ref ") || param.startsWith(
                         "ref ");
-                    debug writeln("DEBUG: Registering parameter '", paramName, "' from param string '", param, "' as mutable=", isMutable);
+                    debugWriteln("DEBUG: Registering parameter '", paramName, "' from param string '", param, "' as mutable=", isMutable);
                     funcScope.addVariable(paramName, isMutable);
                 }
             }
 
-            debug writeln("Entering function body at pos ", pos);
+            debugWriteln("Entering function body at pos ", pos);
             size_t startPos = pos;
             while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
             {
-                debug writeln("Function body pos ", pos, ": ", tokens[pos].type, " ('", tokens[pos].value, "')");
+                debugWriteln("Function body pos ", pos, ": ", tokens[pos].type, " ('", tokens[pos].value, "')");
 
                 switch (tokens[pos].type)
                 {
@@ -3740,8 +3742,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                                 }
                             }
 
-                            debug writeln("Exited if body at pos ", pos);
-                            debug writeln("Current token: ", pos < tokens.length ? to!string(
+                            debugWriteln("Exited if body at pos ", pos);
+                            debugWriteln("Current token: ", pos < tokens.length ? to!string(
                                     tokens[pos].type) : "EOF", " ('",
                                 pos < tokens.length ? tokens[pos].value : "", "')");
                             enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
@@ -3918,8 +3920,9 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                         }
                     }
 
-                    debug writeln("Exited loop body at pos ", pos);
-                    debug writeln("Current token: ", pos < tokens.length ? to!string(tokens[pos].type) : "EOF", " ('",
+                    debugWriteln("Exited loop body at pos ", pos);
+                    debugWriteln("Current token: ", pos < tokens.length ? to!string(
+                            tokens[pos].type) : "EOF", " ('",
                         pos < tokens.length ? tokens[pos].value : "", "')");
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                         "Expected '}' after loop body");
@@ -3984,8 +3987,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                 }
             }
 
-            debug writeln("Exited function body at pos ", pos);
-            debug writeln("Current token: ", pos < tokens.length ? to!string(tokens[pos].type) : "EOF", " ('",
+            debugWriteln("Exited function body at pos ", pos);
+            debugWriteln("Current token: ", pos < tokens.length ? to!string(tokens[pos].type) : "EOF", " ('",
                 pos < tokens.length ? tokens[pos].value : "", "')");
             enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE, "Expected '}' after function body");
             pos++;
@@ -4115,7 +4118,7 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
     import std.array : join;
     import std.stdio : writeln;
 
-    debug writeln("[parseStatementHelper] pos=", pos, " token=", tokens[pos].type, " value='", tokens[pos].value, "'");
+    debugWriteln("[parseStatementHelper] pos=", pos, " token=", tokens[pos].type, " value='", tokens[pos].value, "'");
 
     switch (tokens[pos].type)
     {
@@ -4202,8 +4205,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
             "Expected ';' after assert statement");
         pos++;
 
-        debug writeln("[ASSERT] Final condition: '", condition.strip(), "'");
-        debug writeln("[ASSERT] Message: '", message, "'");
+        debugWriteln("[ASSERT] Final condition: '", condition.strip(), "'");
+        debugWriteln("[ASSERT] Message: '", message, "'");
         return new AssertNode(condition.strip(), message);
 
     case TokenType.CONTINUE:
@@ -4678,39 +4681,39 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         return switchNode;
 
     case TokenType.MUT:
-        debug writeln("[MUT case] Starting at pos=", pos);
+        debugWriteln("[MUT case] Starting at pos=", pos);
         pos++;
-        debug writeln("[MUT case] After pos++, pos=", pos, " token=", tokens[pos].type);
+        debugWriteln("[MUT case] After pos++, pos=", pos, " token=", tokens[pos].type);
         while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
                 .NEWLINE))
             pos++;
-        debug writeln("[MUT case] After whitespace skip, pos=", pos, " token=", tokens[pos].type);
+        debugWriteln("[MUT case] After whitespace skip, pos=", pos, " token=", tokens[pos].type);
         enforce(pos < tokens.length && tokens[pos].type == TokenType.VAL,
             "Expected 'val' after 'mut'");
-        debug writeln("[MUT case] About to goto VAL case");
+        debugWriteln("[MUT case] About to goto VAL case");
         goto case TokenType.VAL;
 
     case TokenType.VAL:
         {
-            debug writeln("[VAL case] Starting at pos=", pos);
+            debugWriteln("[VAL case] Starting at pos=", pos);
             // Check if previous non-whitespace token was MUT
             size_t checkPos = pos - 1;
             while (checkPos > 0 && (tokens[checkPos].type == TokenType.WHITESPACE || tokens[checkPos].type == TokenType
                     .NEWLINE))
                 checkPos--;
             bool isMutable = tokens[checkPos].type == TokenType.MUT;
-            debug writeln("[VAL case] isMutable=", isMutable);
+            debugWriteln("[VAL case] isMutable=", isMutable);
 
             pos++;
-            debug writeln("[VAL case] After pos++, pos=", pos);
+            debugWriteln("[VAL case] After pos++, pos=", pos);
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
-            debug writeln("[VAL case] After whitespace skip, pos=", pos, " token=", tokens[pos]
+            debugWriteln("[VAL case] After whitespace skip, pos=", pos, " token=", tokens[pos]
                     .type);
             enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
                 "Expected identifier after 'val'");
             string varName = tokens[pos].value;
-            debug writeln("[VAL case] varName=", varName);
+            debugWriteln("[VAL case] varName=", varName);
             pos++;
 
             string typeName = "";
@@ -4733,10 +4736,10 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 }
 
                 typeName = parseTypeHelper(pos, tokens);
-                debug writeln("[VAL case] After parseTypeHelper, typeName=", typeName, " pos=", pos);
+                debugWriteln("[VAL case] After parseTypeHelper, typeName=", typeName, " pos=", pos);
             }
 
-            debug writeln("[VAL case] Before checking for =, pos=", pos, " token=", tokens[pos]
+            debugWriteln("[VAL case] Before checking for =, pos=", pos, " token=", tokens[pos]
                     .type);
             if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
             {
@@ -4826,10 +4829,10 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 else
                 {
                     // Regular initialization
-                    debug writeln("[VAL case] Parsing initializer, starting at pos=", pos);
+                    debugWriteln("[VAL case] Parsing initializer, starting at pos=", pos);
                     while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
                     {
-                        debug writeln("[VAL case] Initializer loop: pos=", pos, " token=", tokens[pos]
+                        debugWriteln("[VAL case] Initializer loop: pos=", pos, " token=", tokens[pos]
                                 .type);
                         if (initializer.length > 0 && tokens[pos].type != TokenType.LPAREN &&
                             tokens[pos].type != TokenType.RPAREN && tokens[pos].type != TokenType
@@ -4844,16 +4847,16 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                             initializer ~= tokens[pos].value;
                         pos++;
                     }
-                    debug writeln("[VAL case] After initializer loop, initializer=", initializer);
+                    debugWriteln("[VAL case] After initializer loop, initializer=", initializer);
                 }
             }
 
-            debug writeln("[VAL case] Before final semicolon check, pos=", pos);
+            debugWriteln("[VAL case] Before final semicolon check, pos=", pos);
             enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                 "Expected ';' after variable declaration");
             pos++;
 
-            debug writeln("[VAL case] About to return DeclarationNode");
+            debugWriteln("[VAL case] About to return DeclarationNode");
             currentScope.addVariable(varName, isMutable);
             return new DeclarationNode(varName, isMutable, initializer, typeName, refDepth);
         }
@@ -4981,7 +4984,7 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                     enforce(false, "Undeclared variable: " ~ identName);
                 }
                 bool isVarMutable = currentScope.isMutable(identName);
-                debug writeln("DEBUG: Member access check for '", identName, "': isMutable=", isVarMutable);
+                debugWriteln("DEBUG: Member access check for '", identName, "': isMutable=", isVarMutable);
                 if (!isVarMutable)
                 {
                     enforce(false, "Cannot assign to member '" ~ memberName ~
@@ -5409,7 +5412,7 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
 
     default:
         // Safeguard: if we don't recognize the token, we must advance to prevent infinite loops
-        debug writeln("[parseStatementHelper] WARNING: Unhandled token type ", tokens[pos].type, " at pos ", pos);
+        debugWriteln("[parseStatementHelper] WARNING: Unhandled token type ", tokens[pos].type, " at pos ", pos);
         enforce(false, "Unexpected token in statement: " ~ tokens[pos].value ~ " (type: " ~ tokens[pos]
                 .type.to!string ~ ")\nFull context: " ~ tokens[pos - 5 .. pos + 5].map!(t => t.value)
                 .join(""));
@@ -5424,7 +5427,7 @@ private IfNode parseIfHelper(ref size_t pos, Token[] tokens, ref Scope currentSc
 {
     import std.stdio : writeln;
 
-    debug writeln("[parseIfHelper] Entering at pos=", pos);
+    debugWriteln("[parseIfHelper] Entering at pos=", pos);
 
     pos++; // Skip 'if'
     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
@@ -5489,7 +5492,7 @@ private IfNode parseIfHelper(ref size_t pos, Token[] tokens, ref Scope currentSc
     IfNode lastNode = ifNode;
     while (pos < tokens.length && tokens[pos].type == TokenType.ELIF)
     {
-        debug writeln("[parseIfHelper] Found elif at pos=", pos);
+        debugWriteln("[parseIfHelper] Found elif at pos=", pos);
         pos++; // Skip 'elif'
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
@@ -5555,7 +5558,7 @@ private IfNode parseIfHelper(ref size_t pos, Token[] tokens, ref Scope currentSc
     // Check for else clause - attach to the last node in the chain
     if (pos < tokens.length && tokens[pos].type == TokenType.ELSE)
     {
-        debug writeln("[parseIfHelper] Found else at pos=", pos);
+        debugWriteln("[parseIfHelper] Found else at pos=", pos);
         pos++; // Skip 'else'
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
@@ -5724,7 +5727,7 @@ private LoopNode parseLoopHelper(ref size_t pos, Token[] tokens, ref Scope curre
 {
     import std.stdio : writeln;
 
-    debug writeln("[parseLoopHelper] Entering at pos=", pos);
+    debugWriteln("[parseLoopHelper] Entering at pos=", pos);
 
     pos++; // Skip 'loop'
     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
@@ -5907,81 +5910,82 @@ private PrintNode parsePrintHelper(ref size_t pos, Token[] tokens)
 private ArrayLiteralNode tryParseArrayLiteral(ref size_t pos, Token[] tokens)
 {
     size_t savedPos = pos;
-    
+
     if (pos >= tokens.length || tokens[pos].type != TokenType.OPERATOR || tokens[pos].value != "<")
         return null;
-    
+
     pos++; // Skip '<'
-    
+
     string elementType = "";
     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
         pos++;
-    
+
     if (pos >= tokens.length || tokens[pos].type != TokenType.IDENTIFIER)
     {
         pos = savedPos;
         return null;
     }
-    
+
     elementType = tokens[pos].value;
     pos++;
-    
+
     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
         pos++;
-    
+
     if (pos >= tokens.length || tokens[pos].type != TokenType.OPERATOR || tokens[pos].value != ">")
     {
         pos = savedPos;
         return null;
     }
-    
+
     pos++; // Skip '>'
-    
+
     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
         pos++;
-    
+
     if (pos >= tokens.length || tokens[pos].type != TokenType.LBRACKET)
     {
         pos = savedPos;
         return null;
     }
-    
+
     pos++; // Skip '['
-    
+
     string[] elements;
-    
+
     while (pos < tokens.length && tokens[pos].type != TokenType.RBRACKET)
     {
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
-        
+
         if (pos >= tokens.length || tokens[pos].type == TokenType.RBRACKET)
             break;
-        
+
         string element = "";
-        
-        while (pos < tokens.length && tokens[pos].type != TokenType.COMMA && tokens[pos].type != TokenType.RBRACKET)
+
+        while (pos < tokens.length && tokens[pos].type != TokenType.COMMA && tokens[pos].type != TokenType
+            .RBRACKET)
         {
             if (tokens[pos].type == TokenType.WHITESPACE)
             {
                 pos++;
                 continue;
             }
-            
+
             if (tokens[pos].type == TokenType.STR)
                 element ~= "\"" ~ tokens[pos].value ~ "\"";
             else
                 element ~= tokens[pos].value;
-            
+
             pos++;
         }
-        
+
         if (element.strip().length > 0)
             elements ~= element.strip();
-        
+
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
-        
+
         if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
         {
             pos++;
@@ -5989,15 +5993,15 @@ private ArrayLiteralNode tryParseArrayLiteral(ref size_t pos, Token[] tokens)
                 pos++;
         }
     }
-    
+
     if (pos >= tokens.length || tokens[pos].type != TokenType.RBRACKET)
     {
         pos = savedPos;
         return null;
     }
-    
+
     pos++; // Skip ']'
-    
+
     return new ArrayLiteralNode(elementType, elements);
 }
 
@@ -6008,16 +6012,16 @@ private string parseTypeHelper(ref size_t pos, Token[] tokens)
 {
     import std.stdio : writeln;
 
-    debug writeln("[parseTypeHelper] Starting at pos=", pos);
+    debugWriteln("[parseTypeHelper] Starting at pos=", pos);
     string typeName = "";
     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
         pos++;
 
-    debug writeln("[parseTypeHelper] After whitespace skip, pos=", pos);
+    debugWriteln("[parseTypeHelper] After whitespace skip, pos=", pos);
     if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
     {
         typeName = tokens[pos].value;
-        debug writeln("[parseTypeHelper] Got type name: ", typeName);
+        debugWriteln("[parseTypeHelper] Got type name: ", typeName);
         pos++;
 
         // Validate that the type is not forbidden
@@ -6053,7 +6057,7 @@ private string parseTypeHelper(ref size_t pos, Token[] tokens)
 
     if (typeName in g_typeAliases)
     {
-        debug writeln("Resolved alias: ", typeName, " -> ", g_typeAliases[typeName]);
+        debugWriteln("Resolved alias: ", typeName, " -> ", g_typeAliases[typeName]);
         typeName = g_typeAliases[typeName];
     }
 

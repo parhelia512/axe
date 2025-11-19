@@ -9,6 +9,7 @@
 module axe.renderer;
 
 import axe.structs;
+import axe.gstate;
 import std.string;
 import std.array;
 import std.exception;
@@ -135,7 +136,7 @@ string[] computeReorderedCParams(FunctionNode funcNode, out int[] reorderMap, ou
 
     foreach (param; funcNode.params)
     {
-        debug writeln("DEBUG: Processing param: '", param, "'");
+        debugWriteln("DEBUG: Processing param: '", param, "'");
         auto lastSpace = param.lastIndexOf(' ');
         while (lastSpace > 0)
         {
@@ -335,7 +336,7 @@ string generateC(ASTNode ast)
             {
                 auto macroNode = cast(MacroNode) child;
                 g_macros[macroNode.name] = macroNode;
-                debug writeln("DEBUG: Pre-stored macro '", macroNode.name, "' with ", macroNode.params.length, " parameters");
+                debugWriteln("DEBUG: Pre-stored macro '", macroNode.name, "' with ", macroNode.params.length, " parameters");
             }
             if (child.nodeType == "Use")
             {
@@ -747,7 +748,7 @@ string generateC(ASTNode ast)
 
         if (callName in g_macros)
         {
-            debug writeln("DEBUG: Expanding macro '", callName, "'");
+            debugWriteln("DEBUG: Expanding macro '", callName, "'");
             auto macroNode = g_macros[callName];
 
             import std.string : split, strip;
@@ -768,7 +769,7 @@ string generateC(ASTNode ast)
                 // They should be literal string substitutions, not processed expressions
                 string processedArg = callArgs[i].strip();
                 paramMap[macroNode.params[i]] = processedArg;
-                writeln("  DEBUG: Mapping '", macroNode.params[i], "' -> '", processedArg, "'");
+                debugWriteln("  DEBUG: Mapping '", macroNode.params[i], "' -> '", processedArg, "'");
             }
 
             string indent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
@@ -779,8 +780,8 @@ string generateC(ASTNode ast)
                     auto rawNode = cast(RawCNode) child;
                     string expandedCode = rawNode.code;
 
-                    writeln("  DEBUG: RawC code before substitution: '", expandedCode, "'");
-                    writeln("  DEBUG: Parameter map: ", paramMap);
+                    debugWriteln("  DEBUG: RawC code before substitution: '", expandedCode, "'");
+                    debugWriteln("  DEBUG: Parameter map: ", paramMap);
 
                     foreach (paramName, paramValue; paramMap)
                     {
@@ -789,23 +790,23 @@ string generateC(ASTNode ast)
                         string pattern = "{{" ~ paramName ~ "}}";
                         if (expandedCode.canFind(pattern))
                         {
-                            writeln("  DEBUG: Found pattern '", pattern, "' in code");
-                            writeln("  DEBUG: Replacing '", pattern, "' with '", paramValue, "'");
+                            debugWriteln("  DEBUG: Found pattern '", pattern, "' in code");
+                            debugWriteln("  DEBUG: Replacing '", pattern, "' with '", paramValue, "'");
                             string beforeReplace = expandedCode;
                             expandedCode = expandedCode.replace(pattern, paramValue);
                             if (beforeReplace == expandedCode)
                             {
-                                writeln("  DEBUG: WARNING - replacement didn't change code!");
+                                debugWriteln("  DEBUG: WARNING - replacement didn't change code!");
                             }
                         }
                         else if (expandedCode == paramName)
                         {
-                            writeln("  DEBUG: Exact match (legacy) - replacing '", paramName, "' with '", paramValue, "'");
+                            debugWriteln("  DEBUG: Exact match (legacy) - replacing '", paramName, "' with '", paramValue, "'");
                             expandedCode = paramValue;
                         }
                     }
 
-                    writeln("  DEBUG: RawC code after substitution: '", expandedCode, "'");
+                    debugWriteln("  DEBUG: RawC code after substitution: '", expandedCode, "'");
 
                     cCode ~= indent ~ expandedCode ~ "\n";
                 }
@@ -845,9 +846,9 @@ string generateC(ASTNode ast)
         import std.stdio : writeln;
         import std.string : indexOf;
 
-        debug writeln("DEBUG Assignment: variable='", assignNode.variable, "'");
+        debugWriteln("DEBUG Assignment: variable='", assignNode.variable, "'");
         string dest = processExpression(assignNode.variable.strip());
-        debug writeln("DEBUG Assignment: variable='", assignNode.variable, "' dest='", dest, "'");
+        debugWriteln("DEBUG Assignment: variable='", assignNode.variable, "' dest='", dest, "'");
         string expr = assignNode.expression.strip();
 
         string baseVarName = dest;
@@ -883,9 +884,9 @@ string generateC(ASTNode ast)
 
     case "ArrayDeclaration":
         auto arrayNode = cast(ArrayDeclarationNode) ast;
-        debug writeln("DEBUG ArrayDeclaration: elementType='", arrayNode.elementType, "' name='", arrayNode.name, "'");
+        debugWriteln("DEBUG ArrayDeclaration: elementType='", arrayNode.elementType, "' name='", arrayNode.name, "'");
         string mappedElementType = mapAxeTypeToC(arrayNode.elementType);
-        debug writeln("DEBUG ArrayDeclaration: mappedElementType='", mappedElementType, "'");
+        debugWriteln("DEBUG ArrayDeclaration: mappedElementType='", mappedElementType, "'");
         string arrayType = arrayNode.isMutable ? mappedElementType : "const " ~ mappedElementType;
 
         if (arrayNode.size2.length > 0)
@@ -972,7 +973,7 @@ string generateC(ASTNode ast)
         g_varType[declNode.name] = baseType;
         g_isPointerVar[declNode.name] = declNode.refDepth > 0 ? "true" : "false";
         if (declNode.refDepth > 0)
-            debug writeln("DEBUG set g_isPointerVar['", declNode.name, "'] = true");
+            debugWriteln("DEBUG set g_isPointerVar['", declNode.name, "'] = true");
 
         string type = declNode.isMutable ? baseType : "const " ~ baseType;
         string decl = type ~ " " ~ declNode.name ~ arrayPart;
@@ -1376,7 +1377,7 @@ string generateC(ASTNode ast)
         // Store macro for later expansion, don't generate code now
         auto macroNode = cast(MacroNode) ast;
         g_macros[macroNode.name] = macroNode;
-        debug writeln("DEBUG: Stored macro '", macroNode.name, "' with ", macroNode.params.length, " parameters");
+        debugWriteln("DEBUG: Stored macro '", macroNode.name, "' with ", macroNode.params.length, " parameters");
         break;
 
     case "Model":
@@ -1474,7 +1475,7 @@ string generateC(ASTNode ast)
                 fieldType = mapAxeTypeToC(field.type);
             }
 
-            debug writeln("DEBUG model field: name='", field.name, "' type='", field.type, "' mapped='", fieldType, "' arrayPart='", arrayPart, "'");
+            debugWriteln("DEBUG model field: name='", field.name, "' type='", field.type, "' mapped='", fieldType, "' arrayPart='", arrayPart, "'");
 
             if (fieldType.startsWith("ref "))
                 fieldType = fieldType[4 .. $].strip() ~ "*";
@@ -1730,7 +1731,7 @@ string processExpression(string expr, string context = "")
     // E.g., concat(...) -> stdlib_string_concat(...) if concat is from stdlib/string
     foreach (funcName, prefixedName; g_functionPrefixes)
     {
-        debug writeln("DEBUG processExpression: Looking for ", funcName, " -> ", prefixedName, " in expr: '", expr, "'");
+        debugWriteln("DEBUG processExpression: Looking for ", funcName, " -> ", prefixedName, " in expr: '", expr, "'");
         import std.regex : regex, replaceAll;
 
         string pattern = funcName ~ r"\s*\(";
@@ -1738,7 +1739,7 @@ string processExpression(string expr, string context = "")
 
         if (expr.canFind(funcName ~ "(") || expr.canFind(funcName ~ " ("))
         {
-            debug writeln("DEBUG processExpression: Found ", funcName, " in expr");
+            debugWriteln("DEBUG processExpression: Found ", funcName, " in expr");
             string result = "";
             size_t pos = 0;
 
@@ -1767,7 +1768,7 @@ string processExpression(string expr, string context = "")
 
                 if (alreadyPrefixed)
                 {
-                    debug writeln("DEBUG processExpression: Skipping match (already prefixed)");
+                    debugWriteln("DEBUG processExpression: Skipping match (already prefixed)");
                     result ~= expr[pos .. matchEnd];
                     pos = matchEnd;
                 }
@@ -1779,7 +1780,7 @@ string processExpression(string expr, string context = "")
 
                     if (parenPos < expr.length && expr[parenPos] == '(')
                     {
-                        debug writeln("DEBUG processExpression: Replacing ", funcName, " with ", prefixedName);
+                        debugWriteln("DEBUG processExpression: Replacing ", funcName, " with ", prefixedName);
                         result ~= expr[pos .. matchStart];
                         result ~= prefixedName;
                         pos = matchEnd;
@@ -1796,8 +1797,8 @@ string processExpression(string expr, string context = "")
         }
     }
 
-    debug writeln("DEBUG processExpression: Checking for macros in expr: '", expr, "'");
-    debug writeln("DEBUG processExpression: Available macros: ", g_macros.keys);
+    debugWriteln("DEBUG processExpression: Checking for macros in expr: '", expr, "'");
+    debugWriteln("DEBUG processExpression: Available macros: ", g_macros.keys);
 
     foreach (macroName, macroNode; g_macros)
     {
@@ -1809,7 +1810,7 @@ string processExpression(string expr, string context = "")
 
         if (match)
         {
-            debug writeln("DEBUG processExpression: Found macro call '", macroName, "' in expression");
+            debugWriteln("DEBUG processExpression: Found macro call '", macroName, "' in expression");
         }
 
         while (match)
@@ -2161,8 +2162,8 @@ string processExpression(string expr, string context = "")
             string result = first;
             string currentType = g_varType.get(first, "");
             bool isPointer = g_isPointerVar.get(first, "false") == "true";
-            debug writeln("DEBUG get g_isPointerVar for '", first, "' = ", g_isPointerVar.get(first, "false"));
-            debug writeln("DEBUG: processExpression member access: first='", first, "' isPointer=", isPointer, " expr='", expr, "'");
+            debugWriteln("DEBUG get g_isPointerVar for '", first, "' = ", g_isPointerVar.get(first, "false"));
+            debugWriteln("DEBUG: processExpression member access: first='", first, "' isPointer=", isPointer, " expr='", expr, "'");
 
             for (size_t i = 1; i < parts.length; i++)
             {
@@ -2330,7 +2331,7 @@ private string processCondition(string condition)
     import std.string : indexOf;
     import std.stdio : writeln;
 
-    debug writeln("DEBUG processCondition input: '", condition, "'");
+    debugWriteln("DEBUG processCondition input: '", condition, "'");
 
     condition = condition.replace(" mod ", " % ");
     condition = condition.replace(" and ", " && ");
@@ -2342,7 +2343,7 @@ private string processCondition(string condition)
     condition = condition.replace(" or ", " || ");
     condition = condition.replace(" xor ", " ^ ");
 
-    debug writeln("DEBUG processCondition after replace: '", condition, "'");
+    debugWriteln("DEBUG processCondition after replace: '", condition, "'");
 
     // Handle logical operators (&&, ||) first - they have lowest precedence
     foreach (op; ["&&", "||"])

@@ -188,7 +188,8 @@ def generate_docs_for_file(path: string): bool {
 }
 
 main {
-    val args: StringList = get_cmdline_args();
+    val arena: Arena = Arena.create(65536);
+    val args: StringList = get_cmdline_args(ref arena);
     if args.len < 2 {
         println_str(string.create("Usage: axedoc <file>"));
         return 1;
@@ -197,5 +198,6 @@ main {
     if !generate_docs_for_file(path) {
         return 1;
     }
+    Arena.destroy(ref_of(arena));
     return 0;
 }
