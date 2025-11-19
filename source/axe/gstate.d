@@ -1,6 +1,6 @@
 module axe.gstate;
 
-static class GlobalState
+static class Logger
 {
     static bool quietMode = false;
 }
@@ -15,7 +15,7 @@ void debugWriteln(Args...)(Args args)
 {
     debug
     {
-        if (!GlobalState.quietMode)
+        if (!Logger.quietMode)
         {
             import std.stdio : writeln;
 
