@@ -1460,7 +1460,6 @@ string generateC(ASTNode ast)
             string fieldType;
             string arrayPart = "";
 
-            // Extract array part first, then map the base type to C
             import std.string : indexOf;
 
             auto bracketPos = field.type.indexOf('[');
@@ -1477,19 +1476,13 @@ string generateC(ASTNode ast)
 
             debug writeln("DEBUG model field: name='", field.name, "' type='", field.type, "' mapped='", fieldType, "' arrayPart='", arrayPart, "'");
 
-            // Handle ref types - convert "ref T" to "T*"
             if (fieldType.startsWith("ref "))
-            {
                 fieldType = fieldType[4 .. $].strip() ~ "*";
-            }
 
             fieldType = formatModelFieldType(fieldType);
 
-            // If field type is the same as the model name, use the forward-declared struct
             if (field.type == modelNode.name)
-            {
                 fieldType = "struct " ~ field.type ~ "*";
-            }
 
             cCode ~= "    " ~ fieldType ~ " " ~ field.name ~ arrayPart ~ ";\n";
         }
@@ -1499,24 +1492,21 @@ string generateC(ASTNode ast)
     case "ModelInstantiation":
         auto instNode = cast(ModelInstantiationNode) ast;
         string indent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
-
         string cModelName = canonicalModelCName(instNode.modelName);
+
         if (cModelName.length == 0)
             cModelName = instNode.modelName;
 
-        // If variableName is empty, generate just the struct literal (for return statements)
         if (instNode.variableName.length == 0)
         {
             cCode ~= "(struct " ~ cModelName ~ "){";
         }
         else
         {
-            // Generate struct initialization using compound literal (const for val, mutable for mut val)
             string constQualifier = instNode.isMutable ? "" : "const ";
             cCode ~= indent ~ constQualifier ~ cModelName ~ " " ~ instNode.variableName ~ " = {";
         }
 
-        // Add field initializers
         bool first = true;
         foreach (fieldName, fieldValue; instNode.fieldValues)
         {
@@ -1540,7 +1530,6 @@ string generateC(ASTNode ast)
         auto memberNode = cast(MemberAccessNode) ast;
         string indent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
         string accessOp = ".";
-        // Check if this member access is to a pointer field, if the object is already a pointer (contains ->), or if the object is a pointer variable
         if (memberNode.objectName.canFind("->") ||
             (memberNode.objectName ~ "." ~ memberNode.memberName in g_pointerFields) ||
             (memberNode.objectName in g_isPointerVar && g_isPointerVar[memberNode.objectName] == "true"))
