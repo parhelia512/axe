@@ -5446,7 +5446,16 @@ private IfNode parseIfHelper(ref size_t pos, Token[] tokens, ref Scope currentSc
             break;
         }
         if (tokens[pos].type != TokenType.WHITESPACE)
-            cond ~= tokens[pos].value ~ " ";
+        {
+            if (tokens[pos].type == TokenType.STR)
+                cond ~= "\"" ~ tokens[pos].value ~ "\" ";
+            else if (tokens[pos].type == TokenType.CHAR)
+                cond ~= "'" ~ tokens[pos].value ~ "' ";
+            else if (tokens[pos].type == TokenType.DOT)
+                cond ~= ".";
+            else
+                cond ~= tokens[pos].value ~ " ";
+        }
         pos++;
     }
 
@@ -5501,7 +5510,16 @@ private IfNode parseIfHelper(ref size_t pos, Token[] tokens, ref Scope currentSc
                 break;
             }
             if (tokens[pos].type != TokenType.WHITESPACE)
-                elifCond ~= tokens[pos].value ~ " ";
+            {
+                if (tokens[pos].type == TokenType.STR)
+                    elifCond ~= "\"" ~ tokens[pos].value ~ "\" ";
+                else if (tokens[pos].type == TokenType.CHAR)
+                    elifCond ~= "'" ~ tokens[pos].value ~ "' ";
+                else if (tokens[pos].type == TokenType.DOT)
+                    elifCond ~= ".";
+                else
+                    elifCond ~= tokens[pos].value ~ " ";
+            }
             pos++;
         }
 
