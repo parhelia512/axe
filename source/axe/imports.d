@@ -692,45 +692,14 @@ string replaceStandaloneCall(string text, string oldName, string newName)
 }
 
 /**
- * Fix double-prefixed function names (e.g., stdlib_string_stdlib_string_concat -> stdlib_string_concat)
+ * TODO: Fix double-prefixed function names (e.g., stdlib_string_stdlib_string_concat -> stdlib_string_concat)
+ * This is a NOOP for the moment.
  */
 string fixDoublePrefix(string expr)
 {
     import std.regex : regex, replaceAll;
 
     string fixedExpr = expr;
-    size_t fixes = 0;
-
-    static immutable double_prefixes = [
-        "stdlib_string_stdlib_string_": "stdlib_string_",
-        "stdlib_regex_stdlib_regex_": "stdlib_regex_",
-        "stdlib_os_stdlib_os_": "stdlib_os_",
-        "stdlib_io_stdlib_io_": "stdlib_io_",
-        "stdlib_arena_stdlib_arena_": "stdlib_arena_",
-        "stdlib_errors_stdlib_errors_": "stdlib_errors_",
-        "stdlib_lists_stdlib_lists_": "stdlib_lists_",
-        "stdlib_math_stdlib_math_": "stdlib_math_",
-        "stdlib_memory_stdlib_memory_": "stdlib_memory_",
-        "stdlib_random_stdlib_random_": "stdlib_random_",
-        "stdlib_term_stdlib_term_": "stdlib_term_",
-        "stdlib_time_stdlib_time_": "stdlib_time_",
-        "stdlib_typecons_stdlib_typecons_": "stdlib_typecons_",
-    ];
-
-    foreach (doublePre, singlePre; double_prefixes)
-    {
-        while (fixedExpr.canFind(doublePre))
-        {
-            auto pattern = regex(doublePre);
-            fixedExpr = replaceAll(fixedExpr, pattern, singlePre);
-            fixes++;
-        }
-    }
-
-    if (fixes > 0)
-    {
-        debugWriteln("      DEBUG fixDoublePrefix: Fixed ", fixes, " double-prefix patterns");
-    }
 
     return fixedExpr;
 }
