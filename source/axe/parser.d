@@ -1259,36 +1259,56 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                         pos++;
 
                         int parenDepth = 0;
+                        bool lastWasRef = false;
                         while (pos < tokens.length && (tokens[pos].type != TokenType.RPAREN || parenDepth > 0))
                         {
                             if (tokens[pos].type == TokenType.LPAREN)
                             {
                                 parenDepth++;
                                 args ~= tokens[pos].value;
+                                lastWasRef = false;
                                 pos++;
                             }
                             else if (tokens[pos].type == TokenType.RPAREN)
                             {
                                 parenDepth--;
                                 args ~= tokens[pos].value;
+                                lastWasRef = false;
                                 pos++;
                             }
                             else if (tokens[pos].type == TokenType.WHITESPACE)
                             {
+                                // Preserve space after 'ref' keyword
+                                if (lastWasRef)
+                                {
+                                    args ~= " ";
+                                    lastWasRef = false;
+                                }
                                 pos++;
                             }
                             else if (tokens[pos].type == TokenType.COMMA)
                             {
                                 args ~= ", ";
+                                lastWasRef = false;
                                 pos++;
                             }
                             else if (tokens[pos].type == TokenType.STR)
                             {
                                 args ~= "\"" ~ tokens[pos].value ~ "\"";
+                                lastWasRef = false;
                                 pos++;
                             }
                             else
                             {
+                                // Check if this token is 'ref'
+                                if (tokens[pos].value == "ref")
+                                {
+                                    lastWasRef = true;
+                                }
+                                else
+                                {
+                                    lastWasRef = false;
+                                }
                                 args ~= tokens[pos].value;
                                 pos++;
                             }
@@ -2617,67 +2637,92 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                             int parenDepth = 0;
                             int bracketDepth = 0;
                             int braceDepth = 0;
+                            bool lastWasRef = false;
                             while (pos < tokens.length && (tokens[pos].type != TokenType.RPAREN || parenDepth > 0))
                             {
                                 if (tokens[pos].type == TokenType.LPAREN)
                                 {
                                     parenDepth++;
                                     args ~= tokens[pos].value;
+                                    lastWasRef = false;
                                     pos++;
                                 }
                                 else if (tokens[pos].type == TokenType.RPAREN)
                                 {
                                     parenDepth--;
                                     args ~= tokens[pos].value;
+                                    lastWasRef = false;
                                     pos++;
                                 }
                                 else if (tokens[pos].type == TokenType.LBRACKET)
                                 {
                                     bracketDepth++;
                                     args ~= tokens[pos].value;
+                                    lastWasRef = false;
                                     pos++;
                                 }
                                 else if (tokens[pos].type == TokenType.RBRACKET)
                                 {
                                     bracketDepth--;
                                     args ~= tokens[pos].value;
+                                    lastWasRef = false;
                                     pos++;
                                 }
                                 else if (tokens[pos].type == TokenType.LBRACE)
                                 {
                                     braceDepth++;
                                     args ~= tokens[pos].value;
+                                    lastWasRef = false;
                                     pos++;
                                 }
                                 else if (tokens[pos].type == TokenType.RBRACE)
                                 {
                                     braceDepth--;
                                     args ~= tokens[pos].value;
+                                    lastWasRef = false;
                                     pos++;
                                 }
                                 else if (tokens[pos].type == TokenType.WHITESPACE)
                                 {
+                                    // Preserve space after 'ref' keyword
+                                    if (lastWasRef)
+                                    {
+                                        args ~= " ";
+                                        lastWasRef = false;
+                                    }
                                     pos++;
                                 }
                                 else if (tokens[pos].type == TokenType.COMMA &&
                                     bracketDepth == 0 && braceDepth == 0 && parenDepth == 0)
                                 {
                                     args ~= ", ";
+                                    lastWasRef = false;
                                     pos++;
                                 }
                                 else if (tokens[pos].type == TokenType.COMMA)
                                 {
                                     // Comma inside brackets/braces/parens
                                     args ~= tokens[pos].value;
+                                    lastWasRef = false;
                                     pos++;
                                 }
                                 else if (tokens[pos].type == TokenType.STR)
                                 {
                                     args ~= "\"" ~ tokens[pos].value ~ "\"";
+                                    lastWasRef = false;
                                     pos++;
                                 }
                                 else
                                 {
+                                    // Check if this token is 'ref'
+                                    if (tokens[pos].value == "ref")
+                                    {
+                                        lastWasRef = true;
+                                    }
+                                    else
+                                    {
+                                        lastWasRef = false;
+                                    }
                                     args ~= tokens[pos].value;
                                     pos++;
                                 }
@@ -3391,36 +3436,56 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
 
                             string functionArgs;
                             int parenDepth = 0;
+                            bool lastWasRef = false;
                             while (pos < tokens.length && (tokens[pos].type != TokenType.RPAREN || parenDepth > 0))
                             {
                                 if (tokens[pos].type == TokenType.LPAREN)
                                 {
                                     parenDepth++;
                                     functionArgs ~= tokens[pos].value;
+                                    lastWasRef = false;
                                     pos++;
                                 }
                                 else if (tokens[pos].type == TokenType.RPAREN)
                                 {
                                     parenDepth--;
                                     functionArgs ~= tokens[pos].value;
+                                    lastWasRef = false;
                                     pos++;
                                 }
                                 else if (tokens[pos].type == TokenType.WHITESPACE)
                                 {
+                                    // Preserve space after 'ref' keyword
+                                    if (lastWasRef)
+                                    {
+                                        functionArgs ~= " ";
+                                        lastWasRef = false;
+                                    }
                                     pos++;
                                 }
                                 else if (tokens[pos].type == TokenType.COMMA)
                                 {
                                     functionArgs ~= ", ";
+                                    lastWasRef = false;
                                     pos++;
                                 }
                                 else if (tokens[pos].type == TokenType.STR)
                                 {
                                     functionArgs ~= "\"" ~ tokens[pos].value ~ "\"";
+                                    lastWasRef = false;
                                     pos++;
                                 }
                                 else
                                 {
+                                    // Check if this token is 'ref'
+                                    if (tokens[pos].value == "ref")
+                                    {
+                                        lastWasRef = true;
+                                    }
+                                    else
+                                    {
+                                        lastWasRef = false;
+                                    }
                                     functionArgs ~= tokens[pos].value;
                                     pos++;
                                 }
@@ -3518,41 +3583,61 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
 
                         string functionArgs;
                         int parenDepth = 0;
+                        bool lastWasRef = false;
                         while (pos < tokens.length && (tokens[pos].type != TokenType.RPAREN || parenDepth > 0))
                         {
                             if (tokens[pos].type == TokenType.LPAREN)
                             {
                                 parenDepth++;
                                 functionArgs ~= tokens[pos].value;
+                                lastWasRef = false;
                                 pos++;
                             }
                             else if (tokens[pos].type == TokenType.RPAREN)
                             {
                                 parenDepth--;
                                 functionArgs ~= tokens[pos].value;
+                                lastWasRef = false;
                                 pos++;
                             }
                             else if (tokens[pos].type == TokenType.WHITESPACE)
                             {
+                                // Preserve space after 'ref' keyword
+                                if (lastWasRef)
+                                {
+                                    functionArgs ~= " ";
+                                    lastWasRef = false;
+                                }
                                 pos++;
                             }
                             else if (tokens[pos].type == TokenType.COMMA)
                             {
                                 functionArgs ~= ", ";
+                                lastWasRef = false;
                                 pos++;
                             }
                             else if (tokens[pos].type == TokenType.STR)
                             {
                                 functionArgs ~= "\"" ~ tokens[pos].value ~ "\"";
+                                lastWasRef = false;
                                 pos++;
                             }
                             else if (tokens[pos].type == TokenType.CHAR)
                             {
                                 functionArgs ~= "'" ~ tokens[pos].value ~ "'";
+                                lastWasRef = false;
                                 pos++;
                             }
                             else
                             {
+                                if (tokens[pos].value == "ref")
+                                {
+                                    lastWasRef = true;
+                                }
+                                else
+                                {
+                                    lastWasRef = false;
+                                }
                                 functionArgs ~= tokens[pos].value;
                                 pos++;
                             }
@@ -3864,34 +3949,59 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                                         pos++;
                                     string args = "";
                                     int parenDepth = 0;
+                                    bool lastWasRef = false;
                                     while (pos < tokens.length && (tokens[pos].type != TokenType.RPAREN || parenDepth > 0))
                                     {
                                         if (tokens[pos].type == TokenType.LPAREN)
+                                        {
                                             parenDepth++;
+                                            lastWasRef = false;
+                                        }
                                         else if (tokens[pos].type == TokenType.RPAREN)
+                                        {
                                             parenDepth--;
+                                            lastWasRef = false;
+                                        }
                                         else if (tokens[pos].type == TokenType.WHITESPACE)
                                         {
+                                            // Preserve space after 'ref' keyword
+                                            if (lastWasRef)
+                                            {
+                                                args ~= " ";
+                                                lastWasRef = false;
+                                            }
                                             pos++;
                                             continue;
                                         }
                                         else if (tokens[pos].type == TokenType.COMMA)
                                         {
                                             args ~= ", ";
+                                            lastWasRef = false;
                                             pos++;
                                             continue;
                                         }
                                         else if (tokens[pos].type == TokenType.STR)
                                         {
                                             args ~= "\"" ~ tokens[pos].value ~ "\"";
+                                            lastWasRef = false;
                                             pos++;
                                             continue;
                                         }
                                         else if (tokens[pos].type == TokenType.CHAR)
                                         {
                                             args ~= "'" ~ tokens[pos].value ~ "'";
+                                            lastWasRef = false;
                                             pos++;
                                             continue;
+                                        }
+                                        // Check if this token is 'ref'
+                                        if (tokens[pos].value == "ref")
+                                        {
+                                            lastWasRef = true;
+                                        }
+                                        else
+                                        {
+                                            lastWasRef = false;
                                         }
                                         args ~= tokens[pos].value;
                                         pos++;
@@ -4978,37 +5088,57 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 string currentArg = "";
                 int parenDepth = 0;
 
+                bool lastWasRef = false;
                 while (pos < tokens.length && (tokens[pos].type != TokenType.RPAREN || parenDepth > 0))
                 {
                     if (tokens[pos].type == TokenType.LPAREN)
                     {
                         parenDepth++;
                         currentArg ~= tokens[pos].value;
+                        lastWasRef = false;
                         pos++;
                     }
                     else if (tokens[pos].type == TokenType.RPAREN)
                     {
                         parenDepth--;
                         currentArg ~= tokens[pos].value;
+                        lastWasRef = false;
                         pos++;
                     }
                     else if (tokens[pos].type == TokenType.COMMA && parenDepth == 0)
                     {
                         args ~= currentArg.strip();
                         currentArg = "";
+                        lastWasRef = false;
                         pos++;
                     }
                     else if (tokens[pos].type == TokenType.WHITESPACE)
                     {
+                        // Preserve space after 'ref' keyword
+                        if (lastWasRef)
+                        {
+                            currentArg ~= " ";
+                            lastWasRef = false;
+                        }
                         pos++;
                     }
                     else if (tokens[pos].type == TokenType.STR)
                     {
                         currentArg ~= "\"" ~ tokens[pos].value ~ "\"";
+                        lastWasRef = false;
                         pos++;
                     }
                     else
                     {
+                        // Check if this token is 'ref'
+                        if (tokens[pos].value == "ref")
+                        {
+                            lastWasRef = true;
+                        }
+                        else
+                        {
+                            lastWasRef = false;
+                        }
                         currentArg ~= tokens[pos].value;
                         pos++;
                     }
@@ -5299,37 +5429,66 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
             string currentArg = "";
             int parenDepth = 0;
 
+            bool lastWasRef = false;
             while (pos < tokens.length && (tokens[pos].type != TokenType.RPAREN || parenDepth > 0))
             {
                 if (tokens[pos].type == TokenType.LPAREN)
                 {
                     parenDepth++;
                     currentArg ~= tokens[pos].value;
+                    lastWasRef = false;
                     pos++;
                 }
                 else if (tokens[pos].type == TokenType.RPAREN)
                 {
                     parenDepth--;
                     currentArg ~= tokens[pos].value;
+                    lastWasRef = false;
                     pos++;
                 }
                 else if (tokens[pos].type == TokenType.COMMA && parenDepth == 0)
                 {
                     args ~= currentArg.strip();
                     currentArg = "";
+                    lastWasRef = false;
                     pos++;
                 }
                 else if (tokens[pos].type == TokenType.WHITESPACE)
                 {
+                    // Preserve space after 'ref' keyword
+                    if (lastWasRef)
+                    {
+                        debugWriteln("[parseStatementHelper] Adding space after 'ref', currentArg: '", currentArg, "'");
+                        currentArg ~= " ";
+                        lastWasRef = false;
+                    }
                     pos++;
                 }
                 else if (tokens[pos].type == TokenType.STR)
                 {
                     currentArg ~= "\"" ~ tokens[pos].value ~ "\"";
+                    lastWasRef = false;
                     pos++;
                 }
                 else
                 {
+                    // Check if this token is 'ref'
+                    if (tokens[pos].value == "ref")
+                    {
+                        debugWriteln("[parseStatementHelper] Found 'ref' keyword");
+                        lastWasRef = true;
+                    }
+                    else
+                    {
+                        // If the last token was 'ref', add a space before this token
+                        if (lastWasRef)
+                        {
+                            debugWriteln("[parseStatementHelper] Adding space after 'ref' before '", tokens[pos].value, "'");
+                            currentArg ~= " ";
+                        }
+                        lastWasRef = false;
+                    }
+                    debugWriteln("[parseStatementHelper] Adding token '", tokens[pos].value, "' to currentArg, lastWasRef=", lastWasRef);
                     currentArg ~= tokens[pos].value;
                     pos++;
                 }
@@ -5337,6 +5496,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
 
             if (currentArg.strip().length > 0)
                 args ~= currentArg.strip();
+
+            debugWriteln("[parseStatementHelper] Function '", identName, "' collected args: ", args);
 
             enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
                 "Expected ')' after function arguments");
@@ -5363,6 +5524,7 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                     "Expected ';' after function call");
                 pos++;
+                debugWriteln("[parseStatementHelper] Returning FunctionCallNode('", identName, "', '", args.join(", "), "')");
                 return new FunctionCallNode(identName, args.join(", "));
             }
         }

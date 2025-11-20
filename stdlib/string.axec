@@ -31,6 +31,27 @@ model string {
         }
         return result;
     }
+
+    /// Creates a new empty string with specified capacity.
+    /// Note: arena parameter is currently ignored, uses malloc instead
+    def create_with_capacity(arena: char*, capacity: i32): string {
+        mut result: string;
+        raw {
+            result.data = NULL;
+            result.len  = 0;
+            result.cap  = 0;
+            
+            if (capacity > 0) {
+                result.data = (char*)malloc(capacity + 1);
+                if (result.data != NULL) {
+                    result.data[0] = '\0';
+                    result.len = 0;
+                    result.cap = capacity + 1;
+                }
+            }
+        }
+        return result;
+    }
 }
 
 /// Returns the length of a string.

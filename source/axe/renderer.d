@@ -728,10 +728,17 @@ string generateC(ASTNode ast)
         currentFunction = funcName;
         functionParams = params;
 
+        debugWriteln("DEBUG: Processing function '", funcName, "' with ", params.length, " parameters");
+
         if (funcName in g_generatedFunctions)
+        {
+            debugWriteln("DEBUG: Function '", funcName, "' already generated, skipping");
             return "";
+        }
 
         g_generatedFunctions[funcName] = true;
+        g_isPointerVar.clear();
+        g_varType.clear();
 
         if (funcNode.name == "main")
         {
@@ -755,19 +762,27 @@ string generateC(ASTNode ast)
         {
             string processedReturnType = mapAxeTypeToC(funcNode.returnType);
             cCode ~= processedReturnType ~ " " ~ funcName ~ "(";
+            debugWriteln("DEBUG: Function '", funcName, "' params: ", params);
             if (params.length > 0)
             {
+                debugWriteln("DEBUG: Calling computeReorderedCParams for '", funcName, "'");
                 int[] reorderMap;
                 ParamInfo[] paramInfos;
                 string[] processedParams = computeReorderedCParams(funcNode, reorderMap, paramInfos);
+                debugWriteln("DEBUG: paramInfos count: ", paramInfos.length);
                 cCode ~= processedParams.join(", ");
                 g_functionParamReordering[funcName] = reorderMap;
 
                 foreach (info; paramInfos)
                 {
                     g_varType[info.name] = info.type;
-                    if (info.type.canFind("*"))
+                    string mappedType = mapAxeTypeToC(info.type);
+                    if (info.type.canFind("*") || mappedType.canFind("*"))
+                    {
                         g_refDepths[info.name] = 1;
+                        g_isPointerVar[info.name] = "true";
+                        debugWriteln("DEBUG: Set g_isPointerVar['", info.name, "'] = true (type: ", info.type, " -> ", mappedType, ")");
+                    }
                 }
             }
             cCode ~= ") {\n";
@@ -1021,16 +1036,17 @@ string generateC(ASTNode ast)
 
     case "ArrayAssignment":
         auto arrayAssignNode = cast(ArrayAssignmentNode) ast;
+        string processedArrayName = processExpression(arrayAssignNode.arrayName);
         string processedIndex = processExpression(arrayAssignNode.index);
         string processedValue = processExpression(arrayAssignNode.value);
         if (arrayAssignNode.index2.length > 0)
         {
             string processedIndex2 = processExpression(arrayAssignNode.index2);
-            cCode ~= arrayAssignNode.arrayName ~ "[" ~ processedIndex ~ "][" ~ processedIndex2 ~ "] = " ~ processedValue ~ ";\n";
+            cCode ~= processedArrayName ~ "[" ~ processedIndex ~ "][" ~ processedIndex2 ~ "] = " ~ processedValue ~ ";\n";
         }
         else
         {
-            cCode ~= arrayAssignNode.arrayName ~ "[" ~ processedIndex ~ "] = " ~ processedValue ~ ";\n";
+            cCode ~= processedArrayName ~ "[" ~ processedIndex ~ "] = " ~ processedValue ~ ";\n";
         }
         break;
 
@@ -1799,7 +1815,7 @@ string processExpression(string expr, string context = "")
                 size_t bracePos = bracketEnd + 1;
                 while (bracePos < expr.length && (expr[bracePos] == ' ' || expr[bracePos] == '\t'))
                     bracePos++;
-                
+
                 if (bracePos < expr.length && expr[bracePos] == '{')
                 {
                     string elementType = expr[bracketStart + 1 .. bracketEnd].strip();
@@ -2254,7 +2270,8 @@ string processExpression(string expr, string context = "")
     // Check for operators, but try very hard not to split on dots (member access) or operators inside strings
     // Note: Longer operators must come first to avoid incorrect matching (e.g., >> before >)
     foreach (op; [
-            "<<", ">>", "==", "!=", "<=", ">=", "&&", "||", "+", "-", "*", "/", "%", "<", ">"
+            "<<", ">>", "==", "!=", "<=", ">=", "&&", "||", "+", "-", "*", "/",
+            "%", "<", ">"
         ])
     {
         if (expr.canFind(op) && op != "")
