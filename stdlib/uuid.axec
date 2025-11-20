@@ -84,18 +84,18 @@ def generate_random_hex(length: usize): string {
 test {
     mut uuid1: string = generate_uuid();
     
-    assert(str_len(uuid1) == 36, "UUID should be 36 characters long");
+    assert str_len(uuid1) == 36, "UUID should be 36 characters long";
     
     mut uuid2: string = generate_uuid();
-    assert(uuid1.data != uuid2.data, "Two UUIDs should be different");
+    assert uuid1.data != uuid2.data, "Two UUIDs should be different";
 
     println_str(generate_uuid());
     
     mut hex16: string = generate_random_hex(16);
-    assert(str_len(hex16) == 16, "Random hex string should be 16 characters long");
+    assert str_len(hex16) == 16, "Random hex string should be 16 characters long";
     
     mut hex32: string = generate_random_hex(32);
-    assert(str_len(hex32) == 32, "Random hex string should be 32 characters long");
+    assert str_len(hex32) == 32, "Random hex string should be 32 characters long";
 
     println_str(hex16);
 }

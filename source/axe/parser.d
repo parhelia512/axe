@@ -4192,9 +4192,11 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
 
-        enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
-            "Expected '(' after 'assert'");
-        pos++;
+        bool hasParens = pos < tokens.length && tokens[pos].type == TokenType.LPAREN;
+        if (hasParens)
+        {
+            pos++;
+        }
 
         // Parse condition (everything until comma)
         string condition = "";
@@ -4206,8 +4208,12 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
             else if (tokens[pos].type == TokenType.RPAREN)
             {
                 if (parenDepth == 0)
-                    break;
-                parenDepth--;
+                {
+                    if (hasParens)
+                        break;
+                }
+                else
+                    parenDepth--;
             }
             else if (tokens[pos].type == TokenType.COMMA && parenDepth == 0)
                 break;
@@ -4230,7 +4236,6 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
 
-        // Parse message (should be a string)
         enforce(pos < tokens.length && tokens[pos].type == TokenType.STR,
             "Expected string message after comma in assert");
         string message = tokens[pos].value;
@@ -4239,12 +4244,15 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
 
-        enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
-            "Expected ')' after assert message");
-        pos++;
-
-        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+        if (hasParens)
+        {
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                "Expected ')' after assert message");
             pos++;
+
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+        }
 
         enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
             "Expected ';' after assert statement");
