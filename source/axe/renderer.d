@@ -430,7 +430,8 @@ string generateC(ASTNode ast)
                 {
                     // Not prefixed, so base name is the same as the model name
                     // For stdlib files, prefix with module name
-                    if (modelNode.name == "error") // temporary hack for stdlib/errors.axec
+                    // TODO: Remove this.
+                    if (modelNode.name == "error")
                         g_modelNames[modelNode.name] = "stdlib_errors_" ~ modelNode.name;
                     else
                         g_modelNames[modelNode.name] = modelNode.name;
@@ -1118,18 +1119,42 @@ string generateC(ASTNode ast)
                 break;
             }
 
-            if (arrayPart.length > 0 && processedExpr.length > 0 && processedExpr[0] == '[')
+            if (arrayPart.length > 0 && processedExpr.length > 0)
             {
-                import std.string : replace, split;
+                import std.string : replace, split, indexOf;
 
-                if (arrayPart == "[]")
+                if (processedExpr[0] == '(' && processedExpr.canFind("){"))
                 {
-                    auto elements = processedExpr[1 .. $ - 1].split(",");
-                    arrayPart = "[" ~ elements.length.to!string ~ "]";
-                    decl = type ~ " " ~ declNode.name ~ arrayPart;
+                    size_t braceStart = processedExpr.indexOf("){") + 1;
+                    size_t braceEnd = processedExpr.lastIndexOf("}");
+                    if (braceStart < braceEnd)
+                    {
+                        string contents = processedExpr[braceStart + 1 .. braceEnd];
+                        if (arrayPart == "[]")
+                        {
+                            auto elements = contents.split(",");
+                            arrayPart = "[" ~ elements.length.to!string ~ "]";
+                            decl = type ~ " " ~ declNode.name ~ arrayPart;
+                        }
+                        processedExpr = "{" ~ contents ~ "}";
+                    }
                 }
+                else if (processedExpr[0] == '[')
+                {
+                    if (arrayPart == "[]")
+                    {
+                        auto elements = processedExpr[1 .. $ - 1].split(",");
+                        arrayPart = "[" ~ elements.length.to!string ~ "]";
+                        decl = type ~ " " ~ declNode.name ~ arrayPart;
+                    }
 
-                processedExpr = processedExpr.replace("[", "{").replace("]", "}");
+                    // Only replace [ and ] for simple array literals, not for stupid ass compound literals like [type]{...}
+                    // Check if this looks like a compound literal (has both ] and { in sequence)
+                    if (!processedExpr.canFind("]{") && !processedExpr.canFind("] {"))
+                    {
+                        processedExpr = processedExpr.replace("[", "{").replace("]", "}");
+                    }
+                }
             }
 
             decl ~= " = " ~ processedExpr;
@@ -1769,56 +1794,62 @@ string processExpression(string expr, string context = "")
         if (bracketStart == 0 || (bracketStart > 0 && expr[bracketStart - 1] != '.'))
         {
             size_t bracketEnd = expr.indexOf("]", bracketStart);
-            if (bracketEnd != -1 && bracketEnd + 1 < expr.length &&
-                expr[bracketEnd + 1] == '{')
+            if (bracketEnd != -1 && bracketEnd + 1 < expr.length)
             {
-                string elementType = expr[bracketStart + 1 .. bracketEnd].strip();
-                bool isType = true;
-                foreach (c; elementType)
+                size_t bracePos = bracketEnd + 1;
+                while (bracePos < expr.length && (expr[bracePos] == ' ' || expr[bracePos] == '\t'))
+                    bracePos++;
+                
+                if (bracePos < expr.length && expr[bracePos] == '{')
                 {
-                    if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-                            (c >= '0' && c <= '9') || c == '_' || c == '*'))
+                    string elementType = expr[bracketStart + 1 .. bracketEnd].strip();
+                    bool isType = true;
+                    foreach (c; elementType)
                     {
-                        isType = false;
-                        break;
+                        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                                (c >= '0' && c <= '9') || c == '_' || c == '*'))
+                        {
+                            isType = false;
+                            break;
+                        }
                     }
-                }
 
-                if (isType && elementType.length > 0)
-                {
-                    size_t braceStart = bracketEnd + 1;
-                    size_t braceEnd = expr.indexOf("}", braceStart);
-                    if (braceEnd != -1)
+                    if (isType && elementType.length > 0)
                     {
-                        string arrayContent = expr[braceStart + 1 .. braceEnd];
+                        size_t braceStart = bracePos;
+                        size_t braceEnd = expr.indexOf("}", braceStart);
+                        if (braceEnd != -1)
+                        {
+                            string arrayContent = expr[braceStart + 1 .. braceEnd];
 
-                        static immutable string[string] baseTypeMap = [
-                            "i8": "int8_t",
-                            "u8": "uint8_t",
-                            "i16": "int16_t",
-                            "u16": "uint16_t",
-                            "i32": "int32_t",
-                            "u32": "uint32_t",
-                            "i64": "int64_t",
-                            "u64": "uint64_t",
-                            "isize": "intptr_t",
-                            "usize": "uintptr_t",
-                            "f32": "float",
-                            "f64": "double",
-                            "bool": "bool",
-                            "char": "char",
-                            "byte": "uint8_t"
-                        ];
+                            static immutable string[string] baseTypeMap = [
+                                "i8": "int8_t",
+                                "u8": "uint8_t",
+                                "i16": "int16_t",
+                                "u16": "uint16_t",
+                                "i32": "int32_t",
+                                "u32": "uint32_t",
+                                "i64": "int64_t",
+                                "u64": "uint64_t",
+                                "isize": "intptr_t",
+                                "usize": "uintptr_t",
+                                "f32": "float",
+                                "f64": "double",
+                                "bool": "bool",
+                                "char": "char",
+                                "byte": "uint8_t"
+                            ];
 
-                        string cType = (elementType in baseTypeMap) ?
-                            baseTypeMap[elementType] : elementType;
-                        string result = expr[0 .. bracketStart] ~ "(" ~ cType ~
-                            "[]){" ~ arrayContent ~ "}";
+                            string cType = (elementType in baseTypeMap) ?
+                                baseTypeMap[elementType] : elementType;
+                            string result = expr[0 .. bracketStart] ~ "(" ~ cType ~
+                                "[]){" ~ arrayContent ~ "}";
 
-                        if (braceEnd + 1 < expr.length)
-                            result ~= expr[braceEnd + 1 .. $];
+                            if (braceEnd + 1 < expr.length)
+                                result ~= expr[braceEnd + 1 .. $];
 
-                        return result;
+                            return result;
+                        }
                     }
                 }
             }

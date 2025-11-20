@@ -4907,19 +4907,24 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 }
                 else
                 {
-                    // Regular initialization
                     debugWriteln("[VAL case] Parsing initializer, starting at pos=", pos);
                     while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
                     {
                         debugWriteln("[VAL case] Initializer loop: pos=", pos, " token=", tokens[pos]
                                 .type);
+                        
+                        if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE)
+                        {
+                            pos++;
+                            continue;
+                        }
+                        
                         if (initializer.length > 0 && tokens[pos].type != TokenType.LPAREN &&
                             tokens[pos].type != TokenType.RPAREN && tokens[pos].type != TokenType
                             .COMMA && tokens[pos].type != TokenType.LBRACKET && tokens[pos]
                             .type != TokenType.RBRACKET && tokens[pos].type != TokenType.LBRACE &&
                             tokens[pos].type != TokenType.RBRACE)
                         {
-                            // Add space before token (except for parens, commas, brackets, and braces)
                             initializer ~= " ";
                         }
                         if (tokens[pos].type == TokenType.STR)
