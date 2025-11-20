@@ -698,10 +698,10 @@ string replaceStandaloneCall(string text, string oldName, string newName)
 string fixDoublePrefix(string expr)
 {
     import std.regex : regex, replaceAll;
-    
+
     string fixedExpr = expr;
     size_t fixes = 0;
-    
+
     static immutable double_prefixes = [
         "stdlib_string_stdlib_string_": "stdlib_string_",
         "stdlib_regex_stdlib_regex_": "stdlib_regex_",
@@ -717,7 +717,7 @@ string fixDoublePrefix(string expr)
         "stdlib_time_stdlib_time_": "stdlib_time_",
         "stdlib_typecons_stdlib_typecons_": "stdlib_typecons_",
     ];
-    
+
     foreach (doublePre, singlePre; double_prefixes)
     {
         while (fixedExpr.canFind(doublePre))
@@ -727,12 +727,12 @@ string fixDoublePrefix(string expr)
             fixes++;
         }
     }
-    
+
     if (fixes > 0)
     {
         debugWriteln("      DEBUG fixDoublePrefix: Fixed ", fixes, " double-prefix patterns");
     }
-    
+
     return fixedExpr;
 }
 
@@ -846,7 +846,8 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             string before = returnNode.expression;
             returnNode.expression = replaceStandaloneCall(returnNode.expression, oldName, newName);
             if (before != returnNode.expression)
-                debugWriteln("      DEBUG Return replaced '", oldName, "' -> '", newName, "': '", returnNode.expression, "'");
+                debugWriteln("      DEBUG Return replaced '", oldName, "' -> '", newName, "': '", returnNode
+                        .expression, "'");
 
             if (oldName.canFind("_"))
             {
@@ -855,7 +856,8 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
                 {
                     before = returnNode.expression;
                     returnNode.expression = returnNode.expression.replace(oldCallDot, newName ~ "(");
-                    debugWriteln("      DEBUG Return replaced dot call '", oldCallDot, "' -> '", newName, "(': '", returnNode.expression, "'");
+                    debugWriteln("      DEBUG Return replaced dot call '", oldCallDot, "' -> '", newName, "(': '",
+                        returnNode.expression, "'");
                 }
             }
 
@@ -873,10 +875,10 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
                 }
             }
         }
-        
+
         // FIX DOUBLE-PREFIXING: Apply post-processing fix
         returnNode.expression = fixDoublePrefix(returnNode.expression);
-        
+
         debugWriteln("    DEBUG Return after processing: '", returnNode.expression, "'");
     }
     else if (node.nodeType == "Declaration")
