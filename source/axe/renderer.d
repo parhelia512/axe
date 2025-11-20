@@ -1404,7 +1404,6 @@ string generateC(ASTNode ast)
         break;
 
     case "Parallel":
-        // Generate OpenMP parallel region
         cCode ~= "#pragma omp parallel\n{\n";
         loopLevel++;
         
@@ -1427,17 +1426,38 @@ string generateC(ASTNode ast)
         // This supports lists with .len field and .data array
         string indexVar = "_i_" ~ forInNode.varName;
         string processedArrayName = processExpression(forInNode.arrayName);
+        
+        import std.regex : regex, replaceAll;
+        foreach (funcName, prefixedName; g_functionPrefixes)
+        {
+            processedArrayName = processedArrayName.replaceAll(
+                regex(r"\b" ~ funcName ~ r"\("), prefixedName ~ "(");
+        }
+        
         bool isPointer = (forInNode.arrayName in g_isPointerVar && 
                           g_isPointerVar[forInNode.arrayName] == "true");
-        string accessor = isPointer ? "->" : ".";        
+        string accessor = isPointer ? "->" : ".";
+        
+        bool needsTempVar = processedArrayName.canFind("(");
+        string collectionVar = processedArrayName;
+        string collectionAccessor = accessor;
+        
+        if (needsTempVar)
+        {
+            string tempVarName = "_temp_collection_" ~ forInNode.varName;
+            collectionVar = processedArrayName;
+            collectionAccessor = "->";
+        }
+        
         string loopHeader = "for (int32_t " ~ indexVar ~ " = 0; " ~ indexVar ~ " < " ~ 
-                            processedArrayName ~ accessor ~ "len; " ~ indexVar ~ "++) {\n";
+                            collectionVar ~ collectionAccessor ~ "len; " ~ indexVar ~ "++) {\n";
         cCode ~= loopHeader;
         loopLevel++;
 
         string indent = "    ".replicate(loopLevel);
-        string varDecl = indent ~ "const auto " ~ forInNode.varName ~ " = " ~ 
-                         processedArrayName ~ accessor ~ "data[" ~ indexVar ~ "];\n";
+        string varDecl = indent ~ "typeof(" ~ collectionVar ~ collectionAccessor ~ "data[0]) " ~ 
+                         forInNode.varName ~ " = " ~ collectionVar ~ collectionAccessor ~ 
+                         "data[" ~ indexVar ~ "];\n";
         cCode ~= varDecl;
 
         foreach (child; ast.children)
@@ -1466,9 +1486,7 @@ string generateC(ASTNode ast)
         auto returnNode = cast(ReturnNode) ast;
         if (returnNode.expressionNode !is null)
         {
-            // Handle complex expressions like model instantiation
             string processedExpr = generateC(returnNode.expressionNode);
-            // Remove trailing newline if present
             if (processedExpr.endsWith("\n"))
                 processedExpr = processedExpr[0 .. $ - 1];
             cCode ~= "return " ~ processedExpr ~ ";\n";

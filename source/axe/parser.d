@@ -1603,6 +1603,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                     if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
                     {
                         forInVarName = tokens[pos].value;
+                        debugWriteln("DEBUG: Found for-in var name: ", forInVarName);
                         pos++;
 
                         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
@@ -1610,15 +1611,48 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
 
                         if (pos < tokens.length && tokens[pos].type == TokenType.IN)
                         {
+                            debugWriteln("DEBUG: Found IN keyword at pos ", pos);
                             pos++; // Skip 'in'
 
                             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                                 pos++;
 
+                            debugWriteln("DEBUG: After IN, pos=", pos, " token=", tokens[pos].type, " value='", tokens[pos].value, "'");
+                            
                             if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
                             {
                                 forInArrayName = tokens[pos].value;
                                 pos++;
+                                
+                                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                    pos++;
+                                
+                                if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
+                                {
+                                    forInArrayName ~= "(";
+                                    pos++; // Skip '('
+                                    
+                                    int parenDepth = 0;
+                                    while (pos < tokens.length && (tokens[pos].type != TokenType.RPAREN || parenDepth > 0))
+                                    {
+                                        if (tokens[pos].type == TokenType.LPAREN)
+                                            parenDepth++;
+                                        else if (tokens[pos].type == TokenType.RPAREN)
+                                            parenDepth--;
+                                        
+                                        if (tokens[pos].type == TokenType.STR)
+                                            forInArrayName ~= "\"" ~ tokens[pos].value ~ "\"";
+                                        else
+                                            forInArrayName ~= tokens[pos].value;
+                                        pos++;
+                                    }
+                                    
+                                    enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                                        "Expected ')' after function arguments in for-in");
+                                    forInArrayName ~= ")";
+                                    pos++; // Skip ')'
+                                }
+                                
                                 isForIn = true;
                             }
                         }
@@ -1627,6 +1661,14 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                     if (isForIn)
                     {
                         // Parse for-in loop
+                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                            pos++;
+                        
+                        if (pos >= tokens.length)
+                            debugWriteln("DEBUG for-in: pos out of bounds");
+                        else
+                            debugWriteln("DEBUG for-in: next token type=", tokens[pos].type, " value='", tokens[pos].value, "'");
+                        
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
                             "Expected '{' after for-in header");
                         pos++; // Skip '{'
@@ -4692,7 +4734,6 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         }
         if (isForIn)
         {
-            // for-in loop: for item in collection { }
             enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
                 "Expected variable name in for-in loop");
             string itemVar = tokens[pos].value;
@@ -4716,6 +4757,35 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
 
+            if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
+            {
+                collection ~= "(";
+                pos++; // Skip '('
+
+                int parenDepth = 0;
+                while (pos < tokens.length && (tokens[pos].type != TokenType.RPAREN || parenDepth > 0))
+                {
+                    if (tokens[pos].type == TokenType.LPAREN)
+                        parenDepth++;
+                    else if (tokens[pos].type == TokenType.RPAREN)
+                        parenDepth--;
+
+                    if (tokens[pos].type == TokenType.STR)
+                        collection ~= "\"" ~ tokens[pos].value ~ "\"";
+                    else
+                        collection ~= tokens[pos].value;
+                    pos++;
+                }
+
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                    "Expected ')' after function arguments in for-in");
+                collection ~= ")";
+                pos++; // Skip ')'
+            }
+
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+
             enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
                 "Expected '{' after for-in");
             pos++;
@@ -4723,9 +4793,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
             auto forInNode = new ForInNode(itemVar, collection);
             auto prevScope = currentScopeNode;
             currentScopeNode = forInNode;
-            currentScope.addVariable(itemVar, false); // Loop variable is immutable
+            currentScope.addVariable(itemVar, false);
 
-            // Parse for-in body
             while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
             {
                 auto stmt = parseStatementHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
