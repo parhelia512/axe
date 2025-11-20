@@ -959,6 +959,14 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                     .NEWLINE))
                 pos++;
 
+            // Check for import all syntax: use module;
+            if (pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON)
+            {
+                pos++; // Skip ';'
+                ast.children ~= new UseNode(moduleName, [], true);
+                continue;
+            }
+
             enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
                 "Expected '(' after module name");
             pos++; // Skip '('
@@ -4620,6 +4628,13 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE ||
                 tokens[pos].type == TokenType.NEWLINE))
             pos++;
+
+        // Check for import all syntax: use module;
+        if (pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON)
+        {
+            pos++; // Skip ';'
+            return new UseNode(moduleName, [], true);
+        }
 
         enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
             "Expected '(' after module name");

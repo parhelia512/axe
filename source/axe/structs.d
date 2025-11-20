@@ -514,12 +514,14 @@ class UseNode : ASTNode
     string moduleName;
     string[] imports;
     string[string] functionPrefixes;
+    bool importAll;
     
-    this(string moduleName, string[] imports)
+    this(string moduleName, string[] imports, bool importAll = false)
     {
         super("Use");
         this.moduleName = moduleName;
         this.imports = imports;
+        this.importAll = importAll;
     }
 }
 

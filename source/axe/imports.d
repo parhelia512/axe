@@ -265,18 +265,18 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 else if (importChild.nodeType == "Function")
                 {
                     auto funcNode = cast(FunctionNode) importChild;
-                    if (useNode.imports.canFind(funcNode.name))
+                    if (useNode.importAll || useNode.imports.canFind(funcNode.name))
                     {
-                        string prefixedName = sanitizedModuleName ~ "_" ~ funcNode.name;
+                        string prefixedName = funcNode.name.startsWith("stdlib_") ? funcNode.name : (sanitizedModuleName ~ "_" ~ funcNode.name);
                         moduleFunctionMap[funcNode.name] = prefixedName;
                     }
                 }
                 else if (importChild.nodeType == "Model")
                 {
                     auto modelNode = cast(ModelNode) importChild;
-                    if (useNode.imports.canFind(modelNode.name))
+                    if (useNode.importAll || useNode.imports.canFind(modelNode.name))
                     {
-                        string prefixedName = sanitizedModuleName ~ "_" ~ modelNode.name;
+                        string prefixedName = modelNode.name.startsWith("stdlib_") ? modelNode.name : (sanitizedModuleName ~ "_" ~ modelNode.name);
                         moduleModelMap[modelNode.name] = prefixedName;
 
                         foreach (method; modelNode.methods)
@@ -284,8 +284,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                             auto methodFunc = cast(FunctionNode) method;
                             if (methodFunc !is null)
                             {
-                                string prefixedMethodName = sanitizedModuleName ~ "_" ~ methodFunc
-                                    .name;
+                                string prefixedMethodName = methodFunc.name.startsWith("stdlib_") ? methodFunc.name : (sanitizedModuleName ~ "_" ~ methodFunc.name);
                                 moduleFunctionMap[methodFunc.name] = prefixedMethodName;
                             }
                         }
@@ -294,7 +293,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 else if (importChild.nodeType == "Enum")
                 {
                     auto enumNode = cast(EnumNode) importChild;
-                    if (useNode.imports.canFind(enumNode.name))
+                    if (useNode.importAll || useNode.imports.canFind(enumNode.name))
                     {
                         moduleModelMap[enumNode.name] = enumNode.name;
                     }
@@ -302,7 +301,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 else if (importChild.nodeType == "Macro")
                 {
                     auto macroNode = cast(MacroNode) importChild;
-                    if (useNode.imports.canFind(macroNode.name))
+                    if (useNode.importAll || useNode.imports.canFind(macroNode.name))
                     {
                         moduleMacroMap[macroNode.name] = macroNode.name;
                     }
@@ -316,14 +315,14 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 if (importChild.nodeType == "Function")
                 {
                     auto funcNode = cast(FunctionNode) importChild;
-                    if (useNode.imports.canFind(funcNode.name))
+                    if (useNode.importAll || useNode.imports.canFind(funcNode.name))
                     {
                         resolvedImports[funcNode.name] = true;
                     }
 
                     // Always add functions from imported modules (including transitive dependencies)
                     // But only rename if explicitly imported
-                    if (useNode.imports.canFind(funcNode.name))
+                    if (useNode.importAll || useNode.imports.canFind(funcNode.name))
                     {
                         string prefixedName = moduleFunctionMap[funcNode.name];
                         importedFunctions[funcNode.name] = prefixedName;
@@ -370,12 +369,12 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 else if (importChild.nodeType == "Model")
                 {
                     auto modelNode = cast(ModelNode) importChild;
-                    if (useNode.imports.canFind(modelNode.name))
+                    if (useNode.importAll || useNode.imports.canFind(modelNode.name))
                     {
                         resolvedImports[modelNode.name] = true;
                     }
 
-                    if (useNode.imports.canFind(modelNode.name))
+                    if (useNode.importAll || useNode.imports.canFind(modelNode.name))
                     {
                         string prefixedName = moduleModelMap[modelNode.name];
                         importedModels[modelNode.name] = prefixedName;
@@ -445,7 +444,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 else if (importChild.nodeType == "Enum")
                 {
                     auto enumNode = cast(EnumNode) importChild;
-                    if (useNode.imports.canFind(enumNode.name))
+                    if (useNode.importAll || useNode.imports.canFind(enumNode.name))
                     {
                         resolvedImports[enumNode.name] = true;
                     }
@@ -472,7 +471,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 else if (importChild.nodeType == "Macro")
                 {
                     auto macroNode = cast(MacroNode) importChild;
-                    if (useNode.imports.canFind(macroNode.name))
+                    if (useNode.importAll || useNode.imports.canFind(macroNode.name))
                     {
                         resolvedImports[macroNode.name] = true;
                         if (macroNode.name !in g_addedNodeNames)
