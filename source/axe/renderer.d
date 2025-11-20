@@ -1338,7 +1338,7 @@ string generateC(ASTNode ast)
 
         string indent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
         string ompPragma = "#pragma omp parallel for";
-        
+
         if (parallelForNode.reductionClauses.length > 0)
         {
             ompPragma ~= " reduction(";
@@ -1350,7 +1350,7 @@ string generateC(ASTNode ast)
             }
             ompPragma ~= ")";
         }
-        
+
         cCode ~= indent ~ ompPragma ~ "\n";
         cCode ~= indent ~ "for (" ~ parallelForNode.initialization ~ "; "
             ~ processCondition(
@@ -1382,11 +1382,11 @@ string generateC(ASTNode ast)
 
         string forCond = processCondition(forNode.condition);
         string forIncr = forNode.increment;
-        
+
         if (forNode.isParallel)
         {
             string ompPragma = "#pragma omp parallel for";
-            
+
             if (forNode.reductionClauses.length > 0)
             {
                 ompPragma ~= " reduction(";
@@ -1398,7 +1398,7 @@ string generateC(ASTNode ast)
                 }
                 ompPragma ~= ")";
             }
-            
+
             cCode ~= ompPragma ~ "\n";
         }
 
@@ -1417,12 +1417,12 @@ string generateC(ASTNode ast)
     case "Parallel":
         cCode ~= "#pragma omp parallel\n{\n";
         loopLevel++;
-        
+
         foreach (child; ast.children)
         {
             cCode ~= generateC(child);
         }
-        
+
         loopLevel--;
         cCode ~= "}\n";
         break;
@@ -1437,38 +1437,39 @@ string generateC(ASTNode ast)
         // This supports lists with .len field and .data array
         string indexVar = "_i_" ~ forInNode.varName;
         string processedArrayName = processExpression(forInNode.arrayName);
-        
+
         import std.regex : regex, replaceAll;
+
         foreach (funcName, prefixedName; g_functionPrefixes)
         {
             processedArrayName = processedArrayName.replaceAll(
                 regex(r"\b" ~ funcName ~ r"\("), prefixedName ~ "(");
         }
-        
-        bool isPointer = (forInNode.arrayName in g_isPointerVar && 
-                          g_isPointerVar[forInNode.arrayName] == "true");
+
+        bool isPointer = (forInNode.arrayName in g_isPointerVar &&
+                g_isPointerVar[forInNode.arrayName] == "true");
         string accessor = isPointer ? "->" : ".";
-        
+
         bool needsTempVar = processedArrayName.canFind("(");
         string collectionVar = processedArrayName;
         string collectionAccessor = accessor;
-        
+
         if (needsTempVar)
         {
             string tempVarName = "_temp_collection_" ~ forInNode.varName;
             collectionVar = processedArrayName;
             collectionAccessor = "->";
         }
-        
-        string loopHeader = "for (int32_t " ~ indexVar ~ " = 0; " ~ indexVar ~ " < " ~ 
-                            collectionVar ~ collectionAccessor ~ "len; " ~ indexVar ~ "++) {\n";
+
+        string loopHeader = "for (int32_t " ~ indexVar ~ " = 0; " ~ indexVar ~ " < " ~
+            collectionVar ~ collectionAccessor ~ "len; " ~ indexVar ~ "++) {\n";
         cCode ~= loopHeader;
         loopLevel++;
 
         string indent = "    ".replicate(loopLevel);
-        string varDecl = indent ~ "typeof(" ~ collectionVar ~ collectionAccessor ~ "data[0]) " ~ 
-                         forInNode.varName ~ " = " ~ collectionVar ~ collectionAccessor ~ 
-                         "data[" ~ indexVar ~ "];\n";
+        string varDecl = indent ~ "typeof(" ~ collectionVar ~ collectionAccessor ~ "data[0]) " ~
+            forInNode.varName ~ " = " ~ collectionVar ~ collectionAccessor ~
+            "data[" ~ indexVar ~ "];\n";
         cCode ~= varDecl;
 
         foreach (child; ast.children)
@@ -1752,9 +1753,40 @@ string generateC(ASTNode ast)
         auto memberNode = cast(MemberAccessNode) ast;
         string indent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
         string accessOp = ".";
-        if (memberNode.objectName.canFind("->") ||
-            (memberNode.objectName ~ "." ~ memberNode.memberName in g_pointerFields) ||
-            (memberNode.objectName in g_isPointerVar && g_isPointerVar[memberNode.objectName] == "true"))
+
+        bool objectIsPointer = false;
+        if (memberNode.objectName.canFind("->"))
+        {
+            objectIsPointer = true;
+        }
+        else if (memberNode.objectName in g_isPointerVar && g_isPointerVar[memberNode.objectName] == "true")
+        {
+            objectIsPointer = true;
+        }
+        else if (memberNode.objectName in g_varType)
+        {
+            string objType = g_varType[memberNode.objectName];
+            if (objType.startsWith("ref ") || objType.endsWith("*"))
+            {
+                objectIsPointer = true;
+            }
+        }
+
+        // Check if it's a pointer field (for subsequent chain accesses)
+        string baseModelName = g_varType.get(memberNode.objectName, "");
+        if (baseModelName.startsWith("ref "))
+            baseModelName = baseModelName[4 .. $].strip();
+        if (baseModelName.startsWith("mut "))
+            baseModelName = baseModelName[4 .. $].strip();
+        while (baseModelName.length > 0 && baseModelName[$ - 1] == '*')
+            baseModelName = baseModelName[0 .. $ - 1].strip();
+
+        if (baseModelName ~ "." ~ memberNode.memberName in g_pointerFields)
+        {
+            objectIsPointer = true;
+        }
+
+        if (objectIsPointer)
         {
             accessOp = "->";
         }
@@ -1867,9 +1899,70 @@ string processExpression(string expr, string context = "")
     expr = expr.replaceAll(regex(r"([^a-zA-Z_])mod([^a-zA-Z_])"), "$1%$2");
     expr = expr.replaceAll(regex(r"^mod([^a-zA-Z_])"), "%$1");
     expr = expr.replaceAll(regex(r"([^a-zA-Z_])mod$"), "$1%");
+
+    expr = expr.replaceAll(regex(r"([^a-zA-Z_])and([^a-zA-Z_])"), "$1&&$2");
+    expr = expr.replaceAll(regex(r"^and([^a-zA-Z_])"), "&&$1");
+    expr = expr.replaceAll(regex(r"([^a-zA-Z_])and$"), "$1&&");
     expr = expr.replace(" and ", " && ");
+
+    expr = expr.replaceAll(regex(r"([^a-zA-Z_])or([^a-zA-Z_])"), "$1||$2");
+    expr = expr.replaceAll(regex(r"^or([^a-zA-Z_])"), "||$1");
+    expr = expr.replaceAll(regex(r"([^a-zA-Z_])or$"), "$1||");
     expr = expr.replace(" or ", " || ");
+
+    expr = expr.replaceAll(regex(r"([^a-zA-Z_])xor([^a-zA-Z_])"), "$1^$2");
+    expr = expr.replaceAll(regex(r"^xor([^a-zA-Z_])"), "^$1");
+    expr = expr.replaceAll(regex(r"([^a-zA-Z_])xor$"), "$1^");
     expr = expr.replace(" xor ", " ^ ");
+
+    import std.string : indexOf, lastIndexOf;
+
+    ptrdiff_t funcNameEnd = expr.indexOf("(");
+    if (funcNameEnd > 0)
+    {
+        string funcName = expr[0 .. funcNameEnd].strip();
+        if (funcName.indexOf("_") > 0)
+        {
+            ptrdiff_t argEnd = expr.lastIndexOf(")");
+            if (argEnd > funcNameEnd)
+            {
+                import std.stdio : writeln;
+
+                string argsString = expr[funcNameEnd + 1 .. argEnd].strip();
+                if (argsString.length > 0)
+                {
+
+                    string[] argList;
+                    string currentArg = "";
+                    int parenDepth = 0;
+                    bool inQuote = false;
+
+                    for (size_t i = 0; i < argsString.length; i++)
+                    {
+                        char c = argsString[i];
+                        if (c == '"' && (i == 0 || argsString[i - 1] != '\\'))
+                            inQuote = !inQuote;
+                        else if (!inQuote && c == '(')
+                            parenDepth++;
+                        else if (!inQuote && c == ')')
+                            parenDepth--;
+                        else if (!inQuote && parenDepth == 0 && c == ',')
+                        {
+                            if (currentArg.length > 0)
+                                argList ~= processExpression(currentArg.strip());
+                            currentArg = "";
+                            continue;
+                        }
+                        currentArg ~= c;
+                    }
+                    if (currentArg.length > 0)
+                        argList ~= processExpression(currentArg.strip());
+
+                    expr = funcName ~ "(" ~ argList.join(", ") ~ ")";
+                }
+            }
+        }
+    }
 
     static immutable string[string] typeCastMap = [
         "i8": "int8_t",
@@ -2051,7 +2144,6 @@ string processExpression(string expr, string context = "")
         }
     }
 
-    // Handle ref_of() built-in function - replace all occurrences (with or without spaces)
     import std.regex : regex, replaceAll;
 
     while (expr.canFind("ref_of"))
@@ -2060,7 +2152,6 @@ string processExpression(string expr, string context = "")
         if (startIdx == -1)
             break;
 
-        // Skip past "ref_of" and any whitespace
         size_t pos = startIdx + 6;
         while (pos < expr.length && (expr[pos] == ' ' || expr[pos] == '\t'))
             pos++;
@@ -2070,7 +2161,6 @@ string processExpression(string expr, string context = "")
 
         auto parenStart = pos + 1; // After "("
 
-        // Find matching closing paren
         int depth = 1;
         size_t parenEnd = parenStart;
         while (parenEnd < expr.length && depth > 0)
@@ -2087,14 +2177,12 @@ string processExpression(string expr, string context = "")
         expr = expr[0 .. startIdx] ~ "&" ~ varName ~ expr[parenEnd + 1 .. $];
     }
 
-    // Handle addr_of() built-in function - replace all occurrences (with or without spaces)
     while (expr.canFind("addr_of"))
     {
         auto startIdx = expr.indexOf("addr_of");
         if (startIdx == -1)
             break;
 
-        // Skip past "addr_of" and any whitespace
         size_t pos = startIdx + 7;
         while (pos < expr.length && (expr[pos] == ' ' || expr[pos] == '\t'))
             pos++;
@@ -2104,7 +2192,6 @@ string processExpression(string expr, string context = "")
 
         auto parenStart = pos + 1; // After "("
 
-        // Find matching closing paren
         int depth = 1;
         size_t parenEnd = parenStart;
         while (parenEnd < expr.length && depth > 0)
@@ -2121,14 +2208,12 @@ string processExpression(string expr, string context = "")
         expr = expr[0 .. startIdx] ~ "(int64_t)&" ~ varName ~ expr[parenEnd + 1 .. $];
     }
 
-    // Handle deref() built-in function - replace all occurrences (with or without spaces)
     while (expr.canFind("deref"))
     {
         auto startIdx = expr.indexOf("deref");
         if (startIdx == -1)
             break;
 
-        // Skip past "deref" and any whitespace
         size_t pos = startIdx + 5;
         while (pos < expr.length && (expr[pos] == ' ' || expr[pos] == '\t'))
             pos++;
@@ -2162,7 +2247,6 @@ string processExpression(string expr, string context = "")
             `&$1`);
     }
 
-    // Handle array access
     if (expr.canFind("["))
     {
         bool inString = false;
@@ -2218,11 +2302,13 @@ string processExpression(string expr, string context = "")
     // Handle member access with auto-detection of pointer types.
     //
     // IMPORTANT: Be string-literal aware so we never rewrite dots inside quoted strings
+    // Also skip dots inside parentheses (function call arguments)
     if (expr.canFind("."))
     {
         string[] parts;
         string current = "";
         bool inString = false;
+        int parenDepth = 0;
 
         for (size_t i = 0; i < expr.length; i++)
         {
@@ -2231,7 +2317,17 @@ string processExpression(string expr, string context = "")
                 inString = !inString;
                 current ~= expr[i];
             }
-            else if (!inString && expr[i] == '.')
+            else if (!inString && expr[i] == '(')
+            {
+                parenDepth++;
+                current ~= expr[i];
+            }
+            else if (!inString && expr[i] == ')')
+            {
+                parenDepth--;
+                current ~= expr[i];
+            }
+            else if (!inString && parenDepth == 0 && expr[i] == '.')
             {
                 parts ~= current;
                 current = "";
@@ -2244,7 +2340,6 @@ string processExpression(string expr, string context = "")
         parts ~= current;
         if (parts.length >= 2)
         {
-            // Handle enum access if first part is uppercase
             string first = parts[0].strip();
             string second = parts[1].strip();
 
@@ -2278,29 +2373,51 @@ string processExpression(string expr, string context = "")
                 if (modelName in g_modelNames)
                 {
                     string prefixedModelName = g_modelNames[modelName];
-                    // Extract method name (everything before the opening parenthesis)
                     auto parenPos = methodPart.indexOf('(');
                     if (parenPos >= 0)
                     {
                         string methodName = methodPart[0 .. parenPos].strip();
-                        // Find the matching closing parenthesis
-                        int parenDepth = 1;
+                        int methodParenDepth = 1;
                         size_t argEnd = parenPos + 1;
-                        while (argEnd < methodPart.length && parenDepth > 0)
+                        while (argEnd < methodPart.length && methodParenDepth > 0)
                         {
                             if (methodPart[argEnd] == '(')
-                                parenDepth++;
+                                methodParenDepth++;
                             else if (methodPart[argEnd] == ')')
-                                parenDepth--;
+                                methodParenDepth--;
                             argEnd++;
                         }
-                        string args = methodPart[parenPos .. argEnd];
-                        string functionCall = prefixedModelName ~ "_" ~ methodName ~ args;
+                        string argsString = methodPart[parenPos + 1 .. argEnd - 1].strip();
+                        string[] argList;
+                        if (argsString.length > 0)
+                        {
+                            string currentArg = "";
+                            int argParenDepth = 0;
+                            bool inArgString = false;
+                            for (size_t i = 0; i < argsString.length; i++)
+                            {
+                                if (argsString[i] == '"' && (i == 0 || argsString[i - 1] != '\\'))
+                                    inArgString = !inArgString;
+                                else if (!inArgString && argsString[i] == '(')
+                                    argParenDepth++;
+                                else if (!inArgString && argsString[i] == ')')
+                                    argParenDepth--;
+                                else if (!inArgString && argParenDepth == 0 && argsString[i] == ',')
+                                {
+                                    argList ~= processExpression(currentArg.strip());
+                                    currentArg = "";
+                                    continue;
+                                }
+                                currentArg ~= argsString[i];
+                            }
+                            if (currentArg.length > 0)
+                                argList ~= processExpression(currentArg.strip());
+                        }
+                        string functionCall = prefixedModelName ~ "_" ~ methodName ~ "(" ~ argList.join(
+                            ", ") ~ ")";
 
-                        // If there are more parts after the function call, process them as member access
                         if (parts.length > 2)
                         {
-                            // Reconstruct the rest of the expression with the function call as the base
                             string result = functionCall;
                             for (size_t i = 2; i < parts.length; i++)
                             {
@@ -2320,14 +2437,12 @@ string processExpression(string expr, string context = "")
                 }
                 else
                 {
-                    // Fallback: Replace the dot (and any surrounding spaces) with underscore
                     import std.regex : regex, replaceFirst;
 
                     return replaceFirst(expr, regex(r"\s*\.\s*"), "_");
                 }
             }
 
-            // Enum access: only when the left side is a simple identifier (no operators/parentheses)
             if (!firstHasOps && first.length > 0 && first[0] >= 'A' && first[0] <= 'Z')
             {
                 return parts[1].strip();
@@ -2336,8 +2451,28 @@ string processExpression(string expr, string context = "")
             string result = first;
             string currentType = g_varType.get(first, "");
             bool isPointer = g_isPointerVar.get(first, "false") == "true";
+
+            if (currentType.length > 0)
+            {
+                if (currentType[$ - 1] == '*' || currentType.startsWith("ref "))
+                {
+                    isPointer = true;
+                }
+            }
+
+            string baseModelName = currentType;
+            if (baseModelName.startsWith("ref "))
+                baseModelName = baseModelName[4 .. $].strip();
+            if (baseModelName.startsWith("mut "))
+                baseModelName = baseModelName[4 .. $].strip();
+            while (baseModelName.length > 0 && baseModelName[$ - 1] == '*')
+                baseModelName = baseModelName[0 .. $ - 1].strip();
+
+            import std.stdio : writeln;
+
             debugWriteln("DEBUG get g_isPointerVar for '", first, "' = ", g_isPointerVar.get(first, "false"));
-            debugWriteln("DEBUG: processExpression member access: first='", first, "' isPointer=", isPointer, " expr='", expr, "'");
+            debugWriteln("DEBUG: processExpression member access: first='", first, "' isPointer=", isPointer,
+                " currentType='", currentType, "' baseModelName='", baseModelName, "' expr='", expr, "'");
 
             for (size_t i = 1; i < parts.length; i++)
             {
@@ -2345,10 +2480,20 @@ string processExpression(string expr, string context = "")
                 string op = isPointer ? "->" : ".";
                 result ~= op ~ field;
 
-                if (currentType ~ "." ~ field in g_pointerFields)
+                // Check if this field is a pointer field for the next iteration
+                string fieldKey = baseModelName ~ "." ~ field;
+                if (fieldKey in g_pointerFields)
+                {
                     isPointer = true;
+                    // Update baseModelName to the field's type for subsequent accesses
+                    // (for self-referential structs, it's the same model name)
+                    // baseModelName stays the same for now
+                }
                 else
+                {
+                    // This field is not a pointer, so use . for any subsequent accesses
                     isPointer = false;
+                }
             }
             return result;
         }
@@ -2447,6 +2592,43 @@ string processExpression(string expr, string context = "")
         return "'{'";
     if (expr == "}")
         return "'}'";
+
+    // Handle bare char literals that need to be wrapped in single quotes for C
+    // These come from the parser without quotes (e.g., ',' becomes just , in AST)
+    // Only wrap punctuation/symbols that are clearly not variable names, numbers, or operators
+    if (expr.length == 1)
+    {
+        char c = expr[0];
+        // Only wrap specific punctuation that are likely char literals
+        // Exclude: letters (a-z, A-Z), digits (0-9), operators (+, -, *, /, %, etc.)
+        bool isLetter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+        bool isDigit = (c >= '0' && c <= '9');
+        bool isOperator = (c == '+' || c == '-' || c == '*' || c == '/' || c == '%' ||
+                c == '=' || c == '<' || c == '>' || c == '&' || c == '|' ||
+                c == '!' || c == '~' || c == '^');
+        bool isUnderscore = (c == '_');
+
+        // If it's not a letter, digit, operator, or underscore, wrap it as a char literal
+        if (!isLetter && !isDigit && !isOperator && !isUnderscore && c >= 32 && c < 127)
+        {
+            // Special handling for characters that need escaping in C
+            if (c == '\'')
+                return "'\\\''"; // Single quote needs escaping
+            else if (c == '\\')
+                return "'\\\\'"; // Backslash needs escaping
+            else if (c == '"')
+                return "'\"'"; // Double quote in single quotes
+            else
+                return "'" ~ expr ~ "'";
+        }
+    }
+
+    // Handle common escape sequences that come through as 2 chars (backslash + letter)
+    if (expr.length == 2 && expr[0] == '\\')
+    {
+        // These are already properly formatted as escape sequences
+        return "'" ~ expr ~ "'";
+    }
 
     return expr;
 }
@@ -3713,7 +3895,6 @@ unittest
             "Function definition should have dimension parameters before array parameter");
     }
 
-
     {
         auto tokens = lex("model Test { data: i32[10][20]; } main { }");
         auto ast = parse(tokens);
@@ -3840,7 +4021,7 @@ unittest
         writeln("For-to syntax test:");
         writeln(cCode);
 
-        assert(cCode.canFind("for (int i = 0; (i<10); i++)"), 
+        assert(cCode.canFind("for (int i = 0; (i<10); i++)"),
             "Should desugar 'for mut i = 0 to 10' to C for loop");
     }
 
@@ -3852,35 +4033,37 @@ unittest
         writeln("For-to syntax with non-zero start test:");
         writeln(cCode);
 
-        assert(cCode.canFind("for (int i = 5; (i<15); i++)"), 
+        assert(cCode.canFind("for (int i = 5; (i<15); i++)"),
             "Should handle non-zero start value in for-to loop");
     }
 
     {
-        auto tokens = lex("main { mut val sum: i32 = 0; parallel for mut i = 0 to 100 { sum = sum + i; } }");
+        auto tokens = lex(
+            "main { mut val sum: i32 = 0; parallel for mut i = 0 to 100 { sum = sum + i; } }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
         writeln("Parallel for without reduction test:");
         writeln(cCode);
 
-        assert(cCode.canFind("#pragma omp parallel for"), 
+        assert(cCode.canFind("#pragma omp parallel for"),
             "Should generate OpenMP pragma for parallel for");
-        assert(cCode.canFind("for (int i = 0; (i<100); i++)"), 
+        assert(cCode.canFind("for (int i = 0; (i<100); i++)"),
             "Should generate correct for loop in parallel for");
     }
 
     {
-        auto tokens = lex("main { mut val sum: i32 = 0; parallel for mut i = 0 to 100 reduce(+:sum) { sum = sum + i; } }");
+        auto tokens = lex(
+            "main { mut val sum: i32 = 0; parallel for mut i = 0 to 100 reduce(+:sum) { sum = sum + i; } }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
         writeln("Parallel for with reduction clause test:");
         writeln(cCode);
 
-        assert(cCode.canFind("#pragma omp parallel for reduction(+:sum)"), 
+        assert(cCode.canFind("#pragma omp parallel for reduction(+:sum)"),
             "Should generate OpenMP pragma with reduction clause");
-        assert(cCode.canFind("for (int i = 0; (i<100); i++)"), 
+        assert(cCode.canFind("for (int i = 0; (i<100); i++)"),
             "Should generate correct for loop in parallel for with reduction");
     }
 
@@ -3892,7 +4075,7 @@ unittest
         writeln("Parallel for with multiple reduction clauses test:");
         writeln(cCode);
 
-        assert(cCode.canFind("#pragma omp parallel for reduction(+:sum, *:prod)"), 
+        assert(cCode.canFind("#pragma omp parallel for reduction(+:sum, *:prod)"),
             "Should generate OpenMP pragma with multiple reduction clauses");
     }
 
@@ -3904,23 +4087,24 @@ unittest
         writeln("For-in with function call test:");
         writeln(cCode);
 
-        assert(cCode.canFind("stdlib_os_get_list()->len") || cCode.canFind("get_list()->len"), 
+        assert(cCode.canFind("stdlib_os_get_list()->len") || cCode.canFind("get_list()->len"),
             "Should handle function call in for-in collection");
-        assert(cCode.canFind("for (int32_t _i_item = 0;"), 
+        assert(cCode.canFind("for (int32_t _i_item = 0;"),
             "Should generate index variable for for-in loop");
     }
 
     {
-        auto tokens = lex("model StringList { len: i32, data: string } main { val items: StringList; for item in items { } }");
+        auto tokens = lex(
+            "model StringList { len: i32, data: string } main { val items: StringList; for item in items { } }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
         writeln("For-in with simple identifier test:");
         writeln(cCode);
 
-        assert(cCode.canFind("items.len") || cCode.canFind("items->len"), 
+        assert(cCode.canFind("items.len") || cCode.canFind("items->len"),
             "Should handle simple identifier in for-in collection");
-        assert(cCode.canFind("for (int32_t _i_item = 0;"), 
+        assert(cCode.canFind("for (int32_t _i_item = 0;"),
             "Should generate index variable for for-in loop");
     }
 }

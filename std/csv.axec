@@ -26,225 +26,230 @@ model CsvOptions {
 /// Create default CSV options (comma delimiter, double quote, no header assumption)
 def default_options(): CsvOptions {
     mut opts: CsvOptions;
-    raw {
-        opts.delimiter = ',';
-        opts.quote_char = '"';
-        opts.has_header = false;
-    }
+    opts.delimiter = ',';
+    opts.quote_char = '"';
+    opts.has_header = false;
     return opts;
 }
 
 /// Create a new empty CSV document with arena allocator
 def create_document(arena: ref Arena): CsvDocument {
     mut doc: CsvDocument;
-    raw {
-        doc.rows = NULL;
-        doc.row_count = 0;
-        doc.row_capacity = 0;
-        doc.arena = arena;
-    }
+    doc.rows = nil;
+    doc.row_count = 0;
+    doc.row_capacity = 0;
+    doc.arena = arena;
     return doc;
 }
 
 /// Create a new empty CSV row
 def create_row(): CsvRow {
     mut row: CsvRow;
-    raw {
-        row.fields.data = NULL;
-        row.fields.len = 0;
-        row.fields.cap = 0;
-        row.field_count = 0;
-    }
+    row.fields.data = nil;
+    row.fields.len = 0;
+    row.fields.cap = 0;
+    row.field_count = 0;
     return row;
 }
 
 /// Add a field to a CSV row (using arena allocation)
 def add_field(row: ref CsvRow, field: string, arena: ref Arena) {
-    raw {
-        if (row == NULL) return;
-        
-        if (row->fields.len >= row->fields.cap) {
-            size_t new_cap = row->fields.cap == 0 ? 4 : row->fields.cap * 2;
-            string* new_data = (string*)std_arena_Arena_alloc(arena, new_cap * sizeof(string));
-            if (new_data == NULL) return;
-            
-            if (row->fields.data != NULL) {
-                memcpy(new_data, row->fields.data, row->fields.len * sizeof(string));
-            }
-            
-            row->fields.data = new_data;
-            row->fields.cap = new_cap;
+    if row == nil {
+        return;
+    }
+    
+    if row.fields.len >= row.fields.cap {
+        mut new_cap: usize = 4;
+        if row.fields.cap > 0 {
+            new_cap = row.fields.cap * 2;
         }
         
-        row->fields.data[row->fields.len] = field;
-        row->fields.len++;
-        row->field_count++;
+        mut new_data: ref string = Arena.alloc(arena, new_cap * 24);
+        if new_data == nil {
+            return;
+        }
+        
+        if row.fields.data != nil {
+            for mut i = 0 to row.fields.len {
+                new_data[i] = row.fields.data[i];
+            }
+        }
+        
+        row.fields.data = new_data;
+        row.fields.cap = new_cap;
     }
+    
+    row.fields.data[row.fields.len] = field;
+    row.fields.len = row.fields.len + 1;
+    row.field_count = row.field_count + 1;
 }
 
 /// Add a row to a CSV document (using arena allocation)
 def add_row(doc: ref CsvDocument, row: CsvRow) {
-    raw {
-        if (doc == NULL) return;
-        
-        if (doc->row_count >= doc->row_capacity) {
-            size_t new_cap = doc->row_capacity == 0 ? 8 : doc->row_capacity * 2;
-            CsvRow* new_rows = (CsvRow*)std_arena_Arena_alloc(doc->arena, new_cap * sizeof(CsvRow));
-            if (new_rows == NULL) return;
-            
-            if (doc->rows != NULL) {
-                memcpy(new_rows, doc->rows, doc->row_count * sizeof(CsvRow));
-            }
-            
-            doc->rows = new_rows;
-            doc->row_capacity = new_cap;
+    if doc == nil {
+        return;
+    }
+    
+    if doc.row_count >= doc.row_capacity {
+        mut new_cap: usize = 8;
+        if doc.row_capacity > 0 {
+            new_cap = doc.row_capacity * 2;
         }
         
-        doc->rows[doc->row_count] = row;
-        doc->row_count++;
+        mut new_rows: ref CsvRow = Arena.alloc(doc.arena, new_cap * 32);
+        if new_rows == nil {
+            return;
+        }
+        
+        if doc.rows != nil {
+            for mut i = 0 to doc.row_count {
+                new_rows[i] = doc.rows[i];
+            }
+        }
+        
+        doc.rows = new_rows;
+        doc.row_capacity = new_cap;
     }
+    
+    doc.rows[doc.row_count] = row;
+    doc.row_count = doc.row_count + 1;
 }
 
 /// Get a row from a CSV document by index
 def get_row(doc: ref CsvDocument, index: usize): ref CsvRow {
-    mut result: ref CsvRow = nil;
-    raw {
-        if (doc != NULL && index < doc->row_count) {
-            result = &doc->rows[index];
-        }
+    if doc != nil and index < doc.row_count {
+        return ref_of(doc.rows[index]);
     }
-    return result;
+    return nil;
 }
 
 /// Get a field from a CSV row by index
 def get_field(row: ref CsvRow, index: usize): string {
-    mut result: string;
-    raw {
-        result.data = NULL;
-        result.len = 0;
-        result.cap = 0;
-        
-        if (row != NULL && index < row->field_count) {
-            result = row->fields.data[index];
-        }
+    if row != nil and index < row.field_count {
+        return row.fields.data[index];
     }
-    return result;
+    return string.create("");
 }
 
 /// Parse a CSV string into a document (using arena allocation)
 def parse(csv_data: string, options: CsvOptions, arena: ref Arena): CsvDocument {
     mut doc: CsvDocument = create_document(arena);
     mut current_row: CsvRow = create_row();
-    mut current_field: string;
     
-    raw {
-        current_field.data = (char*)std_arena_Arena_alloc(arena, 1024);
-        current_field.len = 0;
-        current_field.cap = 1024;
-        if (current_field.data == NULL) return doc;
-        current_field.data[0] = '\0';
+    mut current_field_data: ref char = Arena.alloc(arena, 1024);
+    mut current_field_cap: usize = 1024;
+    mut field_pos: usize = 0;
+    
+    if current_field_data == nil {
+        return doc;
+    }
+    
+    mut in_quotes: bool = false;
+    
+    for mut i = 0 to csv_data.len {
+        mut c: char = csv_data.data[i];
         
-        bool in_quotes = false;
-        size_t field_pos = 0;
-        
-        for (size_t i = 0; i < csv_data.len; i++) {
-            char c = csv_data.data[i];
-            
-            if (c == options.quote_char) {
-                if (in_quotes) {
-                    if (i + 1 < csv_data.len && csv_data.data[i + 1] == options.quote_char) {
-                        if (field_pos >= current_field.cap - 1) {
-                            size_t new_cap = current_field.cap * 2;
-                            char* new_data = (char*)std_arena_Arena_alloc(arena, new_cap);
-                            if (new_data == NULL) break;
-                            memcpy(new_data, current_field.data, field_pos);
-                            current_field.data = new_data;
-                            current_field.cap = new_cap;
+        if c == options.quote_char {
+            if in_quotes {
+                if i + 1 < csv_data.len and csv_data.data[i + 1] == options.quote_char {
+                    if field_pos >= current_field_cap - 1 {
+                        mut new_cap: usize = current_field_cap * 2;
+                        mut new_data: ref char = Arena.alloc(arena, new_cap);
+                        if new_data != nil {
+                            for mut j = 0 to field_pos {
+                                new_data[j] = current_field_data[j];
+                            }
+                            current_field_data = new_data;
+                            current_field_cap = new_cap;
                         }
-                        current_field.data[field_pos++] = c;
-                        i++; // Skip next quote
-                    } else {
-                        // End of quoted field
-                        in_quotes = false;
                     }
+                    current_field_data[field_pos] = c;
+                    field_pos = field_pos + 1;
+                    i = i + 1;
                 } else {
-                    // Start of quoted field
-                    in_quotes = true;
+                    in_quotes = false;
                 }
-                continue;
+            } else {
+                in_quotes = true;
             }
+        } elif c == options.delimiter and !in_quotes {
+            current_field_data[field_pos] = '\0';
             
-            if (c == options.delimiter && !in_quotes) {
-                current_field.data[field_pos] = '\0';
-                current_field.len = field_pos;
-                
-                string field_copy;
-                field_copy.data = (char*)std_arena_Arena_alloc(arena, field_pos + 1);
-                if (field_copy.data != NULL) {
-                    memcpy(field_copy.data, current_field.data, field_pos + 1);
-                    field_copy.len = field_pos;
-                    field_copy.cap = field_pos + 1;
-                    add_field(&current_row, field_copy, arena);
+            mut field_copy_data: ref char = Arena.alloc(arena, field_pos + 1);
+            if field_copy_data != nil {
+                for mut j = 0 to field_pos + 1 {
+                    field_copy_data[j] = current_field_data[j];
                 }
                 
-                field_pos = 0;
-                continue;
-            }
-            
-            if ((c == '\n' || c == '\r') && !in_quotes) {
-                // Skip \r\n combination
-                if (c == '\r' && i + 1 < csv_data.len && csv_data.data[i + 1] == '\n') {
-                    i++;
-                }
-                
-                current_field.data[field_pos] = '\0';
-                current_field.len = field_pos;
-                
-                string field_copy;
-                field_copy.data = (char*)std_arena_Arena_alloc(arena, field_pos + 1);
-                if (field_copy.data != NULL) {
-                    memcpy(field_copy.data, current_field.data, field_pos + 1);
-                    field_copy.len = field_pos;
-                    field_copy.cap = field_pos + 1;
-                    add_field(&current_row, field_copy, arena);
-                }
-                
-                if (current_row.field_count > 0) {
-                    add_row(&doc, current_row);
-                    current_row = create_row();
-                }
-                
-                field_pos = 0;
-                continue;
-            }
-            
-            if (field_pos >= current_field.cap - 1) {
-                size_t new_cap = current_field.cap * 2;
-                char* new_data = (char*)std_arena_Arena_alloc(arena, new_cap);
-                if (new_data == NULL) break;
-                memcpy(new_data, current_field.data, field_pos);
-                current_field.data = new_data;
-                current_field.cap = new_cap;
-            }
-            current_field.data[field_pos++] = c;
-        }
-        
-        if (field_pos > 0 || current_row.field_count > 0) {
-            current_field.data[field_pos] = '\0';
-            current_field.len = field_pos;
-            
-            string field_copy;
-            field_copy.data = (char*)std_arena_Arena_alloc(arena, field_pos + 1);
-            if (field_copy.data != NULL) {
-                memcpy(field_copy.data, current_field.data, field_pos + 1);
+                mut field_copy: string;
+                field_copy.data = field_copy_data;
                 field_copy.len = field_pos;
                 field_copy.cap = field_pos + 1;
-                add_field(&current_row, field_copy, arena);
+                add_field(ref_of(current_row), field_copy, arena);
             }
             
-            if (current_row.field_count > 0) {
-                add_row(&doc, current_row);
+            field_pos = 0;
+        } elif (c == '\n' or c == '\r') and !in_quotes {
+            if c == '\r' and i + 1 < csv_data.len and csv_data.data[i + 1] == '\n' {
+                i = i + 1;
             }
+            
+            current_field_data[field_pos] = '\0';
+            
+            mut field_copy_data: ref char = Arena.alloc(arena, field_pos + 1);
+            if field_copy_data != nil {
+                for mut j = 0 to field_pos + 1 {
+                    field_copy_data[j] = current_field_data[j];
+                }
+                
+                mut field_copy: string;
+                field_copy.data = field_copy_data;
+                field_copy.len = field_pos;
+                field_copy.cap = field_pos + 1;
+                add_field(ref_of(current_row), field_copy, arena);
+            }
+            
+            if current_row.field_count > 0 {
+                add_row(ref_of(doc), current_row);
+                current_row = create_row();
+            }
+            
+            field_pos = 0;
+        } else {
+            if field_pos >= current_field_cap - 1 {
+                mut new_cap: usize = current_field_cap * 2;
+                mut new_data: ref char = Arena.alloc(arena, new_cap);
+                if new_data != nil {
+                    for mut j = 0 to field_pos {
+                        new_data[j] = current_field_data[j];
+                    }
+                    current_field_data = new_data;
+                    current_field_cap = new_cap;
+                }
+            }
+            current_field_data[field_pos] = c;
+            field_pos = field_pos + 1;
+        }
+    }
+    
+    if field_pos > 0 or current_row.field_count > 0 {
+        current_field_data[field_pos] = '\0';
+        
+        mut field_copy_data: ref char = Arena.alloc(arena, field_pos + 1);
+        if field_copy_data != nil {
+            for mut j = 0 to field_pos + 1 {
+                field_copy_data[j] = current_field_data[j];
+            }
+            
+            mut field_copy: string;
+            field_copy.data = field_copy_data;
+            field_copy.len = field_pos;
+            field_copy.cap = field_pos + 1;
+            add_field(ref_of(current_row), field_copy, arena);
+        }
+        
+        if current_row.field_count > 0 {
+            add_row(ref_of(doc), current_row);
         }
     }
     
@@ -259,74 +264,96 @@ def parse_simple(csv_data: string, arena: ref Arena): CsvDocument {
 /// Convert a CSV document back to a string (using arena allocation)
 def to_string(doc: ref CsvDocument, options: CsvOptions): string {
     mut result: string;
+    result.data = nil;
+    result.len = 0;
+    result.cap = 0;
     
-    raw {
-        result.data = NULL;
-        result.len = 0;
-        result.cap = 0;
+    if doc == nil or doc.row_count == 0 {
+        return result;
+    }
+    
+    mut estimated_size: usize = doc.row_count * 100;
+    mut result_data: ref char = Arena.alloc(doc.arena, estimated_size);
+    if result_data == nil {
+        return result;
+    }
+    result.cap = estimated_size;
+    result.data = result_data;
+    
+    mut pos: usize = 0;
+    
+    for mut i = 0 to doc.row_count {
+        mut row: ref CsvRow = ref_of(doc.rows[i]);
         
-        if (doc == NULL || doc->row_count == 0) return result;
-        
-        size_t estimated_size = doc->row_count * 100;
-        result.data = (char*)std_arena_Arena_alloc(doc->arena, estimated_size);
-        if (result.data == NULL) return result;
-        result.cap = estimated_size;
-        
-        size_t pos = 0;
-        
-        for (size_t i = 0; i < doc->row_count; i++) {
-            CsvRow* row = &doc->rows[i];
+        for mut j = 0 to row.field_count {
+            mut field: string = row.fields.data[j];
             
-            for (size_t j = 0; j < row->field_count; j++) {
-                string field = row->fields.data[j];
-                
-                bool needs_quotes = false;
-                for (size_t k = 0; k < field.len; k++) {
-                    if (field.data[k] == options.delimiter || 
-                        field.data[k] == options.quote_char ||
-                        field.data[k] == '\n' || field.data[k] == '\r') {
-                        needs_quotes = true;
-                        break;
-                    }
-                }
-                
-                size_t needed = field.len + (needs_quotes ? field.len + 10 : 5);
-                while (pos + needed >= result.cap) {
-                    size_t new_cap = result.cap * 2;
-                    char* new_data = (char*)std_arena_Arena_alloc(doc->arena, new_cap);
-                    if (new_data == NULL) return result;
-                    memcpy(new_data, result.data, pos);
-                    result.data = new_data;
-                    result.cap = new_cap;
-                }
-                
-                if (needs_quotes) {
-                    result.data[pos++] = options.quote_char;
-                    for (size_t k = 0; k < field.len; k++) {
-                        if (field.data[k] == options.quote_char) {
-                            result.data[pos++] = options.quote_char;
-                            result.data[pos++] = options.quote_char;
-                        } else {
-                            result.data[pos++] = field.data[k];
-                        }
-                    }
-                    result.data[pos++] = options.quote_char;
-                } else {
-                    memcpy(&result.data[pos], field.data, field.len);
-                    pos += field.len;
-                }
-                
-                if (j < row->field_count - 1) {
-                    result.data[pos++] = options.delimiter;
+            mut needs_quotes: bool = false;
+            for mut k = 0 to field.len {
+                if field.data[k] == options.delimiter or 
+                   field.data[k] == options.quote_char or
+                   field.data[k] == '\n' or field.data[k] == '\r' {
+                    needs_quotes = true;
                 }
             }
             
-            result.data[pos++] = '\n';
+            mut needed: usize = field.len + 5;
+            if needs_quotes {
+                needed = field.len + field.len + 10;
+            }
+            
+            loop {
+                if pos + needed < result.cap {
+                    break;
+                }
+                
+                mut new_cap: usize = result.cap * 2;
+                mut new_data: ref char = Arena.alloc(doc.arena, new_cap);
+                if new_data == nil {
+                    return result;
+                }
+                for mut m = 0 to pos {
+                    new_data[m] = result.data[m];
+                }
+                result.data = new_data;
+                result.cap = new_cap;
+            }
+            
+            if needs_quotes {
+                result.data[pos] = options.quote_char;
+                pos = pos + 1;
+                for mut k = 0 to field.len {
+                    if field.data[k] == options.quote_char {
+                        result.data[pos] = options.quote_char;
+                        pos = pos + 1;
+                        result.data[pos] = options.quote_char;
+                        pos = pos + 1;
+                    } else {
+                        result.data[pos] = field.data[k];
+                        pos = pos + 1;
+                    }
+                }
+                result.data[pos] = options.quote_char;
+                pos = pos + 1;
+            } else {
+                for mut k = 0 to field.len {
+                    result.data[pos] = field.data[k];
+                    pos = pos + 1;
+                }
+            }
+            
+            if j < row.field_count - 1 {
+                result.data[pos] = options.delimiter;
+                pos = pos + 1;
+            }
         }
         
-        result.data[pos] = '\0';
-        result.len = pos;
+        result.data[pos] = '\n';
+        pos = pos + 1;
     }
+    
+    result.data[pos] = '\0';
+    result.len = pos;
     
     return result;
 }
@@ -339,14 +366,14 @@ test {
     
     assert doc.row_count == 3, "Should parse 3 rows";
     
-    mut row0: ref CsvRow = get_row(&doc, 0);
+    mut row0: ref CsvRow = get_row(ref_of(doc), 0);
     assert row0 != nil, "Should get first row";
     assert row0.field_count == 3, "First row should have 3 fields";
     
     mut field0: string = get_field(row0, 0);
     assert field0.len == 4, "First field should be 'name'";
     
-    mut row1: ref CsvRow = get_row(&doc, 1);
+    mut row1: ref CsvRow = get_row(ref_of(doc), 1);
     assert row1 != nil, "Should get second row";
     assert row1.field_count == 3, "Second row should have 3 fields";
     
@@ -361,13 +388,13 @@ test {
     
     assert quoted_doc.row_count == 1, "Should parse 1 row with quoted fields";
     
-    mut quoted_row: ref CsvRow = get_row(&quoted_doc, 0);
+    mut quoted_row: ref CsvRow = get_row(ref_of(quoted_doc), 0);
     assert quoted_row != nil, "Should get quoted row";
     assert quoted_row.field_count == 3, "Should have 3 fields despite internal commas";
     
     mut opts: CsvOptions = default_options();
-    mut regenerated: string = to_string(&doc, opts);
+    mut regenerated: string = to_string(ref_of(doc), opts);
     assert regenerated.len > 0, "Should generate CSV string";
     
-    Arena.destroy(&arena);
+    Arena.destroy(ref_of(arena));
 }

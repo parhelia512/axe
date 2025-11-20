@@ -252,6 +252,12 @@ Token[] lex(string source)
                 tokens ~= Token(TokenType.ASSERT, "assert");
                 pos += 6;
             }
+            else if (pos + 2 < source.length && source[pos .. pos + 3] == "and" &&
+                (pos + 3 >= source.length || !(source[pos + 3].isAlphaNum || source[pos + 3] == '_')))
+            {
+                tokens ~= Token(TokenType.AND, "and");
+                pos += 3;
+            }
             else
             {
                 size_t start = pos;

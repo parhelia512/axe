@@ -3569,8 +3569,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                         leftSide ~= "[" ~ indexExpr ~ "]";
                     }
 
-                    // Check for member access (dot notation)
-                    if (pos < tokens.length && tokens[pos].type == TokenType.DOT)
+                    // Check for member access (dot notation) - loop to handle chained access like row.fields.data
+                    while (pos < tokens.length && tokens[pos].type == TokenType.DOT)
                     {
                         pos++; // Skip '.'
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
@@ -3600,123 +3600,122 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                                 pos++;
                             fieldName ~= "[" ~ indexExpr ~ "]";
                         }
-
-                        if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
-                        {
-                            // Method call like error.print_self(err)
+                        
+                        // Append this field to leftSide for chained access
+                        leftSide ~= "." ~ fieldName;
+                    }
+                    
+                    // After building the full member access chain, check what comes next
+                    if (leftSide != identName && pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
+                    {
+                        // Method call like error.print_self(err) or Arena.alloc(arena, size)
+                        pos++;
+                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                             pos++;
-                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                                pos++;
 
-                            string functionArgs;
-                            int parenDepth = 0;
-                            bool lastWasRef = false;
-                            while (pos < tokens.length && (tokens[pos].type != TokenType.RPAREN || parenDepth > 0))
+                        string functionArgs;
+                        int parenDepth = 0;
+                        bool lastWasRef = false;
+                        while (pos < tokens.length && (tokens[pos].type != TokenType.RPAREN || parenDepth > 0))
+                        {
+                            if (tokens[pos].type == TokenType.LPAREN)
                             {
-                                if (tokens[pos].type == TokenType.LPAREN)
+                                parenDepth++;
+                                functionArgs ~= tokens[pos].value;
+                                lastWasRef = false;
+                                pos++;
+                            }
+                            else if (tokens[pos].type == TokenType.RPAREN)
+                            {
+                                parenDepth--;
+                                functionArgs ~= tokens[pos].value;
+                                lastWasRef = false;
+                                pos++;
+                            }
+                            else if (tokens[pos].type == TokenType.WHITESPACE)
+                            {
+                                // Preserve space after 'ref' keyword
+                                if (lastWasRef)
                                 {
-                                    parenDepth++;
-                                    functionArgs ~= tokens[pos].value;
+                                    functionArgs ~= " ";
                                     lastWasRef = false;
-                                    pos++;
                                 }
-                                else if (tokens[pos].type == TokenType.RPAREN)
+                                pos++;
+                            }
+                            else if (tokens[pos].type == TokenType.COMMA)
+                            {
+                                functionArgs ~= ", ";
+                                lastWasRef = false;
+                                pos++;
+                            }
+                            else if (tokens[pos].type == TokenType.STR)
+                            {
+                                functionArgs ~= "\"" ~ tokens[pos].value ~ "\"";
+                                lastWasRef = false;
+                                pos++;
+                            }
+                            else
+                            {
+                                // Check if this token is 'ref'
+                                if (tokens[pos].value == "ref")
                                 {
-                                    parenDepth--;
-                                    functionArgs ~= tokens[pos].value;
-                                    lastWasRef = false;
-                                    pos++;
-                                }
-                                else if (tokens[pos].type == TokenType.WHITESPACE)
-                                {
-                                    // Preserve space after 'ref' keyword
-                                    if (lastWasRef)
-                                    {
-                                        functionArgs ~= " ";
-                                        lastWasRef = false;
-                                    }
-                                    pos++;
-                                }
-                                else if (tokens[pos].type == TokenType.COMMA)
-                                {
-                                    functionArgs ~= ", ";
-                                    lastWasRef = false;
-                                    pos++;
-                                }
-                                else if (tokens[pos].type == TokenType.STR)
-                                {
-                                    functionArgs ~= "\"" ~ tokens[pos].value ~ "\"";
-                                    lastWasRef = false;
-                                    pos++;
+                                    lastWasRef = true;
                                 }
                                 else
                                 {
-                                    // Check if this token is 'ref'
-                                    if (tokens[pos].value == "ref")
-                                    {
-                                        lastWasRef = true;
-                                    }
-                                    else
-                                    {
-                                        lastWasRef = false;
-                                    }
-                                    functionArgs ~= tokens[pos].value;
-                                    pos++;
+                                    lastWasRef = false;
                                 }
-                            }
-
-                            enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
-                                "Expected ')' after method arguments");
-                            pos++;
-
-                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                                pos++;
-
-                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                                "Expected ';' after method call");
-                            pos++;
-
-                            funcNode.children ~= new FunctionCallNode(
-                                leftSide ~ "." ~ fieldName, functionArgs);
-                        }
-                        else if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR
-                            && tokens[pos].value == "=")
-                        {
-                            // Check if the object is declared (could be a function parameter or local variable)
-                            if (!funcScope.isDeclared(identName))
-                            {
-                                enforce(false, "Undeclared variable: " ~ identName);
-                            }
-
-                            // Check mutability: In function body, allow member access for function parameters
-                            // (even if immutable) because they're often used to modify data structures.
-                            // Function parameters are registered in funcScope when the function starts,
-                            // so if a variable is in funcScope and not mutable, it's likely a function parameter.
-                            // Local variables declared later in the function will be mutable if declared with 'mut val'.
-                            // So we allow member access here for function parameters.
-                            // Note: Local variables in main() will go through parseStatementHelper which enforces mutability.
-
-                            pos++;
-                            string value = "";
-                            while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
-                            {
-                                if (tokens[pos].type == TokenType.STR)
-                                    value ~= "\"" ~ tokens[pos].value ~ "\"";
-                                else
-                                    value ~= tokens[pos].value;
+                                functionArgs ~= tokens[pos].value;
                                 pos++;
                             }
-                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                                "Expected ';' after field assignment");
+                        }
+
+                        enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                            "Expected ')' after method arguments");
+                        pos++;
+
+                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                             pos++;
-                            // Use AssignmentNode with dot notation for field assignment
-                            funcNode.children ~= new AssignmentNode(leftSide ~ "." ~ fieldName, value.strip());
-                        }
-                        else
+
+                        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                            "Expected ';' after method call");
+                        pos++;
+
+                        funcNode.children ~= new FunctionCallNode(leftSide, functionArgs);
+                    }
+                    else if (leftSide != identName && pos < tokens.length && tokens[pos].type == TokenType.OPERATOR
+                        && tokens[pos].value == "=")
+                    {
+                        // Field assignment like row.fields.data = nil
+                        // Check if the base object is declared (could be a function parameter or local variable)
+                        if (!funcScope.isDeclared(identName))
                         {
-                            enforce(false, "Expected '=' or '(' after member access here: " ~ tokens[pos - 5 .. pos + 5]
-                                    .map!(t => t.value).join(""));
+                            enforce(false, "Undeclared variable: " ~ identName);
                         }
+
+                        // Check mutability: In function body, allow member access for function parameters
+                        // (even if immutable) because they're often used to modify data structures.
+                        // Function parameters are registered in funcScope when the function starts,
+                        // so if a variable is in funcScope and not mutable, it's likely a function parameter.
+                        // Local variables declared later in the function will be mutable if declared with 'mut val'.
+                        // So we allow member access here for function parameters.
+                        // Note: Local variables in main() will go through parseStatementHelper which enforces mutability.
+
+                        pos++;
+                        string value = "";
+                        while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                        {
+                            if (tokens[pos].type == TokenType.STR)
+                                value ~= "\"" ~ tokens[pos].value ~ "\"";
+                            else
+                                value ~= tokens[pos].value;
+                            pos++;
+                        }
+                        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                            "Expected ';' after field assignment");
+                        pos++;
+                        // Use AssignmentNode with dot notation for field assignment
+                        funcNode.children ~= new AssignmentNode(leftSide, value.strip());
                     }
                     // Check if this is an assignment
                     else if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
@@ -5977,21 +5976,23 @@ private IfNode parseIfHelper(ref size_t pos, Token[] tokens, ref Scope currentSc
             pos++;
 
         string elifCond = "";
-        bool elifHasParen = false;
-        if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
-        {
-            elifHasParen = true;
-            pos++;
-        }
+        int parenDepth = 0;
 
         while (pos < tokens.length && tokens[pos].type != TokenType.LBRACE)
         {
-            if (elifHasParen && tokens[pos].type == TokenType.RPAREN)
+            if (tokens[pos].type == TokenType.LPAREN)
             {
+                parenDepth++;
+                elifCond ~= "(";
                 pos++;
-                break;
             }
-            if (tokens[pos].type != TokenType.WHITESPACE)
+            else if (tokens[pos].type == TokenType.RPAREN)
+            {
+                parenDepth--;
+                elifCond ~= ")";
+                pos++;
+            }
+            else if (tokens[pos].type != TokenType.WHITESPACE)
             {
                 if (tokens[pos].type == TokenType.STR)
                     elifCond ~= "\"" ~ tokens[pos].value ~ "\" ";
@@ -6001,8 +6002,12 @@ private IfNode parseIfHelper(ref size_t pos, Token[] tokens, ref Scope currentSc
                     elifCond ~= ".";
                 else
                     elifCond ~= tokens[pos].value ~ " ";
+                pos++;
             }
-            pos++;
+            else
+            {
+                pos++;
+            }
         }
 
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
