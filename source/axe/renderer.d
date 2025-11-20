@@ -2298,10 +2298,14 @@ string processExpression(string expr, string context = "")
 
             if (parts.length == 2)
             {
+                if (parts[0].strip().length == 0)
+                    continue;
                 return "(" ~ processExpression(parts[0]) ~ op ~ processExpression(parts[1]) ~ ")";
             }
             else if (parts.length > 2)
             {
+                if (parts[0].strip().length == 0)
+                    continue;
                 string result = processExpression(parts[0]);
                 for (int i = 1; i < parts.length; i++)
                 {
