@@ -280,7 +280,8 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                     auto funcNode = cast(FunctionNode) importChild;
                     if (useNode.importAll || useNode.imports.canFind(funcNode.name))
                     {
-                        string prefixedName = funcNode.name.startsWith("std_") ? funcNode.name : (sanitizedModuleName ~ "_" ~ funcNode.name);
+                        string prefixedName = funcNode.name.startsWith("std_") ? funcNode.name
+                            : (sanitizedModuleName ~ "_" ~ funcNode.name);
                         moduleFunctionMap[funcNode.name] = prefixedName;
                     }
                 }
@@ -289,7 +290,8 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                     auto modelNode = cast(ModelNode) importChild;
                     if (useNode.importAll || useNode.imports.canFind(modelNode.name))
                     {
-                        string prefixedName = modelNode.name.startsWith("std_") ? modelNode.name : (sanitizedModuleName ~ "_" ~ modelNode.name);
+                        string prefixedName = modelNode.name.startsWith("std_") ? modelNode.name
+                            : (sanitizedModuleName ~ "_" ~ modelNode.name);
                         moduleModelMap[modelNode.name] = prefixedName;
 
                         foreach (method; modelNode.methods)
@@ -297,7 +299,8 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                             auto methodFunc = cast(FunctionNode) method;
                             if (methodFunc !is null)
                             {
-                                string prefixedMethodName = methodFunc.name.startsWith("std_") ? methodFunc.name : (sanitizedModuleName ~ "_" ~ methodFunc.name);
+                                string prefixedMethodName = methodFunc.name.startsWith("std_") ? methodFunc.name
+                                    : (sanitizedModuleName ~ "_" ~ methodFunc.name);
                                 moduleFunctionMap[methodFunc.name] = prefixedMethodName;
                             }
                         }
