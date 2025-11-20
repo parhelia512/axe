@@ -6,6 +6,11 @@ use stdlib/arena (
     Arena
 );
 
+use stdlib/errors (
+    error,
+    panic
+);
+
 /// SHA256 digest size in bytes
 val SHA256_DIGEST_SIZE: i32 = 32;
 
@@ -18,18 +23,54 @@ val MD5_DIGEST_SIZE: i32 = 16;
 /// Represents a SHA256 hash digest
 model SHA256Digest {
     bytes: i32[32];
+    is_valid: bool;
 }
 
-/// Right rotate a 32-bit integer
-def rotr32(x: i32, n: i32): i32 {
-    return (x >> n) | (x << (32 - n));
+/// Right rotate a 32-bit unsigned integer
+def rotr(x: i32, n: i32): i32 {
+    raw {
+        return (((uint32_t)x >> n) | ((uint32_t)x << (32 - n)));
+    }
 }
 
-/// Right shift with proper handling
+/// Right shift with proper unsigned handling
 def shr(x: i32, n: i32): i32 {
-    return x >> n;
+    raw {
+        return ((uint32_t)x >> n);
+    }
 }
 
+/// SHA-256 Ch function: (x AND y) XOR (NOT x AND z)
+def ch(x: i32, y: i32, z: i32): i32 {
+    return xor_op(and_op(x, y), and_op(not_op(x), z));
+}
+
+/// SHA-256 Maj function: (x AND y) XOR (x AND z) XOR (y AND z)
+def maj(x: i32, y: i32, z: i32): i32 {
+    return xor_op(xor_op(and_op(x, y), and_op(x, z)), and_op(y, z));
+}
+
+/// SHA-256 Σ0 function
+def sigma0(x: i32): i32 {
+    return xor_op(xor_op(rotr(x, 2), rotr(x, 13)), rotr(x, 22));
+}
+
+/// SHA-256 Σ1 function
+def sigma1(x: i32): i32 {
+    return xor_op(xor_op(rotr(x, 6), rotr(x, 11)), rotr(x, 25));
+}
+
+/// SHA-256 σ0 function (lowercase sigma)
+def sigma_lower0(x: i32): i32 {
+    return xor_op(xor_op(rotr(x, 7), rotr(x, 18)), shr(x, 3));
+}
+
+/// SHA-256 σ1 function (lowercase sigma)
+def sigma_lower1(x: i32): i32 {
+    return xor_op(xor_op(rotr(x, 17), rotr(x, 19)), shr(x, 10));
+}
+
+/// SHA-256 round constants (first 32 bits of the fractional parts of the cube roots of the first 64 primes)
 val K: i32[] = [i32]{
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
@@ -39,6 +80,12 @@ val K: i32[] = [i32]{
     0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
     0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+};
+
+/// SHA-256 initial hash values (first 32 bits of the fractional parts of the square roots of the first 8 primes)
+val H0_INIT: i32[] = [i32]{
+    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+    0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
 };
 
 /// XOR operation
@@ -73,17 +120,142 @@ def bytes_to_u32(b0: i32, b1: i32, b2: i32, b3: i32): i32 {
 
 /// Extract byte from i32 at position (0-3, big-endian)
 def u32_byte(value: i32, pos: i32): i32 {
+    if pos < 0 { panic(error.create("u32_byte: position cannot be negative")); }
+    if pos > 3 { panic(error.create("u32_byte: position must be 0-3")); }
+    
     if pos == 0 { return (value >> 24) & 0xff; }
     elif pos == 1 { return (value >> 16) & 0xff; }
     elif pos == 2 { return (value >> 8) & 0xff; }
     else { return value & 0xff; }
 }
 
-def simple_hash(data: char*, len: i32): SHA256Digest {
+/// Create an empty SHA256Digest with all bytes initialized to zero
+def sha256_digest_empty(): SHA256Digest {
     mut digest: SHA256Digest;
     
-    for mut i = 0; i < 32; i++ {
+    for mut i = 0; i < SHA256_DIGEST_SIZE; i++ {
         digest.bytes[i] = 0;
+    }
+    digest.is_valid = false;
+    
+    return digest;
+}
+
+/// Process a single 512-bit block of data
+def sha256_process_block(block: i32*, h: i32*) {
+    mut w: i32[64];
+    
+    for mut i = 0; i < 16; i++ {
+        w[i] = block[i];
+    }
+    
+    for mut i = 16; i < 64; i++ {
+        w[i] = add_wrap(add_wrap(add_wrap(sigma_lower1(w[i - 2]), w[i - 7]), 
+                       sigma_lower0(w[i - 15])), w[i - 16]);
+    }
+    
+    mut a: i32 = h[0];
+    mut b: i32 = h[1];
+    mut c: i32 = h[2];
+    mut d: i32 = h[3];
+    mut e: i32 = h[4];
+    mut f: i32 = h[5];
+    mut g: i32 = h[6];
+    mut h_var: i32 = h[7];
+    
+    for mut i = 0; i < 64; i++ {
+        val t1: i32 = add_wrap(add_wrap(add_wrap(add_wrap(h_var, sigma1(e)), ch(e, f, g)), K[i]), w[i]);
+        val t2: i32 = add_wrap(sigma0(a), maj(a, b, c));
+        
+        h_var = g;
+        g = f;
+        f = e;
+        e = add_wrap(d, t1);
+        d = c;
+        c = b;
+        b = a;
+        a = add_wrap(t1, t2);
+    }
+    
+    h[0] = add_wrap(h[0], a);
+    h[1] = add_wrap(h[1], b);
+    h[2] = add_wrap(h[2], c);
+    h[3] = add_wrap(h[3], d);
+    h[4] = add_wrap(h[4], e);
+    h[5] = add_wrap(h[5], f);
+    h[6] = add_wrap(h[6], g);
+    h[7] = add_wrap(h[7], h_var);
+}
+
+/// Compute SHA-256 hash of input data
+def sha256(data: char*, len: i32): SHA256Digest {
+    if len < 0 {
+        panic(error.create("sha256: length cannot be negative"));
+    }
+    
+    mut digest: SHA256Digest = sha256_digest_empty();
+    mut h: i32[8];
+    
+    for mut i = 0; i < 8; i++ {
+        h[i] = H0_INIT[i];
+    }
+    
+    val bit_len: i32 = len * 8;
+    val pad_len: i32 = (len + 8) / 64 * 64 + 64;
+    
+    mut padded: i32[16];
+    mut block_count: i32 = 0;
+    mut byte_idx: i32 = 0;
+    
+    for mut block_idx = 0; block_idx < (len + 72) / 64; block_idx++ {
+        for mut i = 0; i < 16; i++ {
+            mut word: i32 = 0;
+            for mut j = 0; j < 4; j++ {
+                val pos: i32 = block_idx * 64 + i * 4 + j;
+                if pos < len {
+                    raw {
+                        word = (word << 8) | ((unsigned char)data[pos]);
+                    }
+                } elif pos == len {
+                    word = (word << 8) | 0x80;
+                } elif pos >= pad_len - 8 {
+                    if pos == pad_len - 4 {
+                        word = bit_len;
+                    } else {
+                        word = word << 8;
+                    }
+                } else {
+                    word = word << 8;
+                }
+            }
+            padded[i] = word;
+        }
+        
+        sha256_process_block(padded, h);
+    }
+    
+    for mut i = 0; i < 8; i++ {
+        digest.bytes[i * 4 + 0] = (h[i] >> 24) & 0xff;
+        digest.bytes[i * 4 + 1] = (h[i] >> 16) & 0xff;
+        digest.bytes[i * 4 + 2] = (h[i] >> 8) & 0xff;
+        digest.bytes[i * 4 + 3] = h[i] & 0xff;
+    }
+    
+    digest.is_valid = true;
+    return digest;
+}
+
+/// Simple hash function for demonstration (NOT cryptographically secure - use sha256 instead)
+def simple_hash(data: char*, len: i32): SHA256Digest {
+    if len < 0 {
+        panic(error.create("simple_hash: length cannot be negative"));
+    }
+    
+    mut digest: SHA256Digest = sha256_digest_empty();
+    
+    if len == 0 {
+        digest.is_valid = true;
+        return digest;
     }
     
     mut hash_val: i32 = 0;
@@ -91,34 +263,77 @@ def simple_hash(data: char*, len: i32): SHA256Digest {
         hash_val = add_wrap(hash_val, data[i]);
     }
     
-    digest.bytes[0] = hash_val;
-    digest.bytes[1] = hash_val >> 8;
-    digest.bytes[2] = hash_val >> 16;
-    digest.bytes[3] = hash_val >> 24;
+    digest.bytes[0] = hash_val & 0xff;
+    digest.bytes[1] = (hash_val >> 8) & 0xff;
+    digest.bytes[2] = (hash_val >> 16) & 0xff;
+    digest.bytes[3] = (hash_val >> 24) & 0xff;
+    digest.is_valid = true;
     
     return digest;
 }
 
-/// Converts a SHA256 digest to a lowercase hex string
-def sha256_to_hex(digest: SHA256Digest): string {
-    mut result: string;
-    mut hex_str: char = "0123456789abcdef";
+/// Converts a single byte to a two-character hex string
+def byte_to_hex(byte_val: i32, arena: ref Arena): string {
+    if byte_val < 0 { panic(error.create("byte_to_hex: byte value cannot be negative")); }
+    if byte_val > 255 { panic(error.create("byte_to_hex: byte value must be 0-255")); }
     
-    result.data = nil;
-    result.len = 64;
-    result.cap = 65;
+    val hex_chars: char* = "0123456789abcdef";
+    mut result: string = string.create_with_capacity(arena, 2);
     
-    for mut i = 0; i < 32; i++ {
-        val byte_val: i32 = digest.bytes[i];
-        val high: i32 = (byte_val >> 4) & 0xf;
-        val low: i32 = byte_val & 0xf;
+    val high: i32 = (byte_val >> 4) & 0xf;
+    val low: i32 = byte_val & 0xf;
+    
+    raw {
+        result.data[0] = hex_chars[high];
+        result.data[1] = hex_chars[low];
+        result.data[2] = '\0';
     }
+    result.len = 2;
     
     return result;
 }
 
-/// Constant-time memory comparison. Returns true if equal.
+/// Converts a SHA256 digest to a lowercase hex string (64 characters)
+def sha256_to_hex(digest: SHA256Digest, arena: ref Arena): string {
+    if digest.is_valid == false {
+        panic(error.create("sha256_to_hex: digest is not valid"));
+    }
+    
+    mut result: string = string.create_with_capacity(arena, 64);
+    val hex_chars: char* = "0123456789abcdef";
+    
+    mut pos: i32 = 0;
+    for mut i = 0; i < SHA256_DIGEST_SIZE; i++ {
+        val byte_val: i32 = digest.bytes[i] & 0xff;
+        val high: i32 = (byte_val >> 4) & 0xf;
+        val low: i32 = byte_val & 0xf;
+        
+        raw {
+            result.data[pos] = hex_chars[high];
+            result.data[pos + 1] = hex_chars[low];
+        }
+        pos = pos + 2;
+    }
+    
+    raw {
+        result.data[64] = '\0';
+    }
+    result.len = 64;
+    
+    return result;
+}
+
+/// Constant-time memory comparison for cryptographic purposes
+/// Returns true if buffers are equal. Prevents timing attacks.
 def constant_time_compare(buf1: i32*, buf2: i32*, len: i32): bool {
+    if len < 0 {
+        panic(error.create("constant_time_compare: length cannot be negative"));
+    }
+    
+    if len == 0 {
+        return true;
+    }
+    
     mut diff: i32 = 0;
     
     for mut i = 0; i < len; i++ {
@@ -128,7 +343,56 @@ def constant_time_compare(buf1: i32*, buf2: i32*, len: i32): bool {
     return diff == 0;
 }
 
+/// Constant-time comparison of two SHA256 digests
+def sha256_equals(digest1: SHA256Digest, digest2: SHA256Digest): bool {
+    if digest1.is_valid == false {
+        panic(error.create("sha256_equals: first digest is not valid"));
+    }
+    if digest2.is_valid == false {
+        panic(error.create("sha256_equals: second digest is not valid"));
+    }
+    
+    return constant_time_compare(digest1.bytes, digest2.bytes, SHA256_DIGEST_SIZE);
+}
+
+/// Securely zero out a digest (for clearing sensitive data)
+def sha256_zero(digest: ref SHA256Digest) {
+    for mut i = 0; i < SHA256_DIGEST_SIZE; i++ {
+        digest.bytes[i] = 0;
+    }
+    digest.is_valid = false;
+}
+
+/// Validate that a digest has valid byte values (0-255)
+def sha256_validate(digest: SHA256Digest): bool {
+    for mut i = 0; i < SHA256_DIGEST_SIZE; i++ {
+        if digest.bytes[i] < 0 { return false; }
+        if digest.bytes[i] > 255 { return false; }
+    }
+    return digest.is_valid;
+}
+
 test {
-    mut digest: SHA256Digest = simple_hash("hello", 5);
-    assert digest.bytes[0] >= 0, "Digest should be computed";
+    println "Running crypto module tests...";
+    
+    mut digest1: SHA256Digest = sha256("abc", 3);
+    assert digest1.is_valid == true, "Digest should be marked as valid";
+    assert sha256_validate(digest1) == true, "Digest should pass validation";
+    
+    mut digest2: SHA256Digest = sha256("abc", 3);
+    assert sha256_equals(digest1, digest2) == true, "Same input should produce same digest";
+    
+    mut digest3: SHA256Digest = sha256("abcd", 4);
+    assert sha256_equals(digest1, digest3) == false, "Different input should produce different digest";
+    
+    mut empty_digest: SHA256Digest = sha256("", 0);
+    assert empty_digest.is_valid == true, "Empty input should produce valid digest";
+    
+    println "Testing simple_hash consistency...";
+    mut simple1: SHA256Digest = simple_hash("test", 4);
+    mut simple2: SHA256Digest = simple_hash("test", 4);
+    assert sha256_equals(simple1, simple2) == true, "Simple hash should be consistent";
+    
+    sha256_zero(ref digest1);
+    assert digest1.is_valid == false, "Zeroed digest should be marked invalid";
 }
