@@ -4009,4 +4009,32 @@ unittest
         assert(cCode.canFind("#pragma omp parallel for reduction(+:sum, *:prod)"), 
             "Should generate OpenMP pragma with multiple reduction clauses");
     }
+
+    {
+        auto tokens = lex("model StringList { len: i32, data: string } def get_list(): ref StringList { } main { for item in get_list() { } }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("For-in with function call test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("stdlib_os_get_list()->len") || cCode.canFind("get_list()->len"), 
+            "Should handle function call in for-in collection");
+        assert(cCode.canFind("for (int32_t _i_item = 0;"), 
+            "Should generate index variable for for-in loop");
+    }
+
+    {
+        auto tokens = lex("model StringList { len: i32, data: string } main { val items: StringList; for item in items { } }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("For-in with simple identifier test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("items.len") || cCode.canFind("items->len"), 
+            "Should handle simple identifier in for-in collection");
+        assert(cCode.canFind("for (int32_t _i_item = 0;"), 
+            "Should generate index variable for for-in loop");
+    }
 }
