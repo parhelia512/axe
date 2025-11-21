@@ -17,6 +17,20 @@ def println_char(value: char) {
 }
 
 /// Print out some string
+def print_chrptr(value: char*) {
+    raw {
+        printf("%s", value);
+    }
+}
+
+/// Print out some string with a newline
+def println_chrptr(value: char*) {
+    raw {
+        printf("%s\n", value);
+    }
+}
+
+/// Print out some string
 def print_str(value: string) {
     raw {
         printf("%s", value.data);
