@@ -1811,7 +1811,8 @@ string generateC(ASTNode ast)
                 // original suffix), infer it now. Example:
                 //   baseName = "print_str"
                 //   cTargetName = "std_io_print_str"  -> overloadPrefix = "std_io_".
-                if (overloadPrefix.length == 0 && cTargetName != baseName && cTargetName.endsWith(baseName))
+                if (overloadPrefix.length == 0 && cTargetName != baseName && cTargetName.endsWith(
+                        baseName))
                 {
                     overloadPrefix = cTargetName[0 .. $ - baseName.length];
                 }
@@ -2109,9 +2110,9 @@ string generateC(ASTNode ast)
 
     case "Extern":
         auto externNode = cast(ExternNode) ast;
-        
+
         g_generatedFunctions[externNode.functionName] = true;
-        
+
         // Don't generate the actual extern declaration - these are already declared
         // in system headers. We just need to track that they exist.
         // If we wanted to generate declarations for truly external functions,
@@ -2432,6 +2433,67 @@ string processExpression(string expr, string context = "")
     import std.array : replace;
     import std.regex : replaceAll;
     import std.string : replace;
+
+    {
+        import std.ascii : isDigit;
+
+        string normalized;
+        bool inString = false;
+
+        for (size_t i = 0; i < expr.length;)
+        {
+            char c = expr[i];
+            if (c == '"' && (i == 0 || expr[i - 1] != '\\'))
+            {
+                inString = !inString;
+                normalized ~= c;
+                i++;
+            }
+            else if (!inString && isDigit(c))
+            {
+                size_t start = i;
+                size_t intEnd = i;
+                while (intEnd < expr.length && isDigit(expr[intEnd]))
+                    intEnd++;
+
+                size_t j = intEnd;
+                while (j < expr.length && (expr[j] == ' ' || expr[j] == '\t'))
+                    j++;
+
+                if (j < expr.length && expr[j] == '.')
+                {
+                    j++;
+                    while (j < expr.length && (expr[j] == ' ' || expr[j] == '\t'))
+                        j++;
+
+                    if (j < expr.length && isDigit(expr[j]))
+                    {
+                        size_t fracStart = j;
+                        size_t fracEnd = j;
+                        while (fracEnd < expr.length && isDigit(expr[fracEnd]))
+                            fracEnd++;
+
+                        normalized ~= expr[start .. intEnd];
+                        normalized ~= ".";
+                        normalized ~= expr[fracStart .. fracEnd];
+
+                        i = fracEnd;
+                        continue;
+                    }
+                }
+
+                normalized ~= c;
+                i++;
+            }
+            else
+            {
+                normalized ~= c;
+                i++;
+            }
+        }
+
+        expr = normalized;
+    }
 
     if (expr.startsWith("__INTERPOLATED__") && expr.endsWith("__INTERPOLATED__"))
     {
@@ -3665,8 +3727,8 @@ unittest
     {
         auto tokens = lex(
             "overload println(x: generic) { i32 => println_i32; }(x) " ~
-            "def println_i32(x: i32) { put \"int\"; } " ~
-            "main { println(42); }");
+                "def println_i32(x: i32) { put \"int\"; } " ~
+                "main { println(42); }");
 
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
@@ -4778,9 +4840,9 @@ unittest
     {
         auto tokens = lex(
             "opaque { MyType, AnotherType }; " ~
-            "extern def my_func(x: i32): i32; " ~
-            "extern def process(data: ref MyType): bool; " ~
-            "main { val result: i32 = my_func(42); }");
+                "extern def my_func(x: i32): i32; " ~
+                "extern def process(data: ref MyType): bool; " ~
+                "main { val result: i32 = my_func(42); }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -4800,14 +4862,14 @@ unittest
     {
         auto tokens = lex(
             "opaque { SomeStruct }; " ~
-            "extern def get_value(ptr: usize): i32; " ~
-            "main { " ~
-            "    mut ptr: usize = 0; " ~
-            "    unsafe { " ~
-            "        mut x: i32 = ptr*.value; " ~
-            "        ptr*.count = 42; " ~
-            "    } " ~
-            "}");
+                "extern def get_value(ptr: usize): i32; " ~
+                "main { " ~
+                "    mut ptr: usize = 0; " ~
+                "    unsafe { " ~
+                "        mut x: i32 = ptr*.value; " ~
+                "        ptr*.count = 42; " ~
+                "    } " ~
+                "}");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
