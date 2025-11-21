@@ -7,6 +7,10 @@ use std.typecons (
     AnyKind
 );
 
+use std.arena (
+    Arena
+);
+
 use std.io;
 
 /// string model representing a dynamic string with length tracking.
@@ -34,9 +38,8 @@ model string {
         return result;
     }
 
-    /// Creates a new empty string with specified capacity.
-    /// Note: arena parameter is currently ignored, uses malloc instead
-    def create_with_capacity(arena: char*, capacity: i32): string {
+    /// Creates a new empty string with specified capacity using arena allocation.
+    def create_with_capacity(arena: ref Arena, capacity: i32): string {
         mut result: string;
         raw {
             result.data = NULL;
@@ -44,7 +47,7 @@ model string {
             result.cap  = 0;
             
             if (capacity > 0) {
-                result.data = (char*)malloc(capacity + 1);
+                result.data = (char*)std_arena_Arena_alloc(arena, capacity + 1);
                 if (result.data != NULL) {
                     result.data[0] = '\0';
                     result.len = 0;
@@ -695,5 +698,5 @@ test {
 
     val y = 10;
     
-    print_str(str($"${y}"));
+    print_str(str($"This should be 10 dollars: ${y}"));
 }
