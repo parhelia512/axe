@@ -195,7 +195,7 @@ bool handleMachineArgs(string[] args)
             else
             {
                 clangCmd = [
-                    "clang", replace(name, ext, ".c"), "-Wno-everything"
+                    "clang", replace(name, ext, ".c"), "-Wno-everything", "-O0"
                 ];
                 version (Windows)
                 {
