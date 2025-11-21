@@ -5,6 +5,8 @@ Axe is a compiled programming language with a focus on type safety, ease of conc
 It began as a re-engineering of Scar, though evolved into its own entity later on. Axe provides a clean syntax for systems programming with modern and parallel language features.
 
 ```axe
+use std/string;
+
 model Person {
     name: string;
     age: i32;
@@ -17,6 +19,9 @@ main {
     }
 }
 ```
+
+Documentation on the language can be found [here](https://axe-docs.pages.dev)
+
 ## Features
 
 - **Type Safety**: Safe by default
