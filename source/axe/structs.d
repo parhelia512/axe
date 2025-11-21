@@ -85,6 +85,7 @@ enum TokenType
     POSIX,
     TO,
     REDUCE,
+    INTERPOLATED_STR,
 }
 
 /** 
@@ -387,10 +388,21 @@ class FunctionCallNode : ASTNode
         int parenDepth = 0;
         int bracketDepth = 0;
         int braceDepth = 0;
+        bool inInterpolated = false;
         
         for (size_t i = 0; i < argsStr.length; i++)
         {
             char c = argsStr[i];
+            
+            // Check for __INTERPOLATED__ markers
+            if (i + 16 <= argsStr.length && argsStr[i .. i + 16] == "__INTERPOLATED__")
+            {
+                inInterpolated = !inInterpolated;
+                // Add the marker to current
+                current ~= "__INTERPOLATED__";
+                i += 15; // Skip the rest of the marker (loop will increment by 1)
+                continue;
+            }
             
             if (c == '(')
                 parenDepth++;
@@ -405,7 +417,7 @@ class FunctionCallNode : ASTNode
             else if (c == '}')
                 braceDepth--;
             else if (c == ',' && parenDepth == 0 && bracketDepth == 0 && 
-                braceDepth == 0)
+                braceDepth == 0 && !inInterpolated)
             {
                 // This is an argument separator
                 result ~= current.strip();
@@ -424,6 +436,19 @@ class FunctionCallNode : ASTNode
             result ~= current.strip();
         
         return result;
+    }
+}
+
+class InterpolatedStringNode : ASTNode
+{
+    string[] parts;        // String literal parts
+    string[] expressions;  // Expressions to interpolate
+
+    this(string[] parts, string[] expressions)
+    {
+        super("InterpolatedString");
+        this.parts = parts;
+        this.expressions = expressions;
     }
 }
 

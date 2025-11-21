@@ -196,19 +196,21 @@ Token[] lex(string source)
             pos++;
             break;
 
-        case '"':
-            if (pos > 0 && source[pos - 1] == '$')
+        case '$':
+            // Check if this is an interpolated string ($"...")
+            if (pos + 1 < source.length && source[pos + 1] == '"')
             {
                 import std.conv : to;
 
-                tokens ~= Token(TokenType.IDENTIFIER, "__axe_interp");
-                tokens ~= Token(TokenType.LPAREN, "(");
+                pos++; // Skip '$'
+                pos++; // Skip '"'
 
+                // Find the end of the interpolated string
                 size_t strStart = pos;
-                size_t ending = strStart + 1;
+                size_t ending = pos;
                 while (ending < source.length)
                 {
-                    if (source[ending] == '"')
+                    if (source[ending] == '"' && (ending == 0 || source[ending - 1] != '\\'))
                     {
                         break;
                     }
@@ -225,12 +227,19 @@ Token[] lex(string source)
                 enforce(ending < source.length,
                     "Unterminated interpolated string at position " ~ pos.to!string);
 
-                tokens ~= Token(TokenType.STR, source[strStart + 1 .. ending]);
-                tokens ~= Token(TokenType.RPAREN, ")");
+                string interpContent = source[strStart .. ending];
+                tokens ~= Token(TokenType.INTERPOLATED_STR, interpContent);
 
                 pos = ending + 1;
             }
             else
+            {
+                import std.conv;
+                enforce(false, "Unexpected '$' at position " ~ pos.to!string);
+            }
+            break;
+
+        case '"':
             {
                 size_t ending = pos + 1;
                 while (ending < source.length)
@@ -254,8 +263,8 @@ Token[] lex(string source)
                 enforce(ending < source.length, "Unterminated string at position " ~ pos.to!string);
                 tokens ~= Token(TokenType.STR, source[pos + 1 .. ending]);
                 pos = ending + 1;
+                break;
             }
-            break;
 
         case '\'':
             size_t cend = source.indexOf('\'', pos + 1);

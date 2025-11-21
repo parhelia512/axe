@@ -1306,6 +1306,12 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                                 lastWasRef = false;
                                 pos++;
                             }
+                            else if (tokens[pos].type == TokenType.INTERPOLATED_STR)
+                            {
+                                args ~= "__INTERPOLATED__" ~ tokens[pos].value ~ "__INTERPOLATED__";
+                                lastWasRef = false;
+                                pos++;
+                            }
                             else
                             {
                                 // Check if this token is 'ref'
@@ -5832,6 +5838,12 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                     lastWasRef = false;
                     pos++;
                 }
+                else if (tokens[pos].type == TokenType.INTERPOLATED_STR)
+                {
+                    currentArg ~= "__INTERPOLATED__" ~ tokens[pos].value ~ "__INTERPOLATED__";
+                    lastWasRef = false;
+                    pos++;
+                }
                 else
                 {
                     // Check if this token is 'ref'
@@ -6467,6 +6479,13 @@ private PrintlnNode parsePrintlnHelper(ref size_t pos, Token[] tokens)
             messages ~= msg;
             isExpressions ~= false;
         }
+        else if (tokens[pos].type == TokenType.INTERPOLATED_STR)
+        {
+            string interpContent = "__INTERPOLATED__" ~ tokens[pos].value ~ "__INTERPOLATED__";
+            pos++;
+            messages ~= interpContent;
+            isExpressions ~= true;
+        }
         else
         {
             string expr = "";
@@ -6476,6 +6495,8 @@ private PrintlnNode parsePrintlnHelper(ref size_t pos, Token[] tokens)
             {
                 if (tokens[pos].type == TokenType.STR)
                     expr ~= "\"" ~ tokens[pos].value ~ "\"";
+                else if (tokens[pos].type == TokenType.INTERPOLATED_STR)
+                    expr ~= "__INTERPOLATED__" ~ tokens[pos].value ~ "__INTERPOLATED__";
                 else if (tokens[pos].type == TokenType.DOT)
                     expr ~= ".";
                 else
@@ -6540,6 +6561,13 @@ private PrintNode parsePrintHelper(ref size_t pos, Token[] tokens)
             messages ~= msg;
             isExpressions ~= false;
         }
+        else if (tokens[pos].type == TokenType.INTERPOLATED_STR)
+        {
+            string interpContent = "__INTERPOLATED__" ~ tokens[pos].value ~ "__INTERPOLATED__";
+            pos++;
+            messages ~= interpContent;
+            isExpressions ~= true;
+        }
         else
         {
             string expr = "";
@@ -6549,6 +6577,8 @@ private PrintNode parsePrintHelper(ref size_t pos, Token[] tokens)
             {
                 if (tokens[pos].type == TokenType.STR)
                     expr ~= "\"" ~ tokens[pos].value ~ "\"";
+                else if (tokens[pos].type == TokenType.INTERPOLATED_STR)
+                    expr ~= "__INTERPOLATED__" ~ tokens[pos].value ~ "__INTERPOLATED__";
                 else if (tokens[pos].type == TokenType.DOT)
                     expr ~= ".";
                 else

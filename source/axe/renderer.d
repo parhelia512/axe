@@ -1193,33 +1193,64 @@ string generateC(ASTNode ast)
     case "Println":
         auto printlnNode = cast(PrintlnNode) ast;
         {
-            string formatString = "";
-            string[] exprArgs;
-
-            for (size_t i = 0; i < printlnNode.messages.length; i++)
+            // Check if any messages are interpolated strings
+            bool hasInterpolated = false;
+            foreach (i, msg; printlnNode.messages)
             {
-                if (printlnNode.isExpressions[i])
+                if (printlnNode.isExpressions[i] && msg.startsWith("__INTERPOLATED__"))
                 {
-                    string formatSpec = getFormatSpecifier(printlnNode.messages[i]);
-                    formatString ~= formatSpec;
-                    string processedExpr = processExpression(printlnNode.messages[i], "println");
-                    exprArgs ~= processedExpr;
-                }
-                else
-                {
-                    formatString ~= printlnNode.messages[i];
+                    hasInterpolated = true;
+                    break;
                 }
             }
-
-            formatString ~= "\\n";
-
-            if (exprArgs.length > 0)
+            
+            if (hasInterpolated && printlnNode.messages.length == 1)
             {
-                cCode ~= "printf(\"" ~ formatString ~ "\", " ~ exprArgs.join(", ") ~ ");\n";
+                // Simple case: single interpolated string
+                string processedExpr = processExpression(printlnNode.messages[0], "println");
+                // Interpolated strings now return char* directly
+                cCode ~= "printf(\"%s\\n\", " ~ processedExpr ~ ");\n";
             }
             else
             {
-                cCode ~= "printf(\"" ~ formatString ~ "\");\n";
+                string formatString = "";
+                string[] exprArgs;
+
+                for (size_t i = 0; i < printlnNode.messages.length; i++)
+                {
+                    if (printlnNode.isExpressions[i])
+                    {
+                        if (printlnNode.messages[i].startsWith("__INTERPOLATED__"))
+                        {
+                            // Interpolated string now returns char* directly
+                            formatString ~= "%s";
+                            string processedExpr = processExpression(printlnNode.messages[i], "println");
+                            exprArgs ~= processedExpr;
+                        }
+                        else
+                        {
+                            string formatSpec = getFormatSpecifier(printlnNode.messages[i]);
+                            formatString ~= formatSpec;
+                            string processedExpr = processExpression(printlnNode.messages[i], "println");
+                            exprArgs ~= processedExpr;
+                        }
+                    }
+                    else
+                    {
+                        formatString ~= printlnNode.messages[i];
+                    }
+                }
+
+                formatString ~= "\\n";
+
+                if (exprArgs.length > 0)
+                {
+                    cCode ~= "printf(\"" ~ formatString ~ "\", " ~ exprArgs.join(", ") ~ ");\n";
+                }
+                else
+                {
+                    cCode ~= "printf(\"" ~ formatString ~ "\");\n";
+                }
             }
         }
         break;
@@ -1897,7 +1928,256 @@ string generateC(ASTNode ast)
 }
 
 /**
- * Helper function to process arithmetic expressions
+ * Helper function to get format specifier from Axe type
+ */
+string getTypeFormatSpecifier(string varType)
+{
+    varType = varType.strip();
+    
+    while (varType.startsWith("ref "))
+        varType = varType[4 .. $].strip();
+    
+    switch (varType)
+    {
+        case "i8":
+        case "i16":
+        case "i32":
+        case "int":
+            return "%d";
+        case "u8":
+        case "u16":
+        case "u32":
+        case "uint":
+        case "byte":
+            return "%u";
+        case "i64":
+        case "long":
+            return "%lld";
+        case "u64":
+        case "ulong":
+        case "usize":
+        case "size":
+            return "%llu";
+        case "f32":
+        case "float":
+            return "%f";
+        case "f64":
+        case "double":
+            return "%lf";
+        case "char":
+            return "%c";
+        case "bool":
+            return "%d";
+        case "string":
+            return "%s";
+        case "char*":
+            return "%s";
+        default:
+            if (varType.endsWith("*"))
+                return "%p";
+            return "%d";
+    }
+}
+
+/**
+ * Helper function to convert expressions to strings based on their types
+ */
+string convertToString(string expr, string varType)
+{
+    varType = varType.strip();
+    
+    while (varType.startsWith("ref "))
+        varType = varType[4 .. $].strip();
+    
+    if (varType == "string" || varType.endsWith("_string") || varType == "std_string_string")
+    {
+        return expr;
+    }
+    
+    if (varType == "char*")
+    {
+        return expr;
+    }
+    
+    import std.conv : to;
+    import std.random : uniform;
+    
+    string tempVar = "_axe_str_" ~ uniform(0, 999_999).to!string;
+    string formatSpec = getTypeFormatSpecifier(varType);
+    
+    string exprToFormat = expr;
+    if (varType == "string")
+        exprToFormat = expr ~ ".data";
+    
+    return "({char " ~ tempVar ~ "[64]; snprintf(" ~ tempVar ~ 
+           ", 64, \"" ~ formatSpec ~ "\", " ~ exprToFormat ~ "); " ~ 
+           "std_string_string_create(" ~ tempVar ~ "); })";
+}
+
+/**
+ * Helper function to process interpolated strings
+ * Generates inline C code that returns char* for use in println
+ * or wraps in struct for use with std/string functions
+ */
+string processInterpolatedString(string interpContent, bool returnStruct = false)
+{
+    import std.string : indexOf;
+    import std.array : Appender;
+    import std.conv : to;
+    import std.random : uniform;
+    
+    string[] parts;
+    string[] expressions;
+    
+    size_t pos = 0;
+    string currentPart = "";
+    
+    while (pos < interpContent.length)
+    {
+        if (interpContent[pos] == '{' && (pos == 0 || interpContent[pos - 1] != '\\'))
+        {
+            parts ~= currentPart;
+            currentPart = "";
+            
+            size_t braceStart = pos + 1;
+            int braceDepth = 1;
+            size_t braceEnd = braceStart;
+            
+            while (braceEnd < interpContent.length && braceDepth > 0)
+            {
+                if (interpContent[braceEnd] == '{')
+                    braceDepth++;
+                else if (interpContent[braceEnd] == '}')
+                    braceDepth--;
+                braceEnd++;
+            }
+            
+            if (braceDepth != 0)
+            {
+                import std.exception : enforce;
+                enforce(false, "Unmatched braces in interpolated string");
+            }
+            
+            string expr = interpContent[braceStart .. braceEnd - 1].strip();
+            expressions ~= expr;
+            
+            pos = braceEnd;
+        }
+        else
+        {
+            currentPart ~= interpContent[pos];
+            pos++;
+        }
+    }
+    
+    parts ~= currentPart;
+    
+    if (expressions.length == 0)
+    {
+        return "\"" ~ interpContent ~ "\"";
+    }
+    
+    string resultVar = "_axe_interp_" ~ uniform(0, 999_999).to!string;
+    string code = "({";
+    
+    code ~= "size_t " ~ resultVar ~ "_len = " ~ parts[0].length.to!string;
+    foreach (i, expr; expressions)
+    {
+        string varType = lookupExpressionType(expr);
+        
+        if (i + 1 < parts.length)
+            code ~= " + " ~ parts[i + 1].length.to!string;
+        
+        if (varType == "string" || varType.endsWith("_string") || varType == "std_string_string")
+            code ~= " + (" ~ expr ~ ").len";
+        else
+            code ~= " + 32";
+    }
+    code ~= "; ";
+    
+    code ~= "char* " ~ resultVar ~ " = (char*)malloc(" ~ resultVar ~ "_len + 1); ";
+    code ~= "char* " ~ resultVar ~ "_p = " ~ resultVar ~ "; ";
+    
+    foreach (i, part; parts)
+    {
+        if (part.length > 0)
+        {
+            string escapedPart = part.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\t", "\\t");
+            code ~= "memcpy(" ~ resultVar ~ "_p, \"" ~ escapedPart ~ "\", " ~ part.length.to!string ~ "); ";
+            code ~= resultVar ~ "_p += " ~ part.length.to!string ~ "; ";
+        }
+        
+        if (i < expressions.length)
+        {
+            string expr = expressions[i];
+            string varType = lookupExpressionType(expr);
+            
+            if (varType == "string" || varType.endsWith("_string") || varType == "std_string_string")
+            {
+                code ~= "{ struct std_string_string _s = " ~ expr ~ "; ";
+                code ~= "memcpy(" ~ resultVar ~ "_p, _s.data, _s.len); ";
+                code ~= resultVar ~ "_p += _s.len; } ";
+            }
+            else
+            {
+                string formatSpec = getTypeFormatSpecifier(varType);
+                string exprToFormat = expr;
+                
+                code ~= "{ int _len = snprintf(" ~ resultVar ~ "_p, 32, \"" ~ formatSpec ~ "\", " ~ exprToFormat ~ "); ";
+                code ~= resultVar ~ "_p += _len; } ";
+            }
+        }
+    }
+    
+    code ~= "*" ~ resultVar ~ "_p = '\\0'; ";
+    
+    if (returnStruct)
+    {
+        string structVar = "_axe_str_struct_" ~ uniform(0, 999_999).to!string;
+        code ~= "struct std_string_string " ~ structVar ~ " = {0}; ";
+        code ~= structVar ~ ".data = " ~ resultVar ~ "; ";
+        code ~= structVar ~ ".len = " ~ resultVar ~ "_p - " ~ resultVar ~ "; ";
+        code ~= structVar ~ ".cap = " ~ resultVar ~ "_len + 1; ";
+        code ~= structVar ~ "; })";
+    }
+    else
+    {
+        code ~= resultVar ~ "; })";
+    }
+    
+    return code;
+}
+
+/**
+ * Function to lookup the type of an expression
+ */
+string lookupExpressionType(string expr)
+{
+    expr = expr.strip();
+    
+    if (expr in g_varType)
+    {
+        return g_varType[expr];
+    }
+    
+    if (expr.startsWith("\"") && expr.endsWith("\""))
+        return "string";
+    
+    if (expr.startsWith("'") && expr.endsWith("'"))
+        return "char";
+    
+    if (expr.length > 0 && (expr[0] >= '0' && expr[0] <= '9'))
+    {
+        if (expr.canFind("."))
+            return "f64";
+        return "i32";
+    }
+    
+    return "i32";
+}
+
+/**
+ * Function to process arithmetic expressions
  */
 string processExpression(string expr, string context = "")
 {
@@ -1907,6 +2187,12 @@ string processExpression(string expr, string context = "")
     import std.array : replace;
     import std.regex : replaceAll;
     import std.string : replace;
+
+    if (expr.startsWith("__INTERPOLATED__") && expr.endsWith("__INTERPOLATED__"))
+    {
+        string interpContent = expr[16 .. $ - 16];
+        return processInterpolatedString(interpContent, false);
+    }
 
     expr = expr.replace(" mod ", " % ");
     expr = expr.replaceAll(regex(r"([^a-zA-Z_])mod([^a-zA-Z_])"), "$1%$2");
@@ -1934,45 +2220,51 @@ string processExpression(string expr, string context = "")
     if (funcNameEnd > 0)
     {
         string funcName = expr[0 .. funcNameEnd].strip();
-        if (funcName.indexOf("_") > 0)
+        ptrdiff_t argEnd = expr.lastIndexOf(")");
+        if (argEnd > funcNameEnd)
         {
-            ptrdiff_t argEnd = expr.lastIndexOf(")");
-            if (argEnd > funcNameEnd)
+            import std.stdio : writeln;
+
+            string argsString = expr[funcNameEnd + 1 .. argEnd].strip();
+            if (argsString.length > 0)
             {
-                import std.stdio : writeln;
+                string[] argList;
+                string currentArg = "";
+                int parenDepth = 0;
+                bool inQuote = false;
+                bool inInterpolated = false;
 
-                string argsString = expr[funcNameEnd + 1 .. argEnd].strip();
-                if (argsString.length > 0)
+                for (size_t i = 0; i < argsString.length; i++)
                 {
-
-                    string[] argList;
-                    string currentArg = "";
-                    int parenDepth = 0;
-                    bool inQuote = false;
-
-                    for (size_t i = 0; i < argsString.length; i++)
+                    char c = argsString[i];
+                    
+                    if (i + 16 <= argsString.length && argsString[i .. i + 16] == "__INTERPOLATED__")
                     {
-                        char c = argsString[i];
-                        if (c == '"' && (i == 0 || argsString[i - 1] != '\\'))
-                            inQuote = !inQuote;
-                        else if (!inQuote && c == '(')
-                            parenDepth++;
-                        else if (!inQuote && c == ')')
-                            parenDepth--;
-                        else if (!inQuote && parenDepth == 0 && c == ',')
-                        {
-                            if (currentArg.length > 0)
-                                argList ~= processExpression(currentArg.strip());
-                            currentArg = "";
-                            continue;
-                        }
-                        currentArg ~= c;
+                        inInterpolated = !inInterpolated;
+                        currentArg ~= "__INTERPOLATED__";
+                        i += 15;
+                        continue;
                     }
-                    if (currentArg.length > 0)
-                        argList ~= processExpression(currentArg.strip());
-
-                    expr = funcName ~ "(" ~ argList.join(", ") ~ ")";
+                    
+                    if (c == '"' && (i == 0 || argsString[i - 1] != '\\'))
+                        inQuote = !inQuote;
+                    else if (!inQuote && c == '(')
+                        parenDepth++;
+                    else if (!inQuote && c == ')')
+                        parenDepth--;
+                    else if (!inQuote && parenDepth == 0 && !inInterpolated && c == ',')
+                    {
+                        if (currentArg.length > 0)
+                            argList ~= processExpression(currentArg.strip(), "function_call");
+                        currentArg = "";
+                        continue;
+                    }
+                    currentArg ~= c;
                 }
+                if (currentArg.length > 0)
+                    argList ~= processExpression(currentArg.strip(), "function_call");
+
+                expr = funcName ~ "(" ~ argList.join(", ") ~ ")";
             }
         }
     }
@@ -2907,7 +3199,7 @@ unittest
         writeln(cCode);
         assert(cCode.canFind("int32_t add(int32_t a, int32_t b)"));
         assert(cCode.canFind("return (a+b);"));
-        assert(cCode.canFind("const int x = add( 1, 2);"));
+        assert(cCode.canFind("const int x = add(1, 2);"));
     }
 
     {
@@ -3248,7 +3540,7 @@ unittest
         writeln(cCode);
         assert(cCode.canFind("int32_t add(int32_t a, int32_t b)"));
         assert(cCode.canFind("return (a+b);"));
-        assert(cCode.canFind("const int x = add( 1, 2);"));
+        assert(cCode.canFind("const int x = add(1, 2);"));
     }
 
     {
