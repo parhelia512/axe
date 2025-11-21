@@ -1,0 +1,289 @@
+use std.io;
+use std.string;
+use std.lists (
+    StringList
+);
+use std.os;
+use std.arena (
+    Arena
+);
+
+/// Represents an axe.mod file structure
+model AxeMod {
+    name: string;
+    version: string;
+    dependencies: ref StringList;
+}
+
+/// Reads an axe.mod file and parses it
+def read_mod_file(path: string, arena: ref Arena): AxeMod {
+    mut module: AxeMod;
+    module.name = string.create("");
+    module.version = string.create("0.1.0");
+    module.dependencies = StringList.create(arena, 10);
+    
+    val content: string = read_file(path);
+    if content.len == 0 {
+        return module;
+    }
+    
+    mut i: usize = 0;
+    mut line_start: usize = 0;
+    
+    loop {
+        if i >= content.len {
+            break;
+        }
+        
+        if content.data[i] == '\n' {
+            val line: string = substr(content, line_start, i - line_start);
+            val stripped: string = strip(line);
+            
+            if stripped.len > 0 {
+                val colon_idx: i32 = find_char_from(stripped, ':', 0);
+                if colon_idx >= 0 {
+                    val key: string = strip(substr(stripped, 0, colon_idx));
+                    val value: string = strip(substr(stripped, colon_idx + 1, stripped.len - colon_idx - 1));
+                    
+                    if compare(key, string.create("name")) == 0 {
+                        module.name = value;
+                    } elif compare(key, string.create("version")) == 0 {
+                        module.version = value;
+                    } elif compare(key, string.create("dependency")) == 0 {
+                        StringList.push(module.dependencies, arena, value);
+                    }
+                }
+            }
+            
+            line_start = i + 1;
+        }
+        
+        i++;
+    }
+    
+    if line_start < content.len {
+        val line: string = substr(content, line_start, content.len - line_start);
+        val stripped: string = strip(line);
+        
+        if stripped.len > 0 {
+            val colon_idx: i32 = find_char_from(stripped, ':', 0);
+            if colon_idx >= 0 {
+                val key: string = strip(substr(stripped, 0, colon_idx));
+                val value: string = strip(substr(stripped, colon_idx + 1, stripped.len - colon_idx - 1));
+                
+                if compare(key, string.create("name")) == 0 {
+                    module.name = value;
+                } elif compare(key, string.create("version")) == 0 {
+                    module.version = value;
+                } elif compare(key, string.create("dependency")) == 0 {
+                    StringList.push(module.dependencies, arena, value);
+                }
+            }
+        }
+    }
+    
+    return module;
+}
+
+/// Writes an AxeMod structure to axe.mod file
+def write_mod_file(module: AxeMod, path: string) {
+    mut content: string = string.create("");
+    
+    content = concat(content, string.create("name: "));
+    content = concat(content, module.name);
+    content = concat(content, string.create("\n"));
+    content = concat(content, string.create("version: "));
+    content = concat(content, module.version);
+    content = concat(content, string.create("\n"));
+    
+    for mut i = 0; i < module.dependencies.len; i++ {
+        content = concat(content, string.create("dependency: "));
+        content = concat(content, StringList.get(module.dependencies, i));
+        content = concat(content, string.create("\n"));
+    }
+    
+    write_file(path, content);
+}
+
+/// Gets the current directory name in lowercase
+/// For now, just returns "project" as a default
+def get_current_dir_name(): string {
+    return string.create("project");
+}
+
+/// Creates a directory using system command
+def create_dir(path: string) {
+    val mkdir_cmd: string = concat(string.create("mkdir "), path);
+    exec_from_string(mkdir_cmd);
+}
+
+/// Clones a git repository and returns the commit hash
+def git_clone_and_get_hash(url: string, dest_dir: string): string {
+    val clone_cmd: string = concat(string.create("git clone "), url);
+    val clone_cmd2: string = concat(clone_cmd, string.create(" "));
+    val clone_cmd3: string = concat(clone_cmd2, dest_dir);
+    
+    exec_from_string(clone_cmd3);
+    
+    val hash_file: string = string.create("deps/.axpm_hash_temp");
+    mut hash_cmd: string = string.create("cd ");
+    hash_cmd = concat(hash_cmd, dest_dir);
+    hash_cmd = concat(hash_cmd, string.create(" && git rev-parse HEAD > ../"));
+    hash_cmd = concat(hash_cmd, hash_file);
+    
+    exec_from_string(hash_cmd);
+    
+    mut hash: string = string.create("");
+    if file_exists(hash_file) {
+        hash = read_file(hash_file);
+        hash = strip(hash);
+        delete_file(hash_file);
+    }
+    
+    return hash;
+}
+
+/// Initializes a new axe.mod file
+def cmd_init(arena: ref Arena) {
+    val mod_path: string = string.create("axe.mod");
+    
+    if file_exists(mod_path) {
+        println "axe.mod already exists in this directory";
+        return;
+    }
+    
+    mut module: AxeMod;
+    module.name = get_current_dir_name();
+    module.version = string.create("0.1.0");
+    module.dependencies = StringList.create(arena, 10);
+    
+    write_mod_file(module, mod_path);
+    
+    print_str(string.create("Initialized "));
+    print_str(module.name);
+    println " project with axe.mod";
+}
+
+/// Adds a dependency to the project
+def cmd_add(git_url: string, arena: ref Arena) {
+    val mod_path: string = string.create("axe.mod");
+    
+    if !file_exists(mod_path) {
+        println "No axe.mod file found. Run 'axpm init' first.";
+        return;
+    }
+    
+    mut module: AxeMod = read_mod_file(mod_path, arena);
+    mut repo_name: string = git_url;
+    val last_slash: i32 = find_char_from(git_url, '/', git_url.len - 1);
+    if last_slash >= 0 {
+        repo_name = substr(git_url, last_slash + 1, git_url.len - last_slash - 1);
+    }
+    
+    if has_suffix(repo_name, string.create(".git")) {
+        repo_name = trim_suffix(repo_name, string.create(".git"));
+    }
+    
+    val deps_dir: string = string.create("deps");
+    if !is_directory(deps_dir) {
+        create_dir(deps_dir);
+    }
+    
+    val dest_path: string = concat(string.create("deps/"), repo_name);
+    
+    print_str(string.create("Cloning "));
+    print_str(git_url);
+    println "...";
+    
+    val commit_hash: string = git_clone_and_get_hash(git_url, dest_path);
+    
+    if commit_hash.len > 0 {
+        val dep_entry: string = concat(git_url, string.create("@"));
+        val dep_full: string = concat(dep_entry, commit_hash);
+        
+        StringList.push(module.dependencies, arena, dep_full);
+        write_mod_file(module, mod_path);
+        
+        print_str(string.create("Added dependency: "));
+        print_str(repo_name);
+        print_str(string.create(" ("));
+        print_str(substr(commit_hash, 0, 8));
+        println ")";
+    } else {
+        println "Failed to clone repository or get commit hash";
+    }
+}
+
+/// Builds the project by compiling main.axe
+def cmd_build() {
+    val mod_path: string = string.create("axe.mod");
+    
+    if !file_exists(mod_path) {
+        println "No axe.mod file found. Run 'axpm init' first.";
+        return;
+    }
+    
+    val main_file: string = string.create("main.axe");
+    
+    if !file_exists(main_file) {
+        println "No main.axe file found in project";
+        return;
+    }
+    
+    println "Building project...";
+    
+    val build_cmd: string = concat(string.create("axe "), main_file);
+    val exit_code: i32 = exec_from_string(build_cmd);
+    
+    if exit_code == 0 {
+        println "Build successful!";
+    } else {
+        println "Build failed!";
+    }
+}
+
+/// Shows help information
+def show_help() {
+    println "axpm - Axe Package Manager";
+    println "";
+    println "Usage:";
+    println "  axpm init              Initialize a new axe.mod file";
+    println "  axpm add <git-url>     Add a dependency from a git repository";
+    println "  axpm build             Build the project (compile main.axe)";
+    println "  axpm help              Show this help message";
+}
+
+main {
+    mut arena: Arena = Arena.create(1048576);
+    val args: ref StringList = get_cmdline_args(ref_of(arena));
+    
+    if args.len < 2 {
+        show_help();
+        return;
+    }
+    
+    val command: string = StringList.get(args, 1);
+    
+    if compare(command, string.create("init")) == 0 {
+        cmd_init(ref_of(arena));
+    } elif compare(command, string.create("add")) == 0 {
+        if args.len < 3 {
+            println "Error: 'add' command requires a git URL";
+            println "Usage: axpm add <git-url>";
+        } else {
+            val git_url: string = StringList.get(args, 2);
+            cmd_add(git_url, ref_of(arena));
+        }
+    } elif compare(command, string.create("build")) == 0 {
+        cmd_build();
+    } elif compare(command, string.create("help")) == 0 {
+        show_help();
+    } else {
+        print_str(string.create("Unknown command: "));
+        println command;
+        println "";
+        show_help();
+    }
+    
+    Arena.destroy(ref_of(arena));
+}
