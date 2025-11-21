@@ -4571,4 +4571,26 @@ unittest
         assert(!cCode.canFind("printf(\"%d\\n\", (\"Hello, world\"));"),
             "Should NOT use %d format specifier for string literals in parentheses");
     }
+
+    {
+        auto tokens = lex(
+            "opaque { MyType, AnotherType }; " ~
+            "extern def my_func(x: i32): i32; " ~
+            "extern def process(data: ref MyType): bool; " ~
+            "main { val result: i32 = my_func(42); }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Opaque types and extern functions test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("typedef struct MyType MyType;"),
+            "Should generate typedef for MyType");
+        assert(cCode.canFind("typedef struct AnotherType AnotherType;"),
+            "Should generate typedef for AnotherType");
+        assert(cCode.canFind("my_func(42)"),
+            "Should allow calling extern function my_func");
+        assert(!cCode.canFind("extern int32_t my_func"),
+            "Should NOT generate extern declaration (assumes it exists in C headers)");
+    }
 }
