@@ -1,0 +1,21 @@
+use std.random;
+use std.io;
+
+main {
+    randomize();
+    val secret: i32 = random(1, 100);
+    mut guess: i32;
+
+    loop {
+        print("Guess the number between 1 and 100: ");
+        guess = read_int();
+        if guess == secret {
+            print("You guessed it.");
+            break;
+        } elif guess < secret {
+            print("Too low\n");
+            continue;
+        }
+        print("Too high\n");
+    }
+}

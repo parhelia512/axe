@@ -370,8 +370,18 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                     // But only rename if explicitly imported
                     if (useNode.importAll || useNode.imports.canFind(funcNode.name))
                     {
-                        string prefixedName = moduleFunctionMap[funcNode.name];
-                        importedFunctions[funcNode.name] = prefixedName;
+                        string originalName = funcNode.name;
+                        string prefixedName = moduleFunctionMap[originalName];
+
+                        // Rename the function definition itself so that
+                        // generated C has a matching symbol for rewritten
+                        // call sites (e.g., std_io_read_int).
+                        funcNode.name = prefixedName;
+
+                        // Name map must use the ORIGINAL name as key so that
+                        // call sites like read_int() or randomize() get
+                        // rewritten to the prefixed symbol.
+                        importedFunctions[originalName] = prefixedName;
                         renameFunctionCalls(funcNode, moduleFunctionMap);
                         renameTypeReferences(funcNode, moduleModelMap);
                         newChildren ~= funcNode;
@@ -582,6 +592,13 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         }
                     }
                 }
+            }
+
+            writeln("DEBUG imports: Module '", useNode.moduleName, "' requested imports: ", useNode.imports);
+            foreach (resolvedName; resolvedImports.keys)
+            {
+                writeln("DEBUG imports: Resolved symbol '", resolvedName, "' from module '",
+                    useNode.moduleName, "'");
             }
 
             foreach (importName; useNode.imports)
@@ -1004,6 +1021,20 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             }
         }
         assignNode.expression = fixDoublePrefix(assignNode.expression);
+
+        // TODO: Remove.
+        if (assignNode.expression.canFind("read_int("))
+        {
+            assignNode.expression = assignNode.expression.replace("read_int(", "std_io_read_int(");
+        }
+        if (assignNode.expression.canFind("read_float("))
+        {
+            assignNode.expression = assignNode.expression.replace("read_float(", "std_io_read_float(");
+        }
+        if (assignNode.expression.canFind("read_string("))
+        {
+            assignNode.expression = assignNode.expression.replace("read_string(", "std_io_read_string(");
+        }
     }
     else if (node.nodeType == "If")
     {
