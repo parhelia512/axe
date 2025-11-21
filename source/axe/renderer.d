@@ -2220,18 +2220,33 @@ string processExpression(string expr, string context = "")
     if (funcNameEnd > 0)
     {
         string funcName = expr[0 .. funcNameEnd].strip();
-        ptrdiff_t argEnd = expr.lastIndexOf(")");
-        if (argEnd > funcNameEnd)
+        ptrdiff_t argEnd = funcNameEnd + 1;
+        int depth = 1;
+        bool inQuote = false;
+        while (argEnd < expr.length && depth > 0)
+        {
+            if (expr[argEnd] == '"' && (argEnd == 0 || expr[argEnd - 1] != '\\'))
+                inQuote = !inQuote;
+            else if (!inQuote && expr[argEnd] == '(')
+                depth++;
+            else if (!inQuote && expr[argEnd] == ')')
+                depth--;
+            argEnd++;
+        }
+        argEnd--;
+        
+        if (argEnd > funcNameEnd && argEnd < expr.length && expr[argEnd] == ')')
         {
             import std.stdio : writeln;
 
             string argsString = expr[funcNameEnd + 1 .. argEnd].strip();
+            string suffix = (argEnd + 1 < expr.length) ? expr[argEnd + 1 .. $] : "";
             if (argsString.length > 0)
             {
                 string[] argList;
                 string currentArg = "";
                 int parenDepth = 0;
-                bool inQuote = false;
+                bool inQuoteArg = false;
                 bool inInterpolated = false;
 
                 for (size_t i = 0; i < argsString.length; i++)
@@ -2247,12 +2262,12 @@ string processExpression(string expr, string context = "")
                     }
                     
                     if (c == '"' && (i == 0 || argsString[i - 1] != '\\'))
-                        inQuote = !inQuote;
-                    else if (!inQuote && c == '(')
+                        inQuoteArg = !inQuoteArg;
+                    else if (!inQuoteArg && c == '(')
                         parenDepth++;
-                    else if (!inQuote && c == ')')
+                    else if (!inQuoteArg && c == ')')
                         parenDepth--;
-                    else if (!inQuote && parenDepth == 0 && !inInterpolated && c == ',')
+                    else if (!inQuoteArg && parenDepth == 0 && !inInterpolated && c == ',')
                     {
                         if (currentArg.length > 0)
                             argList ~= processExpression(currentArg.strip(), "function_call");
@@ -2264,7 +2279,7 @@ string processExpression(string expr, string context = "")
                 if (currentArg.length > 0)
                     argList ~= processExpression(currentArg.strip(), "function_call");
 
-                expr = funcName ~ "(" ~ argList.join(", ") ~ ")";
+                expr = funcName ~ "(" ~ argList.join(", ") ~ ")" ~ suffix;
             }
         }
     }

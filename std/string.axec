@@ -7,6 +7,8 @@ use std/typecons (
     AnyKind
 );
 
+use std/io;
+
 /// string model representing a dynamic string with length tracking.
 model string {
     data: char*;
@@ -315,7 +317,7 @@ def str_dup(s: char*): char* {
 def str_ncmp(s1: char*, s2: char*, n: i32): i32 {
     mut result: i32 = 0;
     raw {
-        result = strncmp((const char*)s1, (const char*)s2, n);
+        result = strncmp((const char*)s1, (const char*)s2, (size_t)n);
     }
     return result;
 }
@@ -324,7 +326,7 @@ def str_ncmp(s1: char*, s2: char*, n: i32): i32 {
 def str_ncopy(dest: char*, src: char*, n: i32): char* {
     mut result: char* = 0;
     raw {
-        result = strncpy((char*)dest, (const char*)src, n);
+        result = strncpy((char*)dest, (const char*)src, (size_t)n);
     }
     return result;
 }
@@ -691,16 +693,6 @@ test {
     assert(!has_prefix(base, string.create("foobarbaz")), "longer prefix should not match");
     assert(!has_suffix(base, string.create("foobarbaz")), "longer suffix should not match");
 
-    // TODO: Array literal syntax needs parser fix
-    // assert compare(
-    //         fmt(str("Hello, {}! Today is {}."), [string]{str("Alice"), str("Monday")}), 
-    //         str("Hello, Alice! Today is Monday.")
-    //     ) == 0, 
-    //     "fmt should format strings correctly";
-    
-    // TODO: Array literal syntax needs parser fix
-    // print_str(fmt(str("Hello, {}! Today is {}."), [string]{str("Alice"), str("Monday")}));
-    
     val y = 10;
     
     print_str(str($"{y}"));
