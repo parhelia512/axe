@@ -197,7 +197,7 @@ class ArrayAccessNode : ASTNode
 {
     string arrayName;
     string index;
-    string index2;  // For 2D arrays
+    string index2; // For 2D arrays
 
     this(string arrayName, string index, string index2 = "")
     {
@@ -212,7 +212,7 @@ class ArrayAssignmentNode : ASTNode
 {
     string arrayName;
     string index;
-    string index2;  // For 2D arrays
+    string index2; // For 2D arrays
     string value;
 
     this(string arrayName, string index, string value, string index2 = "")
@@ -258,10 +258,10 @@ class FunctionNode : ASTNode
 class MacroNode : ASTNode
 {
     string name;
-    string[] params;  // Parameter names
-    string[] paramTypes;  // Parameter types (e.g., "untyped")
-    Token[] bodyTokens;  // Store the macro body as tokens for expansion
-    
+    string[] params; // Parameter names
+    string[] paramTypes; // Parameter types (e.g., "untyped")
+    Token[] bodyTokens; // Store the macro body as tokens for expansion
+
     this(string name, string[] params, string[] paramTypes)
     {
         super("Macro");
@@ -283,7 +283,7 @@ class AssertNode : ASTNode
 {
     string condition;
     string message;
-    
+
     this(string condition, string message)
     {
         super("Assert");
@@ -399,75 +399,96 @@ class FunctionCallNode : ASTNode
     {
         super("FunctionCall");
         this.functionName = functionName;
-        
+
         // Smart split that respects nested structures
         this.args = splitArgs(argsStr);
     }
-    
+
     private static string[] splitArgs(string argsStr)
     {
         import std.string;
-        
+
         string[] result;
         string current = "";
         int parenDepth = 0;
         int bracketDepth = 0;
         int braceDepth = 0;
         bool inInterpolated = false;
-        
+        bool inString = false;
+        bool escaped = false;
+
         for (size_t i = 0; i < argsStr.length; i++)
         {
             char c = argsStr[i];
-            
-            // Check for __INTERPOLATED__ markers
+
+            if (escaped)
+            {
+                current ~= c;
+                escaped = false;
+                continue;
+            }
+
+            if (c == '\\' && inString)
+            {
+                current ~= c;
+                escaped = true;
+                continue;
+            }
+
+            if (c == '"' && !inInterpolated)
+            {
+                inString = !inString;
+                current ~= c;
+                continue;
+            }
+
             if (i + 16 <= argsStr.length && argsStr[i .. i + 16] == "__INTERPOLATED__")
             {
                 inInterpolated = !inInterpolated;
-                // Add the marker to current
                 current ~= "__INTERPOLATED__";
-                i += 15; // Skip the rest of the marker (loop will increment by 1)
+                i += 15;
                 continue;
             }
-            
-            if (c == '(')
-                parenDepth++;
-            else if (c == ')')
-                parenDepth--;
-            else if (c == '[')
-                bracketDepth++;
-            else if (c == ']')
-                bracketDepth--;
-            else if (c == '{')
-                braceDepth++;
-            else if (c == '}')
-                braceDepth--;
-            else if (c == ',' && parenDepth == 0 && bracketDepth == 0 && 
-                braceDepth == 0 && !inInterpolated)
+
+            if (!inString)
             {
-                // This is an argument separator
-                result ~= current.strip();
-                current = "";
-                
-                // Skip the space after comma if present
-                if (i + 1 < argsStr.length && argsStr[i + 1] == ' ')
-                    i++;
-                continue;
+                if (c == '(')
+                    parenDepth++;
+                else if (c == ')')
+                    parenDepth--;
+                else if (c == '[')
+                    bracketDepth++;
+                else if (c == ']')
+                    bracketDepth--;
+                else if (c == '{')
+                    braceDepth++;
+                else if (c == '}')
+                    braceDepth--;
+                else if (c == ',' && parenDepth == 0 && bracketDepth == 0 &&
+                    braceDepth == 0 && !inInterpolated)
+                {
+                    result ~= current.strip();
+                    current = "";
+                    if (i + 1 < argsStr.length && argsStr[i + 1] == ' ')
+                        i++;
+                    continue;
+                }
             }
-            
+
             current ~= c;
         }
-        
+
         if (current.length > 0)
             result ~= current.strip();
-        
+
         return result;
     }
 }
 
 class InterpolatedStringNode : ASTNode
 {
-    string[] parts;        // String literal parts
-    string[] expressions;  // Expressions to interpolate
+    string[] parts;
+    string[] expressions;
 
     this(string[] parts, string[] expressions)
     {
@@ -574,7 +595,7 @@ class UseNode : ASTNode
     string[] imports;
     string[string] functionPrefixes;
     bool importAll;
-    
+
     this(string moduleName, string[] imports, bool importAll = false)
     {
         super("Use");
@@ -590,7 +611,8 @@ class ModelNode : ASTNode
     bool isPublic;
 
     // Array of (fieldName, fieldType) tuples to preserve order
-    struct Field {
+    struct Field
+    {
         string name;
         string type;
         bool isUnion; // Flag to indicate if the field is a union
@@ -816,7 +838,7 @@ class Scope
 class PlatformNode : ASTNode
 {
     string platform;
-    
+
     this(string platform)
     {
         super("Platform");
@@ -830,7 +852,7 @@ class ParallelForNode : ASTNode
     string condition;
     string increment;
     string[] reductionClauses;
-    
+
     this(string init, string cond, string incr)
     {
         super("ParallelFor");

@@ -2519,6 +2519,12 @@ string processExpression(string expr, string context = "")
     import std.regex : replaceAll;
     import std.string : replace;
 
+    // If the expression is a plain string literal, return it as-is without any processing
+    if (expr.length >= 2 && expr[0] == '"' && expr[$ - 1] == '"')
+    {
+        return expr;
+    }
+
     if (expr.length == 1)
     {
         import std.ascii : isAlphaNum;
@@ -2597,25 +2603,56 @@ string processExpression(string expr, string context = "")
         return processInterpolatedString(interpContent, false);
     }
 
-    expr = expr.replace(" mod ", " % ");
-    expr = expr.replaceAll(regex(r"([^a-zA-Z_])mod([^a-zA-Z_])"), "$1%$2");
-    expr = expr.replaceAll(regex(r"^mod([^a-zA-Z_])"), "%$1");
-    expr = expr.replaceAll(regex(r"([^a-zA-Z_])mod$"), "$1%");
+    // Helper function to replace keywords outside of string literals
+    string replaceOutsideStrings(string text, string from, string to)
+    {
+        string result;
+        bool inString = false;
+        bool escaped = false;
+        
+        for (size_t i = 0; i < text.length; i++)
+        {
+            if (escaped)
+            {
+                result ~= text[i];
+                escaped = false;
+                continue;
+            }
+            
+            if (text[i] == '\\' && inString)
+            {
+                result ~= text[i];
+                escaped = true;
+                continue;
+            }
+            
+            if (text[i] == '"')
+            {
+                inString = !inString;
+                result ~= text[i];
+                continue;
+            }
+            
+            if (!inString && i + from.length <= text.length && text[i .. i + from.length] == from)
+            {
+                result ~= to;
+                size_t skipLen = from.length;
+                if (skipLen > 1)
+                    i += (skipLen - 1);
+            }
+            else
+            {
+                result ~= text[i];
+            }
+        }
+        
+        return result;
+    }
 
-    expr = expr.replaceAll(regex(r"([^a-zA-Z_])and([^a-zA-Z_])"), "$1&&$2");
-    expr = expr.replaceAll(regex(r"^and([^a-zA-Z_])"), "&&$1");
-    expr = expr.replaceAll(regex(r"([^a-zA-Z_])and$"), "$1&&");
-    expr = expr.replace(" and ", " && ");
-
-    expr = expr.replaceAll(regex(r"([^a-zA-Z_])or([^a-zA-Z_])"), "$1||$2");
-    expr = expr.replaceAll(regex(r"^or([^a-zA-Z_])"), "||$1");
-    expr = expr.replaceAll(regex(r"([^a-zA-Z_])or$"), "$1||");
-    expr = expr.replace(" or ", " || ");
-
-    expr = expr.replaceAll(regex(r"([^a-zA-Z_])xor([^a-zA-Z_])"), "$1^$2");
-    expr = expr.replaceAll(regex(r"^xor([^a-zA-Z_])"), "^$1");
-    expr = expr.replaceAll(regex(r"([^a-zA-Z_])xor$"), "$1^");
-    expr = expr.replace(" xor ", " ^ ");
+    expr = replaceOutsideStrings(expr, " mod ", " % ");
+    expr = replaceOutsideStrings(expr, " and ", " && ");
+    expr = replaceOutsideStrings(expr, " or ", " || ");
+    expr = replaceOutsideStrings(expr, " xor ", " ^ ");
 
     import std.string : indexOf, lastIndexOf;
 
