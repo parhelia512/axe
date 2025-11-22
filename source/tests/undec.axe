@@ -1,3 +1,7 @@
+def shouldnt_error() {
+    put "Hello, world!";
+}
+
 main {
-    should_error();
+    shouldnt_error();
 }
