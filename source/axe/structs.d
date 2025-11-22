@@ -99,6 +99,8 @@ struct Token
 {
     TokenType type;
     string value;
+    size_t line = 1;
+    size_t column = 1;
 }
 
 /** 

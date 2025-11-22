@@ -33,82 +33,94 @@ Token[] lex(string source)
         case '*':
             if (pos + 1 < source.length && source[pos + 1] == '.')
             {
-                tokens ~= Token(TokenType.STAR_DOT, "*.");
+                tokens ~= Token(TokenType.STAR_DOT, "*.", line, column);
                 pos += 2;
+                column += 2;
             }
             else if (tokens.length > 0 && tokens[$ - 1].type == TokenType.IDENTIFIER)
             {
                 tokens[$ - 1].value ~= "*";
                 pos++;
+                column++;
             }
             else
             {
-                tokens ~= Token(TokenType.STAR, "*");
+                tokens ~= Token(TokenType.STAR, "*", line, column);
                 pos++;
+                column++;
             }
             break;
 
         case ' ', '\t', '\r':
-            tokens ~= Token(TokenType.WHITESPACE, source[pos .. pos + 1]);
+            tokens ~= Token(TokenType.WHITESPACE, source[pos .. pos + 1], line, column);
             pos++;
             column++;
             break;
 
         case '\n':
-            tokens ~= Token(TokenType.NEWLINE, "\n");
+            tokens ~= Token(TokenType.NEWLINE, "\n", line, column);
             pos++;
             line++;
             column = 1;
             break;
 
         case '{':
-            tokens ~= Token(TokenType.LBRACE, "{");
+            tokens ~= Token(TokenType.LBRACE, "{", line, column);
             pos++;
+            column++;
             break;
 
         case '}':
-            tokens ~= Token(TokenType.RBRACE, "}");
+            tokens ~= Token(TokenType.RBRACE, "}", line, column);
             pos++;
+            column++;
             break;
 
         case ';':
-            tokens ~= Token(TokenType.SEMICOLON, ";");
+            tokens ~= Token(TokenType.SEMICOLON, ";", line, column);
             pos++;
+            column++;
             break;
 
         case ':':
-            tokens ~= Token(TokenType.COLON, ":");
+            tokens ~= Token(TokenType.COLON, ":", line, column);
             pos++;
+            column++;
             break;
 
         case '!':
             if (pos + 1 < source.length && source[pos + 1] == '=')
             {
-                tokens ~= Token(TokenType.OPERATOR, "!=");
+                tokens ~= Token(TokenType.OPERATOR, "!=", line, column);
                 pos += 2;
+                column += 2;
             }
             else
             {
-                tokens ~= Token(TokenType.OPERATOR, "!");
+                tokens ~= Token(TokenType.OPERATOR, "!", line, column);
                 pos++;
+                column++;
             }
             break;
 
         case '=':
             if (pos + 1 < source.length && source[pos + 1] == '=')
             {
-                tokens ~= Token(TokenType.OPERATOR, "==");
+                tokens ~= Token(TokenType.OPERATOR, "==", line, column);
                 pos += 2;
+                column += 2;
             }
             else if (pos + 1 < source.length && source[pos + 1] == '>')
             {
-                tokens ~= Token(TokenType.OPERATOR, "=>");
+                tokens ~= Token(TokenType.OPERATOR, "=>", line, column);
                 pos += 2;
+                column += 2;
             }
             else
             {
-                tokens ~= Token(TokenType.OPERATOR, "=");
+                tokens ~= Token(TokenType.OPERATOR, "=", line, column);
                 pos++;
+                column++;
             }
             break;
 
@@ -530,45 +542,53 @@ Token[] lex(string source)
             }
             else if (pos + 4 <= source.length && source[pos .. pos + 4] == "loop")
             {
-                tokens ~= Token(TokenType.LOOP, "loop");
+                tokens ~= Token(TokenType.LOOP, "loop", line, column);
                 pos += 4;
+                column += 4;
             }
             else if (pos + 3 <= source.length && source[pos .. pos + 3] == "for" &&
                 (pos + 3 >= source.length || !(source[pos + 3].isAlphaNum || source[pos + 3] == '_')))
             {
-                tokens ~= Token(TokenType.FOR, "for");
+                tokens ~= Token(TokenType.FOR, "for", line, column);
                 pos += 3;
+                column += 3;
             }
             else if (pos + 8 <= source.length && source[pos .. pos + 8] == "continue")
             {
-                tokens ~= Token(TokenType.CONTINUE, "continue");
+                tokens ~= Token(TokenType.CONTINUE, "continue", line, column);
                 pos += 8;
+                column += 8;
             }
             else if (pos + 5 <= source.length && source[pos .. pos + 5] == "break")
             {
-                tokens ~= Token(TokenType.BREAK, "break");
+                tokens ~= Token(TokenType.BREAK, "break", line, column);
                 pos += 5;
+                column += 5;
             }
             else if (pos + 5 <= source.length && source[pos .. pos + 5] == "model")
             {
-                tokens ~= Token(TokenType.MODEL, "model");
+                tokens ~= Token(TokenType.MODEL, "model", line, column);
                 pos += 5;
+                column += 5;
             }
             else if (pos + 3 <= source.length && source[pos .. pos + 3] == "new" &&
                 (pos + 3 >= source.length || !(source[pos + 3].isAlphaNum || source[pos + 3] == '_')))
             {
-                tokens ~= Token(TokenType.NEW, "new");
+                tokens ~= Token(TokenType.NEW, "new", line, column);
                 pos += 3;
+                column += 3;
             }
             else if (pos + 4 <= source.length && source[pos .. pos + 4] == "elif")
             {
-                tokens ~= Token(TokenType.ELIF, "elif");
+                tokens ~= Token(TokenType.ELIF, "elif", line, column);
                 pos += 4;
+                column += 4;
             }
             else if (pos + 4 <= source.length && source[pos .. pos + 4] == "else")
             {
-                tokens ~= Token(TokenType.ELSE, "else");
+                tokens ~= Token(TokenType.ELSE, "else", line, column);
                 pos += 4;
+                column += 4;
             }
             else if (pos + 6 <= source.length && source[pos .. pos + 6] == "reduce" &&
                 (pos + 6 >= source.length || !(source[pos + 6].isAlphaNum || source[pos + 6] == '_')))
@@ -717,23 +737,28 @@ Token[] lex(string source)
             {
                 // Handle hex literals: 0x1A, 0xFF, 0x90befffa, etc.
                 size_t start = pos;
+                size_t startCol = column;
                 pos += 2; // Skip '0x'
+                column += 2;
                 while (pos < source.length && ((source[pos] >= '0' && source[pos] <= '9') ||
                         (source[pos] >= 'a' && source[pos] <= 'f') ||
                         (source[pos] >= 'A' && source[pos] <= 'F')))
                 {
                     pos++;
+                    column++;
                 }
-                tokens ~= Token(TokenType.IDENTIFIER, source[start .. pos]);
+                tokens ~= Token(TokenType.IDENTIFIER, source[start .. pos], line, startCol);
             }
             else if (source[pos].isAlphaNum() || source[pos] == '_')
             {
                 size_t start = pos;
+                size_t startCol = column;
                 while (pos < source.length && (source[pos].isAlphaNum() || source[pos] == '_'))
                 {
                     pos++;
+                    column++;
                 }
-                tokens ~= Token(TokenType.IDENTIFIER, source[start .. pos]);
+                tokens ~= Token(TokenType.IDENTIFIER, source[start .. pos], line, startCol);
             }
             else
             {

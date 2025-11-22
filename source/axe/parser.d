@@ -5111,8 +5111,11 @@ private LoopNode parseLoopHelper(ref size_t pos, Token[] tokens, ref Scope curre
     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
         pos++;
 
+    import std.conv : to;
     enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
-        "Expected '{' after loop");
+        "Expected '{' after loop at line " ~ tokens[pos].line.to!string ~ ", column " ~ 
+        tokens[pos].column.to!string ~ " but found token type " ~ tokens[pos].type.to!string ~ 
+        " with value '" ~ tokens[pos].value ~ "'");
     pos++;
 
     auto loopNode = new LoopNode();
