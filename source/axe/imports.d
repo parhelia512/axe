@@ -1477,7 +1477,6 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
                 }
             }
         }
-        // FIX DOUBLE-PREFIXING in Assert
         assertNode.condition = fixDoublePrefix(assertNode.condition);
     }
 
@@ -1485,6 +1484,75 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
     {
         renameFunctionCalls(child, nameMap);
     }
+}
+
+/**
+ * Replace a type name in code, but skip replacements inside string literals
+ */
+string replaceTypeOutsideStrings(string code, string oldType, string newType)
+{
+    import std.array : appender;
+    import std.regex : regex, matchFirst;
+
+    auto result = appender!string();
+    size_t pos = 0;
+    bool inString = false;
+    bool inChar = false;
+
+    while (pos < code.length)
+    {
+        if (pos > 0 && code[pos - 1] == '\\')
+        {
+            result ~= code[pos];
+            pos++;
+            continue;
+        }
+
+        if (code[pos] == '"' && !inChar)
+        {
+            inString = !inString;
+            result ~= code[pos];
+            pos++;
+            continue;
+        }
+
+        if (code[pos] == '\'' && !inString)
+        {
+            inChar = !inChar;
+            result ~= code[pos];
+            pos++;
+            continue;
+        }
+
+        if (inString || inChar)
+        {
+            result ~= code[pos];
+            pos++;
+            continue;
+        }
+
+        import std.algorithm : startsWith;
+        import std.uni : isAlphaNum;
+
+        if (pos + oldType.length <= code.length && code[pos .. pos + oldType.length] == oldType)
+        {
+            bool validPrefix = (pos == 0 || (!isAlphaNum(code[pos - 1]) && code[pos - 1] != '_'));
+            bool validSuffix = (pos + oldType.length >= code.length ||
+                    (!isAlphaNum(code[pos + oldType.length]) && code[pos + oldType.length] != '_'));
+
+            if (validPrefix && validSuffix)
+            {
+                result ~= newType;
+                pos += oldType.length;
+                continue;
+            }
+        }
+
+        result ~= code[pos];
+        pos++;
+    }
+
+    return result.data;
 }
 
 /**
@@ -1562,14 +1630,10 @@ void renameTypeReferences(ASTNode node, string[string] typeMap)
     else if (node.nodeType == "RawC")
     {
         auto rawNode = cast(RawCNode) node;
-        import std.regex : regex, replaceAll;
 
-        // Replace type names in raw C code blocks
-        // We need to try hard to only replace whole words (type names)
         foreach (oldType, newType; typeMap)
         {
-            auto wordPattern = regex("\\b" ~ oldType ~ "\\b");
-            rawNode.code = replaceAll(rawNode.code, wordPattern, newType);
+            rawNode.code = replaceTypeOutsideStrings(rawNode.code, oldType, newType);
         }
     }
 
