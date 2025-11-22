@@ -20,7 +20,7 @@ import std.process;
 import std.array;
 import std.stdio;
 import std.algorithm;
-import std.string : replace, startsWith;
+import std.string : replace, startsWith, splitLines;
 import std.path : dirName, buildPath;
 
 /**
@@ -441,10 +441,22 @@ bool handleMachineArgs(string[] args)
             {
                 debugWriteln("CLANGCMD: ", clangCmd);
 
-                stderr.writeln(
-                    "Fallthrough error, report the bug at https://github.com/axelang/axe/issues\nTrace:\n",
-                    e[1]
-                );
+                string mapped = mapCErrorsToAxe(e[1], name, ext);
+
+                if (mapped.length > 0)
+                {
+                    stderr.writeln(
+                        "Compilation error:\n",
+                        mapped
+                    );
+                }
+                else
+                {
+                    stderr.writeln(
+                        "Fallthrough error, report the bug at https://github.com/axelang/axe/issues\nTrace:\n",
+                        e[1]
+                    );
+                }
                 return false;
             }
             if (!args.canFind("-e"))
@@ -491,4 +503,140 @@ bool handleMachineArgs(string[] args)
         }
         return false;
     }
+}
+
+/**
+ * Simple struct for parsed C compiler error/warning lines.
+ */
+struct CErrorInfo
+{
+    string cFile;
+    int line;
+    int column;
+    string kind;
+    string message;
+}
+
+/**
+ * Parse clang/gcc style C errors of the form: path/to/file.c:123:45: error: message
+ */
+CErrorInfo[] parseCErrorLines(string stderrOutput)
+{
+    import std.regex : regex, matchAll;
+    import std.string : strip;
+    import std.conv : to;
+
+    CErrorInfo[] result;
+
+    auto re = regex(`^([^:]+):(\d+):(\d+):\s+(error|warning):\s+(.*)$`, "m");
+    foreach (m; matchAll(stderrOutput, re))
+    {
+        CErrorInfo info;
+        info.cFile = m[1].idup.strip();
+        info.line = m[2].to!int;
+        info.column = m[3].to!int;
+        info.kind = m[4].idup.strip();
+        info.message = m[5].idup.strip();
+        result ~= info;
+    }
+
+    return result;
+}
+
+/**
+ * Heuristically map a single C error to an Axe source location.
+ *
+ * Strategy:
+ *   - Compute the Axe source path from the original input name/ext.
+ *   - Load both the generated .c file and the Axe source.
+ *   - For each C error, grab the C line, try to extract the expression
+ *     after the last '=' (or before the first ';'), and search for that
+ *     snippet inside the Axe source. If found, report that Axe file/line.
+ */
+string mapSingleCErrorToAxe(CErrorInfo err, string inputName, string ext)
+{
+    import std.file : exists, readText;
+    import std.algorithm : min;
+    import std.string : strip, lastIndexOf, indexOf;
+    import std.conv : to;
+
+    string cPath = replace(inputName, ext, ".c");
+    if (!exists(cPath))
+        return "";
+
+    string axeSourcePath = inputName;
+    if (!exists(axeSourcePath))
+        return "";
+
+    string cText = readText(cPath);
+    string axeText = readText(axeSourcePath);
+
+    string[] cLines = cText.splitLines();
+    if (err.line <= 0 || err.line > cast(int) cLines.length)
+        return "";
+
+    string cLine = cLines[err.line - 1].strip();
+    if (cLine.length == 0)
+        return "";
+
+    string snippet = cLine;
+    ptrdiff_t eqPos = snippet.lastIndexOf('=');
+    if (eqPos >= 0 && eqPos + 1 < cast(ptrdiff_t) snippet.length)
+        snippet = snippet[eqPos + 1 .. $].strip();
+
+    ptrdiff_t semiPos = snippet.indexOf(';');
+    if (semiPos > 0)
+        snippet = snippet[0 .. semiPos].strip();
+
+    if (snippet.length < 3)
+        return "";
+
+    enum maxSnippet = 80;
+    if (snippet.length > maxSnippet)
+        snippet = snippet[0 .. maxSnippet];
+
+    ptrdiff_t axePos = axeText.indexOf(snippet);
+    if (axePos < 0)
+        return "";
+
+    int axeLine = 1;
+    foreach (idx, ch; axeText)
+    {
+        if (cast(ptrdiff_t) idx >= axePos)
+            break;
+        if (ch == '\n')
+            axeLine++;
+    }
+
+    string[] axeLines = axeText.splitLines();
+    string axeLineText = (axeLine > 0 && axeLine <= cast(int) axeLines.length)
+        ? axeLines[axeLine - 1].strip()
+        : "";
+
+    import std.format : format;
+    return format("%s:%d:%d: %s: %s\n  -> Axe %s:%d: %s\n",
+        err.cFile, err.line, err.column, err.kind, err.message,
+        axeSourcePath, axeLine, axeLineText);
+}
+
+/**
+ * Map all C errors in stderr output back to Axe source, where possible.
+ */
+string mapCErrorsToAxe(string stderrOutput, string inputName, string ext)
+{
+    auto infos = parseCErrorLines(stderrOutput);
+    if (infos.length == 0)
+        return stderrOutput;
+
+    string result;
+    foreach (err; infos)
+    {
+        string mapped = mapSingleCErrorToAxe(err, inputName, ext);
+        if (mapped.length > 0)
+            result ~= mapped;
+        else
+            result ~= stderrOutput;
+    }
+
+    return result;
 }
