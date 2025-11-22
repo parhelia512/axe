@@ -86,7 +86,7 @@ void collectDeclaredFunctions(ASTNode node, ref bool[string] declared)
     }
 }
 
-void validateFunctionCalls(ASTNode node, bool[string] declared)
+void validateFunctionCalls(ASTNode node, bool[string] declared, string modulePrefix = "")
 {
     if (node.nodeType == "FunctionCall")
     {
@@ -99,6 +99,7 @@ void validateFunctionCalls(ASTNode node, bool[string] declared)
             // reserved for explicit C interop escapes. These are allowed to
             // bypass the Axe-level undefined function check and will be
             // handled separately by codegen/runtime.
+
             import std.string : startsWith;
 
             bool isCEscape = name.startsWith("C.") || name.startsWith("C__");
@@ -109,9 +110,25 @@ void validateFunctionCalls(ASTNode node, bool[string] declared)
                 isDeclared = *p;
             }
 
-            // writeln("[validateFunctionCalls] name=", name,
-            //     " isCEscape=", isCEscape,
-            //     " isDeclared=", isDeclared);
+            if (!isDeclared && name.canFind("."))
+            {
+                import std.string : replace;
+
+                string underscored = name.replace(".", "_");
+                if (auto q = underscored in declared)
+                {
+                    isDeclared = *q;
+                }
+
+                if (!isDeclared && modulePrefix.length > 0)
+                {
+                    string fullyPrefixed = modulePrefix ~ "_" ~ underscored;
+                    if (auto r = fullyPrefixed in declared)
+                    {
+                        isDeclared = *r;
+                    }
+                }
+            }
 
             if (!isCEscape && !isDeclared)
             {
@@ -122,7 +139,7 @@ void validateFunctionCalls(ASTNode node, bool[string] declared)
 
     foreach (child; node.children)
     {
-        validateFunctionCalls(child, declared);
+        validateFunctionCalls(child, declared, modulePrefix);
     }
 }
 
@@ -240,7 +257,16 @@ bool handleMachineArgs(string[] args)
 
         bool[string] declaredFunctions;
         collectDeclaredFunctions(ast, declaredFunctions);
-        validateFunctionCalls(ast, declaredFunctions);
+
+        string modulePrefix = "";
+        if (moduleName.length > 0)
+        {
+            import std.string : replace;
+
+            modulePrefix = moduleName.replace(".", "_");
+        }
+
+        validateFunctionCalls(ast, declaredFunctions, modulePrefix);
 
         if (args.canFind("-ast"))
             writeln(ast);
@@ -610,10 +636,10 @@ string mapSingleCErrorToAxe(CErrorInfo err, string inputName, string ext)
 
     string[] axeLines = axeText.splitLines();
     string axeLineText = (axeLine > 0 && axeLine <= cast(int) axeLines.length)
-        ? axeLines[axeLine - 1].strip()
-        : "";
+        ? axeLines[axeLine - 1].strip() : "";
 
     import std.format : format;
+
     return format("%s:%d:%d: %s: %s\n  -> Axe %s:%d: %s\n",
         err.cFile, err.line, err.column, err.kind, err.message,
         axeSourcePath, axeLine, axeLineText);
