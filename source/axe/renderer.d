@@ -2472,6 +2472,17 @@ string processExpression(string expr, string context = "")
     import std.regex : replaceAll;
     import std.string : replace;
 
+    if (expr.length == 1)
+    {
+        import std.ascii : isAlphaNum;
+
+        char c = expr[0];
+        if (!isAlphaNum(c) && c != '_' && c != '"' && c != '\'')
+        {
+            return "'" ~ expr ~ "'";
+        }
+    }
+
     {
         import std.ascii : isDigit;
 
