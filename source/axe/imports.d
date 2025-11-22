@@ -446,13 +446,18 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                             if (funcNode.name == "main")
                                 continue;
 
-                            if (!funcNode.isPublic)
-                                continue;
-
-                            if (useNode.importAll || useNode.imports.canFind(funcNode.name))
+                            // NOTE: For platform blocks, include ALL functions (even private ones)
+                            // because private functions may be dependencies of public functions
+                            // that are imported. The public check is only for explicit imports.
+                            bool isExplicitImport = useNode.importAll || useNode.imports.canFind(funcNode.name);
+                            
+                            if (isExplicitImport && !funcNode.isPublic)
+                                continue; 
+                            
+                            if (isExplicitImport)
                                 resolvedImports[funcNode.name] = true;
 
-                            if (useNode.importAll || useNode.imports.canFind(funcNode.name))
+                            if (isExplicitImport)
                             {
                                 string originalName = funcNode.name;
                                 string prefixedName = moduleFunctionMap[originalName];
