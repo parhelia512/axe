@@ -440,4 +440,9 @@ test {
     
     sha256_zero(ref digest1);
     assert digest1.is_valid == false, "Zeroed digest should be marked invalid";
+
+    mut arena: Arena = Arena.create(90000);
+    mut encoded: string = base64_encode("abc", 3, ref_of(arena));
+    assert compare(encoded, str("YWJj")) == 0, "Base64 encoding should be consistent";
+    Arena.destroy(ref_of(arena));
 }
