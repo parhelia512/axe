@@ -56,6 +56,7 @@ private string[string] g_modelNames;
 private bool[string] g_generatedTypedefs;
 private bool[string] g_generatedFunctions;
 private bool g_inTopLevel = false;
+private string[][string] g_enumValues;
 
 string canonicalModelCName(string name)
 {
@@ -1697,16 +1698,37 @@ string generateC(ASTNode ast)
             return "";
 
         g_generatedTypedefs[enumNode.name] = true;
+        
+        string baseName = enumNode.name;
+        if (enumNode.name.canFind("_") && enumNode.name.startsWith("std_"))
+        {
+            auto lastUnderscore = enumNode.name.lastIndexOf('_');
+            if (lastUnderscore >= 0)
+            {
+                baseName = enumNode.name[lastUnderscore + 1 .. $];
+                g_modelNames[baseName] = enumNode.name;
+            }
+        }
+        else
+        {
+            g_modelNames[enumNode.name] = enumNode.name;
+        }
+        
+        g_enumValues[enumNode.name] = enumNode.values.dup;
 
+        string cEnumName = "axe_enum_" ~ enumNode.name;
+        
         cCode ~= "typedef enum {\n";
         foreach (i, value; enumNode.values)
         {
-            cCode ~= "    " ~ value;
+            cCode ~= "    " ~ enumNode.name ~ "_" ~ value;
             if (i < cast(int) enumNode.values.length - 1)
                 cCode ~= ",";
             cCode ~= "\n";
         }
-        cCode ~= "} " ~ enumNode.name ~ ";\n";
+        cCode ~= "} " ~ cEnumName ~ ";\n";
+        g_modelNames[enumNode.name] = cEnumName;
+
         break;
 
     case "Test":
@@ -3053,8 +3075,9 @@ string processExpression(string expr, string context = "")
             string first = parts[0].strip();
             string second = parts[1].strip();
 
-            // Special case: pure numeric float literal like "1 . 0" or "3.14"
-            // Only trigger this when the *entire* expression is numeric.
+            // NOTE: Pure numeric float literal like "1 . 0" or "3.14"
+            // Only for when the entire expression is numeric.
+
             import std.algorithm : all;
             import std.ascii : isDigit;
             import std.string : strip;
@@ -3068,6 +3091,16 @@ string processExpression(string expr, string context = "")
                 return noSpace;
             }
 
+            string enumName = first.strip();
+            string enumValue = second.strip();
+            if (enumName in g_enumValues)
+            {
+                if (g_enumValues[enumName].canFind(enumValue))
+                {
+                    return enumName ~ "_" ~ enumValue;
+                }
+            }
+            
             // Check if this is a function call (Model.method(...)) - convert to {prefixedModelName}_method(...)
             // But not if the first part is a numeric literal (e.g., 0.5) or contains operators
             bool firstHasOps = first.canFind("/") || first.canFind("*") || first.canFind("+") || first.canFind(
@@ -4352,10 +4385,10 @@ unittest
         writeln(cCode);
 
         assert(cCode.canFind("typedef enum {"), "Should have typedef enum declaration");
-        assert(cCode.canFind("} State;"), "Should have State typedef");
-        assert(cCode.canFind("RUNNING"), "Should have enum value RUNNING");
-        assert(cCode.canFind("STOPPED"), "Should have enum value STOPPED");
-        assert(cCode.canFind("State s = RUNNING;"), "Should use enum value without prefix");
+        assert(cCode.canFind("} axe_enum_State;"), "Should have prefixed State typedef");
+        assert(cCode.canFind("State_RUNNING"), "Should have prefixed enum value State_RUNNING");
+        assert(cCode.canFind("State_STOPPED"), "Should have prefixed enum value State_STOPPED");
+        assert(cCode.canFind("axe_enum_State s = State_RUNNING;"), "Should use prefixed enum type and value");
     }
 
     {
