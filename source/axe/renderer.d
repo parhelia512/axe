@@ -317,6 +317,8 @@ string[] computeReorderedCParams(FunctionNode funcNode, out int[] reorderMap, ou
 
 string mapAxeTypeToC(string axeType)
 {
+    import std.string : indexOf;
+
     if (axeType.startsWith("mut "))
     {
         string baseType = axeType[4 .. $].strip();
@@ -326,6 +328,15 @@ string mapAxeTypeToC(string axeType)
     if (axeType.startsWith("ref "))
     {
         string baseType = axeType[4 .. $].strip();
+        
+        // Handle ref to array: "ref Token[]" -> "lexer_Token*" (not "lexer_Token[]*")
+        auto bracketPos = baseType.indexOf('[');
+        if (bracketPos >= 0)
+        {
+            string elementType = baseType[0 .. bracketPos].strip();
+            return mapAxeTypeToC(elementType) ~ "*";
+        }
+        
         return mapAxeTypeToC(baseType) ~ "*";
     }
     else if (axeType.startsWith("&mut "))
@@ -342,6 +353,15 @@ string mapAxeTypeToC(string axeType)
     {
         string baseType = axeType[0 .. $ - 1].strip();
         return mapAxeTypeToC(baseType) ~ "*";
+    }
+
+    // Handle array types like "Token[]" or "i32[10]"
+    auto bracketPos = axeType.indexOf('[');
+    if (bracketPos >= 0)
+    {
+        string baseType = axeType[0 .. bracketPos].strip();
+        string arrayPart = axeType[bracketPos .. $];
+        return mapAxeTypeToC(baseType) ~ arrayPart;
     }
 
     if (axeType in g_typeMappings)
@@ -437,9 +457,9 @@ string generateC(ASTNode ast)
             {
                 auto modelNode = cast(ModelNode) child;
                 // Store the model name mapping
-                // Extract base name from prefixed name (e.g., "std_arena_Arena" -> "Arena")
+                // Extract base name from prefixed name (e.g., "std_arena_Arena" -> "Arena", "lexer_Token" -> "Token")
                 string baseName = modelNode.name;
-                if (modelNode.name.canFind("_") && modelNode.name.startsWith("std_"))
+                if (modelNode.name.canFind("_"))
                 {
                     auto lastUnderscore = modelNode.name.lastIndexOf('_');
                     if (lastUnderscore >= 0)
@@ -1706,18 +1726,13 @@ string generateC(ASTNode ast)
         g_generatedTypedefs[enumNode.name] = true;
         
         string baseName = enumNode.name;
-        if (enumNode.name.canFind("_") && enumNode.name.startsWith("std_"))
+        if (enumNode.name.canFind("_"))
         {
             auto lastUnderscore = enumNode.name.lastIndexOf('_');
             if (lastUnderscore >= 0)
             {
                 baseName = enumNode.name[lastUnderscore + 1 .. $];
-                g_modelNames[baseName] = enumNode.name;
             }
-        }
-        else
-        {
-            g_modelNames[enumNode.name] = enumNode.name;
         }
         
         g_enumValues[enumNode.name] = enumNode.values.dup;
