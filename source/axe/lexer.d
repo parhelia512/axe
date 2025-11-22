@@ -23,6 +23,8 @@ Token[] lex(string source)
 
     Token[] tokens;
     size_t pos = 0;
+    size_t line = 1;
+    size_t column = 1;
 
     while (pos < source.length)
     {
@@ -49,11 +51,14 @@ Token[] lex(string source)
         case ' ', '\t', '\r':
             tokens ~= Token(TokenType.WHITESPACE, source[pos .. pos + 1]);
             pos++;
+            column++;
             break;
 
         case '\n':
             tokens ~= Token(TokenType.NEWLINE, "\n");
             pos++;
+            line++;
+            column = 1;
             break;
 
         case '{':
@@ -280,12 +285,14 @@ Token[] lex(string source)
 
         case '\'':
             size_t cend = source.indexOf('\'', pos + 1);
-            enforce(cend != -1, "Unterminated character literal");
+            import std.conv : to;
+            enforce(cend != -1, "Unterminated character literal at line " ~ line.to!string ~ ", column " ~ column.to!string);
             auto clen = cend - (pos + 1);
             enforce(clen >= 1 && clen <= 10,
-                "Character literals must contain between 1 and 10 characters");
+                "Character literals must contain between 1 and 10 characters at line " ~ line.to!string ~ ", column " ~ column.to!string ~ " (content: '" ~ source[pos + 1 .. cend] ~ "')");
             tokens ~= Token(TokenType.CHAR, source[pos + 1 .. cend]);
             pos = cend + 1;
+            column += (cend + 1 - pos);
             break;
 
         case '(', ')', ',':
