@@ -66,11 +66,6 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
         g_processedModules[normalizedPath] = "1";
     }
 
-    if (currentFilePath.canFind("lists.axec"))
-    {
-        import std.stdio : writeln;
-        writeln("DEBUG: Processing std.lists imports. Children count: ", programNode.children.length);
-    }
 
     auto startsWithLower = (string s) {
         return s.length > 0 && s[0] >= 'a' && s[0] <= 'z';
@@ -208,16 +203,6 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
             auto importAst = parse(importTokens, importIsAxec, false, useNode.moduleName);
             string importBaseDir = dirName(modulePath);
             importAst = processImports(importAst, importBaseDir, importIsAxec, modulePath, false);
-
-            if (modulePath.canFind("errors.axec"))
-            {
-                 import std.stdio : writeln;
-                 writeln("DEBUG: Processed std.errors. Children: ", (cast(ProgramNode)importAst).children.length);
-                 foreach(c; (cast(ProgramNode)importAst).children) {
-                     if (c.nodeType == "Model") writeln("  Child Model: ", (cast(ModelNode)c).name);
-                     else writeln("  Child type: ", c.nodeType);
-                 }
-            }
 
             auto importProgram = cast(ProgramNode) importAst;
 
@@ -512,11 +497,8 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         {
                             auto modelNode = cast(ModelNode) pChild;
                             import std.stdio : writeln;
-                            writeln("DEBUG: [Platform] Found model '", modelNode.name, 
-                                         "', isPublic=", modelNode.isPublic);
                             if (!modelNode.isPublic)
                             {
-                                writeln("DEBUG: [Platform] Skipping non-public model '", modelNode.name, "'");
                                 continue;
                             }
 
@@ -790,10 +772,8 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 {
                     auto modelNode = cast(ModelNode) importChild;
                     import std.stdio : writeln;
-                    writeln("DEBUG: Found model '", modelNode.name, "', isPublic=", modelNode.isPublic);
                     if (!modelNode.isPublic)
                     {
-                        writeln("DEBUG: Skipping non-public model '", modelNode.name, "'");
                         continue;
                     }
 
@@ -811,8 +791,6 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
 
                     bool isExplicitlyImported = useNode.importAll || useNode.imports.canFind(baseName);
                     
-                    writeln("DEBUG: Checking model '", modelNode.name, "', baseName='", baseName, 
-                                 "', isExplicit=", isExplicitlyImported, ", methods=", modelNode.methods.length);
 
                     if (isExplicitlyImported)
                     {
@@ -821,7 +799,6 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
 
                     if (isExplicitlyImported)
                     {
-                        writeln("DEBUG: Treating '", modelNode.name, "' as explicit import");
                         string prefixedName = moduleModelMap.get(modelNode.name, modelNode.name);
                         importedModels[baseName] = prefixedName;
                         auto newModel = new ModelNode(prefixedName, null);
@@ -864,8 +841,6 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                                 if (existingModel.name == modelNode.name)
                                 {
                                     alreadyAdded = true;
-                                    writeln("DEBUG: Skipping duplicate transitive model: ", modelNode
-                                            .name);
                                     break;
                                 }
                             }
@@ -874,7 +849,6 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         if (!alreadyAdded)
                         {
                             isTransitiveDependency[modelNode.name] = true;
-                            writeln("DEBUG: Adding transitive model: ", modelNode.name);
 
                             // For transitive dependencies, just pass through the model as-is.
                             // It should already be prefixed from when it was explicitly imported

@@ -105,14 +105,11 @@ void collectDeclaredFunctions(ASTNode node, ref bool[string] declared)
         if (modelNode !is null)
         {
             import std.stdio : writeln;
-            writeln("DEBUG: Collecting from Model: ", modelNode.name, ", methods: ", 
-                    modelNode.methods.length, ", isPublic: ", modelNode.isPublic);
             foreach (method; modelNode.methods)
             {
                 auto methodFunc = cast(FunctionNode) method;
                 if (methodFunc !is null)
                 {
-                    writeln("DEBUG:    Method: ", methodFunc.name, ", isPublic: ", methodFunc.isPublic);
                     declared[methodFunc.name] = true;
                 }
             }

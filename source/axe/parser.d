@@ -5160,15 +5160,11 @@ private PrintlnNode parsePrintlnHelper(ref size_t pos, Token[] tokens)
         {
             import std.stdio : writeln;
 
-            writeln("DEBUG parsePrintlnHelper: g_importedModules keys: ", g_importedModules.keys);
             auto ptr = ("std.string" in g_importedModules);
-            writeln("DEBUG parsePrintlnHelper: ptr is null: ", (ptr is null));
-            writeln("DEBUG parsePrintlnHelper: ptr value: ", ptr);
             enforce(ptr !is null,
                 "String interpolation requires 'use std.string;'");
 
             string rawContent = tokens[pos].value;
-            writeln("DEBUG parsePrintlnHelper: rawContent = '", rawContent, "'");
             enforce(rawContent.canFind("{"),
                 "Interpolated string must contain at least one {} expression. " ~
                     "Use a regular string if no interpolation is needed.");
