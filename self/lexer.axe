@@ -874,7 +874,10 @@ pub def lex(source: string): ref Token[] {
                   (source[pos + 1] == 'x' or source[pos + 1] == 'X') {
                 val start: i32 = pos;
                 pos = pos + 2;
-                loop pos < src_len {
+                loop {
+                    if !(pos < src_len) { 
+                        break;
+                    }
                     val hex_ch: char = source[pos];
                     if (hex_ch >= '0' and hex_ch <= '9') or
                        (hex_ch >= 'a' and hex_ch <= 'f') or
@@ -890,8 +893,11 @@ pub def lex(source: string): ref Token[] {
                 tokens = Token[].append(tokens, tok);
             } elif is_alphanum(ch) or ch == '_' {
                 val start: i32 = pos;
-                loop pos < src_len and is_alphanum(source[pos]) {
-                    pos = pos + 1;
+                loop {
+                    if !(pos < src_len and is_alphanum(source[pos])) {
+                        break;
+                    }
+                    pos++;
                 }
                 mut tok: Token;
                 tok.type = TokenType.IDENTIFIER;
@@ -905,12 +911,15 @@ pub def lex(source: string): ref Token[] {
 
     mut filtered: Token[];
     mut i: i32 = 0;
-    loop i < tokens.len {
+    loop {
+        if !(i < tokens.len) {
+            break;
+        }
         val tok: Token = tokens[i];
         if tok.type != TokenType.WHITESPACE and 
            tok.type != TokenType.NEWLINE and 
            tok.type != TokenType.COMMENT {
-            // filtered = Token[].append(filtered, tok);
+            filtered = Token[].append(filtered, tok);
         }
         i = i + 1;
     }
