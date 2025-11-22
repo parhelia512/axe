@@ -4394,6 +4394,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
             {
                 if (tokens[pos].type == TokenType.STR)
                     returnExpr ~= "\"" ~ tokens[pos].value ~ "\"";
+                else if (tokens[pos].type == TokenType.CHAR)
+                    returnExpr ~= "'" ~ tokens[pos].value ~ "'";
                 else
                     returnExpr ~= tokens[pos].value;
                 pos++;
@@ -4601,26 +4603,32 @@ private IfNode parseIfHelper(ref size_t pos, Token[] tokens, ref Scope currentSc
 
     debugWriteln("[parseIfHelper] Entering at pos=", pos);
 
-    pos++; // Skip 'if'
+    pos++;
     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
         pos++;
 
     string cond = "";
-    bool hasParen = false;
-    if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
+    int parenDepth = 0;
+    while (pos < tokens.length && (tokens[pos].type != TokenType.LBRACE || parenDepth > 0))
     {
-        hasParen = true;
-        pos++;
-    }
-
-    while (pos < tokens.length && tokens[pos].type != TokenType.LBRACE)
-    {
-        if (hasParen && tokens[pos].type == TokenType.RPAREN)
+        if (tokens[pos].type == TokenType.LPAREN)
+        {
+            parenDepth++;
+            cond ~= "(";
+            pos++;
+        }
+        else if (tokens[pos].type == TokenType.RPAREN)
+        {
+            if (parenDepth > 0)
+                parenDepth--;
+            cond ~= ")";
+            pos++;
+        }
+        else if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE)
         {
             pos++;
-            break;
         }
-        if (tokens[pos].type != TokenType.WHITESPACE)
+        else
         {
             if (tokens[pos].type == TokenType.STR)
                 cond ~= "\"" ~ tokens[pos].value ~ "\" ";
@@ -4630,15 +4638,15 @@ private IfNode parseIfHelper(ref size_t pos, Token[] tokens, ref Scope currentSc
                 cond ~= ".";
             else
                 cond ~= tokens[pos].value ~ " ";
+            pos++;
         }
-        pos++;
     }
 
     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
         pos++;
     enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
-        "Expected '{' after if condition here: " ~ tokens[pos - 5 .. pos + 5].map!(t => t.value)
-            .join(""));
+        "Expected '{' after if condition here: " ~ tokens[max(0, cast(int) pos - 5) .. min(tokens.length, pos + 5)].map!(t => t.value)
+            .join(" "));
     pos++;
 
     auto ifNode = new IfNode(cond.strip());
@@ -4670,19 +4678,19 @@ private IfNode parseIfHelper(ref size_t pos, Token[] tokens, ref Scope currentSc
             pos++;
 
         string elifCond = "";
-        int parenDepth = 0;
+        int elifParenDepth = 0;
 
         while (pos < tokens.length && tokens[pos].type != TokenType.LBRACE)
         {
             if (tokens[pos].type == TokenType.LPAREN)
             {
-                parenDepth++;
+                elifParenDepth++;
                 elifCond ~= "(";
                 pos++;
             }
             else if (tokens[pos].type == TokenType.RPAREN)
             {
-                parenDepth--;
+                elifParenDepth--;
                 elifCond ~= ")";
                 pos++;
             }

@@ -3566,7 +3566,7 @@ unittest
 
         writeln(cCode);
 
-        assert(cCode.canFind("(x>5)"));
+        assert(cCode.canFind("(x>5 )"));
         assert(cCode.canFind(`printf("greater");`));
     }
 
@@ -3929,7 +3929,7 @@ unittest
 
         writeln(cCode);
 
-        assert(cCode.canFind("(x>5)"));
+        assert(cCode.canFind("(x>5 )"));
         assert(cCode.canFind(`printf("greater");`));
     }
 
