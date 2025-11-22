@@ -187,7 +187,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 {
                     processedModuleName = processedModuleName.replace(".", dirSeparator);
                 }
-                
+
                 modulePath = buildPath(baseDir, processedModuleName ~ ".axe");
 
                 if (!exists(modulePath))
@@ -280,8 +280,8 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                                     auto methodFunc = cast(FunctionNode) method;
                                     if (methodFunc !is null)
                                     {
-                                        string prefixedMethodName = methodFunc.name.startsWith("std_") ? methodFunc.name
-                                            : (sanitizedModuleName ~ "_" ~ methodFunc.name);
+                                        string prefixedMethodName = methodFunc.name.startsWith("std_") ? methodFunc
+                                            .name : (sanitizedModuleName ~ "_" ~ methodFunc.name);
                                         moduleFunctionMap[methodFunc.name] = prefixedMethodName;
                                     }
                                 }
@@ -505,8 +505,10 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                                     auto methodFunc = cast(FunctionNode) method;
                                     if (methodFunc !is null)
                                     {
-                                        string prefixedMethodName = moduleFunctionMap[methodFunc.name];
-                                        auto newMethod = new FunctionNode(prefixedMethodName, methodFunc.params);
+                                        string prefixedMethodName = moduleFunctionMap[methodFunc
+                                            .name];
+                                        auto newMethod = new FunctionNode(prefixedMethodName, methodFunc
+                                                .params);
                                         newMethod.returnType = methodFunc.returnType;
                                         newMethod.children = methodFunc.children;
 
@@ -595,7 +597,8 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                                 foreach (existingChild; newPlatform.children)
                                 {
                                     auto existingExtern = cast(ExternNode) existingChild;
-                                    if (existingExtern !is null && existingExtern.functionName == externNode.functionName)
+                                    if (existingExtern !is null && existingExtern.functionName ==
+                                        externNode.functionName)
                                     {
                                         alreadyAdded = true;
                                         break;
@@ -683,10 +686,10 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 if (importChild.nodeType == "Function")
                 {
                     auto funcNode = cast(FunctionNode) importChild;
-                    
+
                     if (funcNode.name == "main")
                         continue;
-                    
+
                     if (useNode.importAll || useNode.imports.canFind(funcNode.name))
                         resolvedImports[funcNode.name] = true;
 
@@ -827,7 +830,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                     if (useNode.importAll || useNode.imports.canFind(enumNode.name))
                     {
                         resolvedImports[enumNode.name] = true;
-                        enumNode.name = moduleModelMap[enumNode.name]; // Prefix the name
+                        enumNode.name = moduleModelMap[enumNode.name];
                         newChildren ~= enumNode;
                     }
                     else

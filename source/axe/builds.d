@@ -109,9 +109,9 @@ void validateFunctionCalls(ASTNode node, bool[string] declared)
                 isDeclared = *p;
             }
 
-            writeln("[validateFunctionCalls] name=", name,
-                " isCEscape=", isCEscape,
-                " isDeclared=", isDeclared);
+            // writeln("[validateFunctionCalls] name=", name,
+            //     " isCEscape=", isCEscape,
+            //     " isDeclared=", isDeclared);
 
             if (!isCEscape && !isDeclared)
             {
