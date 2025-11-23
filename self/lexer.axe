@@ -4,14 +4,6 @@
 use std.string;
 use std.lists;
 
-pub model TokenList {
-    val length: i32;
-
-    def get(index: i32): TokenType {
-        return nil;
-    }
-}
-
 enum TokenType {
     IDENTIFIER,
     NUMBER,
@@ -74,19 +66,31 @@ enum TokenType {
     EXTERN,
     UNSAFE,
     STAR_DOT,
-    PUB
+    PUB,
+    PRINT,
+    DEF,
+    VAL,
+    MAIN,
+    MOD,
+    DEFAULT,
+    LOOP,
+    NEW,
+    OVERLOAD,
+    EXTERNAL,
+    SWITCH,
+    XOR
 }
 
 pub model Token {
     pub token_type: i32;
     pub value: string;
+}
 
-    pub def create(token_type: i32, value: string): Token {
-        mut t: Token;
-        t.token_type = token_type;
-        t.value = value;
-        return t;
-    }
+def create_token(token_type: i32, value: string): Token {
+    mut t: Token;
+    t.token_type = token_type;
+    t.value = value;
+    return t;
 }
 
 def is_alpha(ch: char): bool {
@@ -101,11 +105,642 @@ def is_alphanum(ch: char): bool {
     return is_alpha(ch) or is_digit(ch) or ch == '_';
 }
 
+def is_hex_digit(ch: char): bool {
+    return (ch >= '0' and ch <= '9') or (ch >= 'a' and ch <= 'f') or (ch >= 'A' and ch <= 'F');
+}
+
 def is_whitespace(ch: char): bool {
     return ch == ' ' or ch == '\t' or ch == '\r';
+}
+
+def char_at(s: string, pos: i32): char {
+    return s[pos];
+}
+
+def substring(s: string, start: i32, end: i32): string {
+    mut result: string = "";
+    mut i: i32 = start;
+    loop {
+        if i >= end {
+            break;
+        }
+        result = result + s[i];
+        i = i + 1;
+    }
+    return result;
+}
+
+def str_equals(s1: string, s2: string, start: i32, len: i32, source_len: i32): bool {
+    if start + len > source_len {
+        return false;
+    }
+    mut i: i32 = 0;
+    loop {
+        if i >= len {
+            break;
+        }
+        if s1[start + i] != s2[i] {
+            return false;
+        }
+        i = i + 1;
+    }
+    return true;
+}
+
+def check_boundary(source: string, pos: i32, source_len: i32): bool {
+    if pos >= source_len {
+        return true;
+    }
+    mut ch: char = source[pos];
+    return not is_alphanum(ch);
 }
 
 pub def lex(source: string): list_of(Token) {
     mut tokens: list_of(Token);
     mut pos: i32 = 0;
+    mut source_len: i32 = source.len;
+    
+    loop {
+        if pos >= source_len {
+            break;
+        }
+        mut ch: char = source[pos];
+        
+        if ch == '*' {
+            if pos + 1 < source_len and source[pos + 1] == '.' {
+                append(tokens, create_token(TokenType.STAR_DOT, "*."));
+                pos = pos + 2;
+            } else {
+                append(tokens, create_token(TokenType.STAR, "*"));
+                pos = pos + 1;
+            }
+        } elif ch == ' ' or ch == '\t' or ch == '\r' {
+            append(tokens, create_token(TokenType.WHITESPACE, substring(source, pos, pos + 1)));
+            pos = pos + 1;
+        } elif ch == '\n' {
+            append(tokens, create_token(TokenType.NEWLINE, "\n"));
+            pos = pos + 1;
+        } elif ch == '{' {
+            append(tokens, create_token(TokenType.LBRACE, "{"));
+            pos = pos + 1;
+        } elif ch == '}' {
+            append(tokens, create_token(TokenType.RBRACE, "}"));
+            pos = pos + 1;
+        } elif ch == ';' {
+            append(tokens, create_token(TokenType.SEMICOLON, ";"));
+            pos = pos + 1;
+        } elif ch == ':' {
+            append(tokens, create_token(TokenType.COLON, ":"));
+            pos = pos + 1;
+        } elif ch == '!' {
+            if pos + 1 < source_len and source[pos + 1] == '=' {
+                append(tokens, create_token(TokenType.OPERATOR, "!="));
+                pos = pos + 2;
+            } else {
+                append(tokens, create_token(TokenType.OPERATOR, "!"));
+                pos = pos + 1;
+            }
+        } elif ch == '=' {
+            if pos + 1 < source_len and source[pos + 1] == '=' {
+                append(tokens, create_token(TokenType.OPERATOR, "=="));
+                pos = pos + 2;
+            } elif pos + 1 < source_len and source[pos + 1] == '>' {
+                append(tokens, create_token(TokenType.OPERATOR, "=>"));
+                pos = pos + 2;
+            } else {
+                append(tokens, create_token(TokenType.OPERATOR, "="));
+                pos = pos + 1;
+            }
+        } elif ch == '-' {
+            if pos + 1 < source_len and source[pos + 1] == '-' {
+                append(tokens, create_token(TokenType.DECREMENT, "--"));
+                pos = pos + 2;
+            } else {
+                append(tokens, create_token(TokenType.MINUS, "-"));
+                pos = pos + 1;
+            }
+        } elif ch == '+' {
+            if pos + 1 < source_len and source[pos + 1] == '+' {
+                append(tokens, create_token(TokenType.INCREMENT, "++"));
+                pos = pos + 2;
+            } else {
+                append(tokens, create_token(TokenType.PLUS, "+"));
+                pos = pos + 1;
+            }
+        } elif ch == '>' {
+            if pos + 1 < source_len and source[pos + 1] == '=' {
+                append(tokens, create_token(TokenType.OPERATOR, ">="));
+                pos = pos + 2;
+            } elif pos + 1 < source_len and source[pos + 1] == '>' {
+                append(tokens, create_token(TokenType.OPERATOR, ">>"));
+                pos = pos + 2;
+            } else {
+                append(tokens, create_token(TokenType.OPERATOR, ">"));
+                pos = pos + 1;
+            }
+        } elif ch == '<' {
+            if pos + 1 < source_len and source[pos + 1] == '=' {
+                append(tokens, create_token(TokenType.OPERATOR, "<="));
+                pos = pos + 2;
+            } elif pos + 1 < source_len and source[pos + 1] == '<' {
+                append(tokens, create_token(TokenType.OPERATOR, "<<"));
+                pos = pos + 2;
+            } else {
+                append(tokens, create_token(TokenType.OPERATOR, "<"));
+                pos = pos + 1;
+            }
+        } elif ch == '/' {
+            if pos + 1 < source_len and source[pos + 1] == '/' {
+                mut start: i32 = pos;
+                loop {
+                    if pos >= source_len or source[pos] == '\n' {
+                        break;
+                    }
+                    pos = pos + 1;
+                }
+                append(tokens, create_token(TokenType.COMMENT, substring(source, start, pos)));
+            } else {
+                append(tokens, create_token(TokenType.SLASH, "/"));
+                pos = pos + 1;
+            }
+        } elif ch == '&' {
+            append(tokens, create_token(TokenType.OPERATOR, "&"));
+            pos = pos + 1;
+        } elif ch == '|' {
+            append(tokens, create_token(TokenType.OPERATOR, "|"));
+            pos = pos + 1;
+        } elif ch == '^' {
+            append(tokens, create_token(TokenType.OPERATOR, "^"));
+            pos = pos + 1;
+        } elif ch == '~' {
+            append(tokens, create_token(TokenType.OPERATOR, "~"));
+            pos = pos + 1;
+        } elif ch == '$' {
+            if pos + 1 < source_len and source[pos + 1] == '"' {
+                pos = pos + 2;
+                mut str_start: i32 = pos;
+                mut ending: i32 = pos;
+                loop {
+                    if ending >= source_len {
+                        break;
+                    }
+                    if source[ending] == '"' and (ending == 0 or source[ending - 1] != '\\') {
+                        break;
+                    } elif source[ending] == '\\' and ending + 1 < source_len {
+                        ending = ending + 2;
+                    } else {
+                        ending = ending + 1;
+                    }
+                }
+                append(tokens, create_token(TokenType.INTERPOLATED_STR, substring(source, str_start, ending)));
+                pos = ending + 1;
+            }
+        } elif ch == '"' {
+            mut ending: i32 = pos + 1;
+            loop {
+                if ending >= source_len {
+                    break;
+                }
+                if source[ending] == '"' {
+                    break;
+                } elif source[ending] == '\\' and ending + 1 < source_len {
+                    ending = ending + 2;
+                } else {
+                    ending = ending + 1;
+                }
+            }
+            append(tokens, create_token(TokenType.STR, substring(source, pos + 1, ending)));
+            pos = ending + 1;
+        } elif ch == '\'' {
+            mut cend: i32 = pos + 1;
+            loop {
+                if cend >= source_len or source[cend] == '\'' {
+                    break;
+                }
+                cend = cend + 1;
+            }
+            append(tokens, create_token(TokenType.CHAR, substring(source, pos + 1, cend)));
+            pos = cend + 1;
+        } elif ch == '(' {
+            append(tokens, create_token(TokenType.LPAREN, "("));
+            pos = pos + 1;
+        } elif ch == ')' {
+            append(tokens, create_token(TokenType.RPAREN, ")"));
+            pos = pos + 1;
+        } elif ch == ',' {
+            append(tokens, create_token(TokenType.COMMA, ","));
+            pos = pos + 1;
+        } elif ch == '[' {
+            append(tokens, create_token(TokenType.LBRACKET, "["));
+            pos = pos + 1;
+        } elif ch == ']' {
+            append(tokens, create_token(TokenType.RBRACKET, "]"));
+            pos = pos + 1;
+        } elif ch == '.' {
+            append(tokens, create_token(TokenType.DOT, "."));
+            pos = pos + 1;
+        } elif ch == 'a' {
+            if str_equals(source, "assert", pos, 6, source_len) and check_boundary(source, pos + 6, source_len) {
+                append(tokens, create_token(TokenType.ASSERT, "assert"));
+                pos = pos + 6;
+            } elif str_equals(source, "and", pos, 3, source_len) and check_boundary(source, pos + 3, source_len) {
+                append(tokens, create_token(TokenType.AND, "and"));
+                pos = pos + 3;
+            } else {
+                mut start: i32 = pos;
+                loop {
+                    if pos >= source_len or not is_alphanum(source[pos]) {
+                        break;
+                    }
+                    pos = pos + 1;
+                }
+                append(tokens, create_token(TokenType.IDENTIFIER, substring(source, start, pos)));
+            }
+        } elif ch == 'b' {
+            if str_equals(source, "break", pos, 5, source_len) and check_boundary(source, pos + 5, source_len) {
+                append(tokens, create_token(TokenType.BREAK, "break"));
+                pos = pos + 5;
+            } else {
+                mut start: i32 = pos;
+                loop {
+                    if pos >= source_len or not is_alphanum(source[pos]) {
+                        break;
+                    }
+                    pos = pos + 1;
+                }
+                append(tokens, create_token(TokenType.IDENTIFIER, substring(source, start, pos)));
+            }
+        } elif ch == 'c' {
+            if str_equals(source, "continue", pos, 8, source_len) and check_boundary(source, pos + 8, source_len) {
+                append(tokens, create_token(TokenType.CONTINUE, "continue"));
+                pos = pos + 8;
+            } elif str_equals(source, "case", pos, 4, source_len) and check_boundary(source, pos + 4, source_len) {
+                append(tokens, create_token(TokenType.CASE, "case"));
+                pos = pos + 4;
+            } else {
+                mut start: i32 = pos;
+                loop {
+                    if pos >= source_len or not is_alphanum(source[pos]) {
+                        break;
+                    }
+                    pos = pos + 1;
+                }
+                append(tokens, create_token(TokenType.IDENTIFIER, substring(source, start, pos)));
+            }
+        } elif ch == 'd' {
+            if str_equals(source, "default", pos, 7, source_len) and check_boundary(source, pos + 7, source_len) {
+                append(tokens, create_token(TokenType.DEFAULT, "default"));
+                pos = pos + 7;
+            } elif str_equals(source, "def", pos, 3, source_len) and check_boundary(source, pos + 3, source_len) {
+                append(tokens, create_token(TokenType.DEF, "def"));
+                pos = pos + 3;
+            } else {
+                mut start: i32 = pos;
+                loop {
+                    if pos >= source_len or not is_alphanum(source[pos]) {
+                        break;
+                    }
+                    pos = pos + 1;
+                }
+                append(tokens, create_token(TokenType.IDENTIFIER, substring(source, start, pos)));
+            }
+        } elif ch == 'e' {
+            if str_equals(source, "external", pos, 8, source_len) and check_boundary(source, pos + 8, source_len) {
+                append(tokens, create_token(TokenType.EXTERNAL, "external"));
+                pos = pos + 8;
+            } elif str_equals(source, "extern", pos, 6, source_len) and check_boundary(source, pos + 6, source_len) {
+                append(tokens, create_token(TokenType.EXTERN, "extern"));
+                pos = pos + 6;
+            } elif str_equals(source, "enum", pos, 4, source_len) and check_boundary(source, pos + 4, source_len) {
+                append(tokens, create_token(TokenType.ENUM, "enum"));
+                pos = pos + 4;
+            } elif str_equals(source, "elif", pos, 4, source_len) and check_boundary(source, pos + 4, source_len) {
+                append(tokens, create_token(TokenType.ELIF, "elif"));
+                pos = pos + 4;
+            } elif str_equals(source, "else", pos, 4, source_len) and check_boundary(source, pos + 4, source_len) {
+                append(tokens, create_token(TokenType.ELSE, "else"));
+                pos = pos + 4;
+            } else {
+                mut start: i32 = pos;
+                loop {
+                    if pos >= source_len or not is_alphanum(source[pos]) {
+                        break;
+                    }
+                    pos = pos + 1;
+                }
+                append(tokens, create_token(TokenType.IDENTIFIER, substring(source, start, pos)));
+            }
+        } elif ch == 'f' {
+            if str_equals(source, "for", pos, 3, source_len) and check_boundary(source, pos + 3, source_len) {
+                append(tokens, create_token(TokenType.FOR, "for"));
+                pos = pos + 3;
+            } else {
+                mut start: i32 = pos;
+                loop {
+                    if pos >= source_len or not is_alphanum(source[pos]) {
+                        break;
+                    }
+                    pos = pos + 1;
+                }
+                append(tokens, create_token(TokenType.IDENTIFIER, substring(source, start, pos)));
+            }
+        } elif ch == 'i' {
+            if str_equals(source, "in", pos, 2, source_len) and check_boundary(source, pos + 2, source_len) {
+                append(tokens, create_token(TokenType.IN, "in"));
+                pos = pos + 2;
+            } elif str_equals(source, "if", pos, 2, source_len) and check_boundary(source, pos + 2, source_len) {
+                append(tokens, create_token(TokenType.IF, "if"));
+                pos = pos + 2;
+            } else {
+                mut start: i32 = pos;
+                loop {
+                    if pos >= source_len or not is_alphanum(source[pos]) {
+                        break;
+                    }
+                    pos = pos + 1;
+                }
+                append(tokens, create_token(TokenType.IDENTIFIER, substring(source, start, pos)));
+            }
+        } elif ch == 'l' {
+            if str_equals(source, "loop", pos, 4, source_len) and check_boundary(source, pos + 4, source_len) {
+                append(tokens, create_token(TokenType.LOOP, "loop"));
+                pos = pos + 4;
+            } else {
+                mut start: i32 = pos;
+                loop {
+                    if pos >= source_len or not is_alphanum(source[pos]) {
+                        break;
+                    }
+                    pos = pos + 1;
+                }
+                append(tokens, create_token(TokenType.IDENTIFIER, substring(source, start, pos)));
+            }
+        } elif ch == 'm' {
+            if str_equals(source, "macro", pos, 5, source_len) and check_boundary(source, pos + 5, source_len) {
+                append(tokens, create_token(TokenType.MACRO, "macro"));
+                pos = pos + 5;
+            } elif str_equals(source, "model", pos, 5, source_len) and check_boundary(source, pos + 5, source_len) {
+                append(tokens, create_token(TokenType.MODEL, "model"));
+                pos = pos + 5;
+            } elif str_equals(source, "main", pos, 4, source_len) and check_boundary(source, pos + 4, source_len) {
+                append(tokens, create_token(TokenType.MAIN, "main"));
+                pos = pos + 4;
+            } elif str_equals(source, "mut", pos, 3, source_len) and check_boundary(source, pos + 3, source_len) {
+                append(tokens, create_token(TokenType.MUT, "mut"));
+                pos = pos + 3;
+            } elif str_equals(source, "mod", pos, 3, source_len) and check_boundary(source, pos + 3, source_len) {
+                append(tokens, create_token(TokenType.MOD, "mod"));
+                pos = pos + 3;
+            } else {
+                mut start: i32 = pos;
+                loop {
+                    if pos >= source_len or not is_alphanum(source[pos]) {
+                        break;
+                    }
+                    pos = pos + 1;
+                }
+                append(tokens, create_token(TokenType.IDENTIFIER, substring(source, start, pos)));
+            }
+        } elif ch == 'n' {
+            if str_equals(source, "new", pos, 3, source_len) and check_boundary(source, pos + 3, source_len) {
+                append(tokens, create_token(TokenType.NEW, "new"));
+                pos = pos + 3;
+            } else {
+                mut start: i32 = pos;
+                loop {
+                    if pos >= source_len or not is_alphanum(source[pos]) {
+                        break;
+                    }
+                    pos = pos + 1;
+                }
+                append(tokens, create_token(TokenType.IDENTIFIER, substring(source, start, pos)));
+            }
+        } elif ch == 'o' {
+            if str_equals(source, "overload", pos, 8, source_len) and check_boundary(source, pos + 8, source_len) {
+                append(tokens, create_token(TokenType.OVERLOAD, "overload"));
+                pos = pos + 8;
+            } elif str_equals(source, "opaque", pos, 6, source_len) and check_boundary(source, pos + 6, source_len) {
+                append(tokens, create_token(TokenType.OPAQUE, "opaque"));
+                pos = pos + 6;
+            } elif str_equals(source, "or", pos, 2, source_len) and check_boundary(source, pos + 2, source_len) {
+                append(tokens, create_token(TokenType.OR, "or"));
+                pos = pos + 2;
+            } else {
+                mut start: i32 = pos;
+                loop {
+                    if pos >= source_len or not is_alphanum(source[pos]) {
+                        break;
+                    }
+                    pos = pos + 1;
+                }
+                append(tokens, create_token(TokenType.IDENTIFIER, substring(source, start, pos)));
+            }
+        } elif ch == 'p' {
+            if str_equals(source, "platform", pos, 8, source_len) and check_boundary(source, pos + 8, source_len) {
+                append(tokens, create_token(TokenType.PLATFORM, "platform"));
+                pos = pos + 8;
+            } elif str_equals(source, "parallel", pos, 8, source_len) and check_boundary(source, pos + 8, source_len) {
+                append(tokens, create_token(TokenType.PARALLEL, "parallel"));
+                pos = pos + 8;
+            } elif str_equals(source, "posix", pos, 5, source_len) and check_boundary(source, pos + 5, source_len) {
+                append(tokens, create_token(TokenType.POSIX, "posix"));
+                pos = pos + 5;
+            } elif str_equals(source, "pub", pos, 3, source_len) and check_boundary(source, pos + 3, source_len) {
+                append(tokens, create_token(TokenType.PUB, "pub"));
+                pos = pos + 3;
+            } elif str_equals(source, "put", pos, 3, source_len) and check_boundary(source, pos + 3, source_len) {
+                append(tokens, create_token(TokenType.PRINT, "put"));
+                pos = pos + 3;
+            } else {
+                mut start: i32 = pos;
+                loop {
+                    if pos >= source_len or not is_alphanum(source[pos]) {
+                        break;
+                    }
+                    pos = pos + 1;
+                }
+                append(tokens, create_token(TokenType.IDENTIFIER, substring(source, start, pos)));
+            }
+        } elif ch == 'r' {
+            if str_equals(source, "return", pos, 6, source_len) and check_boundary(source, pos + 6, source_len) {
+                append(tokens, create_token(TokenType.RETURN, "return"));
+                pos = pos + 6;
+            } elif str_equals(source, "reduce", pos, 6, source_len) and check_boundary(source, pos + 6, source_len) {
+                append(tokens, create_token(TokenType.REDUCE, "reduce"));
+                pos = pos + 6;
+            } elif str_equals(source, "ref", pos, 3, source_len) and check_boundary(source, pos + 3, source_len) {
+                append(tokens, create_token(TokenType.REF, "ref"));
+                pos = pos + 3;
+            } elif str_equals(source, "raw", pos, 3, source_len) and check_boundary(source, pos + 3, source_len) {
+                append(tokens, create_token(TokenType.RAW, "raw"));
+                pos = pos + 3;
+                loop {
+                    if pos >= source_len or (not is_whitespace(source[pos]) and source[pos] != '\n') {
+                        break;
+                    }
+                    if source[pos] == '\n' {
+                        append(tokens, create_token(TokenType.NEWLINE, "\n"));
+                    } elif source[pos] == ' ' or source[pos] == '\t' {
+                        append(tokens, create_token(TokenType.WHITESPACE, substring(source, pos, pos + 1)));
+                    }
+                    pos = pos + 1;
+                }
+                if pos < source_len and source[pos] == '{' {
+                    append(tokens, create_token(TokenType.LBRACE, "{"));
+                    pos = pos + 1;
+                    mut brace_depth: i32 = 1;
+                    mut content_start: i32 = pos;
+                    loop {
+                        if pos >= source_len or brace_depth <= 0 {
+                            break;
+                        }
+                        if source[pos] == '{' {
+                            brace_depth = brace_depth + 1;
+                        } elif source[pos] == '}' {
+                            brace_depth = brace_depth - 1;
+                            if brace_depth == 0 {
+                                break;
+                            }
+                        }
+                        pos = pos + 1;
+                    }
+                    if pos > content_start {
+                        append(tokens, create_token(TokenType.IDENTIFIER, substring(source, content_start, pos)));
+                    }
+                    if pos < source_len and source[pos] == '}' {
+                        append(tokens, create_token(TokenType.RBRACE, "}"));
+                        pos = pos + 1;
+                    }
+                }
+            } else {
+                mut start: i32 = pos;
+                loop {
+                    if pos >= source_len or not is_alphanum(source[pos]) {
+                        break;
+                    }
+                    pos = pos + 1;
+                }
+                append(tokens, create_token(TokenType.IDENTIFIER, substring(source, start, pos)));
+            }
+        } elif ch == 's' {
+            if str_equals(source, "switch", pos, 6, source_len) and check_boundary(source, pos + 6, source_len) {
+                append(tokens, create_token(TokenType.SWITCH, "switch"));
+                pos = pos + 6;
+            } elif str_equals(source, "single", pos, 6, source_len) and check_boundary(source, pos + 6, source_len) {
+                append(tokens, create_token(TokenType.SINGLE, "single"));
+                pos = pos + 6;
+            } else {
+                mut start: i32 = pos;
+                loop {
+                    if pos >= source_len or not is_alphanum(source[pos]) {
+                        break;
+                    }
+                    pos = pos + 1;
+                }
+                append(tokens, create_token(TokenType.IDENTIFIER, substring(source, start, pos)));
+            }
+        } elif ch == 't' {
+            if str_equals(source, "test", pos, 4, source_len) and check_boundary(source, pos + 4, source_len) {
+                append(tokens, create_token(TokenType.TEST, "test"));
+                pos = pos + 4;
+            } elif str_equals(source, "to", pos, 2, source_len) and check_boundary(source, pos + 2, source_len) {
+                append(tokens, create_token(TokenType.TO, "to"));
+                pos = pos + 2;
+            } else {
+                mut start: i32 = pos;
+                loop {
+                    if pos >= source_len or not is_alphanum(source[pos]) {
+                        break;
+                    }
+                    pos = pos + 1;
+                }
+                append(tokens, create_token(TokenType.IDENTIFIER, substring(source, start, pos)));
+            }
+        } elif ch == 'u' {
+            if str_equals(source, "unsafe", pos, 6, source_len) and check_boundary(source, pos + 6, source_len) {
+                append(tokens, create_token(TokenType.UNSAFE, "unsafe"));
+                pos = pos + 6;
+            } elif str_equals(source, "use", pos, 3, source_len) and check_boundary(source, pos + 3, source_len) {
+                append(tokens, create_token(TokenType.USE, "use"));
+                pos = pos + 3;
+            } else {
+                mut start: i32 = pos;
+                loop {
+                    if pos >= source_len or not is_alphanum(source[pos]) {
+                        break;
+                    }
+                    pos = pos + 1;
+                }
+                append(tokens, create_token(TokenType.IDENTIFIER, substring(source, start, pos)));
+            }
+        } elif ch == 'v' {
+            if str_equals(source, "val", pos, 3, source_len) and check_boundary(source, pos + 3, source_len) {
+                append(tokens, create_token(TokenType.VAL, "val"));
+                pos = pos + 3;
+            } else {
+                mut start: i32 = pos;
+                loop {
+                    if pos >= source_len or not is_alphanum(source[pos]) {
+                        break;
+                    }
+                    pos = pos + 1;
+                }
+                append(tokens, create_token(TokenType.IDENTIFIER, substring(source, start, pos)));
+            }
+        } elif ch == 'w' {
+            if str_equals(source, "windows", pos, 7, source_len) and check_boundary(source, pos + 7, source_len) {
+                append(tokens, create_token(TokenType.WINDOWS, "windows"));
+                pos = pos + 7;
+            } elif str_equals(source, "while", pos, 5, source_len) and check_boundary(source, pos + 5, source_len) {
+                append(tokens, create_token(TokenType.WHILE, "while"));
+                pos = pos + 5;
+            } else {
+                mut start: i32 = pos;
+                loop {
+                    if pos >= source_len or not is_alphanum(source[pos]) {
+                        break;
+                    }
+                    pos = pos + 1;
+                }
+                append(tokens, create_token(TokenType.IDENTIFIER, substring(source, start, pos)));
+            }
+        } elif ch == 'x' {
+            if str_equals(source, "xor", pos, 3, source_len) and check_boundary(source, pos + 3, source_len) {
+                append(tokens, create_token(TokenType.XOR, "xor"));
+                pos = pos + 3;
+            } else {
+                mut start: i32 = pos;
+                loop {
+                    if pos >= source_len or not is_alphanum(source[pos]) {
+                        break;
+                    }
+                    pos = pos + 1;
+                }
+                append(tokens, create_token(TokenType.IDENTIFIER, substring(source, start, pos)));
+            }
+        } elif ch == '0' and pos + 1 < source_len and (source[pos + 1] == 'x' or source[pos + 1] == 'X') {
+            mut start: i32 = pos;
+            pos = pos + 2;
+            loop {
+                if pos >= source_len or not is_hex_digit(source[pos]) {
+                    break;
+                }
+                pos = pos + 1;
+            }
+            append(tokens, create_token(TokenType.IDENTIFIER, substring(source, start, pos)));
+        } elif is_alphanum(ch) {
+            mut start: i32 = pos;
+            loop {
+                if pos >= source_len or not is_alphanum(source[pos]) {
+                    break;
+                }
+                pos = pos + 1;
+            }
+            append(tokens, create_token(TokenType.IDENTIFIER, substring(source, start, pos)));
+        } else {
+            pos = pos + 1;
+        }
+    }
+    
+    return tokens;
 }
