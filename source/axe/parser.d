@@ -3837,6 +3837,13 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                             initializer ~= "\"" ~ tokens[pos].value ~ "\"";
                         else if (tokens[pos].type == TokenType.CHAR)
                             initializer ~= "'" ~ tokens[pos].value ~ "'";
+                        else if (tokens[pos].type == TokenType.INTERPOLATED_STR)
+                        {
+                            enforce(tokens[pos].value.canFind("{"),
+                                "Interpolated string must contain at least one {} expression. " ~
+                                "If you don't need interpolation, use a regular string instead.");
+                            initializer ~= "__INTERPOLATED__" ~ tokens[pos].value ~ "__INTERPOLATED__";
+                        }
                         else
                             initializer ~= tokens[pos].value;
                         pos++;

@@ -2887,9 +2887,33 @@ string processExpression(string expr, string context = "")
         expr = normalized;
     }
 
-    if (expr.startsWith("__INTERPOLATED__") && expr.endsWith("__INTERPOLATED__"))
+    // Strip outer parentheses if they wrap the entire expression
+    import std.string : strip;
+    string strippedExpr = expr.strip();
+    if (strippedExpr.startsWith("(") && strippedExpr.endsWith(")"))
     {
-        string interpContent = expr[16 .. $ - 16];
+        // Check if these are matching outer parens
+        int depth = 0;
+        bool isOuterParen = true;
+        for (size_t i = 0; i < strippedExpr.length; i++)
+        {
+            if (strippedExpr[i] == '(') depth++;
+            else if (strippedExpr[i] == ')') depth--;
+            if (depth == 0 && i < strippedExpr.length - 1)
+            {
+                isOuterParen = false;
+                break;
+            }
+        }
+        if (isOuterParen)
+        {
+            strippedExpr = strippedExpr[1 .. $ - 1].strip();
+        }
+    }
+
+    if (strippedExpr.startsWith("__INTERPOLATED__") && strippedExpr.endsWith("__INTERPOLATED__"))
+    {
+        string interpContent = strippedExpr[16 .. $ - 16];
         return processInterpolatedString(interpContent, false);
     }
 
@@ -5463,5 +5487,20 @@ unittest
         writeln(cCode);
 
         assert(cCode.canFind("__list_int32_t_t lst;"), "Should declare list(i32) as int32_t array");
+    }
+
+    {
+        auto tokens = lex(`main {
+            val x: char* = "hello";
+            val y = ($"Hello, {x} world");
+        }`);
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+        
+        writeln("String interpolation test:");
+        writeln(cCode);
+        assert(cCode.canFind(`const char x[6];
+strcpy(x, "hello");`),
+            "Should create char array with correct size for interpolated string");
     }
 }
