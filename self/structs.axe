@@ -1,6 +1,6 @@
 use std.string;
 use std.io;
-use lexer(Token);
+use lexer (Token);
 
 /// Macro definition modelure
 model MacroDef {
