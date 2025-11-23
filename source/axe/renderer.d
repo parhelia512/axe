@@ -5462,6 +5462,6 @@ unittest
         writeln("list type test:");
         writeln(cCode);
 
-        assert(cCode.canFind("int32_t lst[999];"), "Should declare list(i32) as int32_t array");
+        assert(cCode.canFind("__list_int32_t_t lst;"), "Should declare list(i32) as int32_t array");
     }
 }
