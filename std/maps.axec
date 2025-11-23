@@ -12,8 +12,8 @@ macro create_map(keytype_elem: untyped, valtype_elem: untyped, mapname: untyped,
             unsafe {
                 map = Arena.alloc(arena, C.sizeof(mapname));
             }
-            map.keys = keytype.create(ref_of(arena), capacity);
-            map.values = valtype.create(ref_of(arena), capacity);
+            map.keys = keytype.create(arena, capacity);
+            map.values = valtype.create(arena, capacity);
             return map;
         }
         
@@ -23,13 +23,13 @@ macro create_map(keytype_elem: untyped, valtype_elem: untyped, mapname: untyped,
         }
         
         def append(map: ref mapname, arena: ref Arena, key: keytype_elem, value: valtype_elem) {
-            keytype.push(map.keys, ref_of(arena), key);
-            valtype.push(map.values, ref_of(arena), value);
+            keytype.push(map.keys, arena, key);
+            valtype.push(map.values, arena, value);
         }
         
         def add(map: ref mapname, arena: ref Arena, key: keytype_elem, value: valtype_elem) {
-            keytype.push(map.keys, ref_of(arena), key);
-            valtype.push(map.values, ref_of(arena), value);
+            keytype.push(map.keys, arena, key);
+            valtype.push(map.values, arena, value);
         }
         
         def get(map: ref mapname, key: keytype_elem): valtype_elem {
@@ -41,7 +41,7 @@ macro create_map(keytype_elem: untyped, valtype_elem: untyped, mapname: untyped,
                     break;
                 }
                 unsafe {
-                    if C.memcmp(&keys*.data[i], &key, C.sizeof(key)) == 0 {
+                    if C.memcmp(&(keys*.data[i]), &key, C.sizeof(key)) == 0 {
                         return values*.data[i];
                     }
                 }
@@ -62,7 +62,7 @@ macro create_map(keytype_elem: untyped, valtype_elem: untyped, mapname: untyped,
                     break;
                 }
                 unsafe {
-                    if C.memcmp(&keys*.data[i], &key, C.sizeof(key)) == 0 {
+                    if C.memcmp(&(keys*.data[i]), &key, C.sizeof(key)) == 0 {
                         return true;
                     }
                 }
@@ -87,7 +87,7 @@ macro create_map(keytype_elem: untyped, valtype_elem: untyped, mapname: untyped,
                     break;
                 }
                 unsafe {
-                    if C.memcmp(&keys*.data[i], &key, C.sizeof(key)) == 0 {
+                    if C.memcmp(&(keys*.data[i]), &key, C.sizeof(key)) == 0 {
                         found = true;
                     }
                 }
