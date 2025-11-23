@@ -197,6 +197,20 @@ def substring_se(s: string, start: i32, end: i32): string {
     return result;
 }
 
+/// Returns a substring from char* s from start to end (exclusive). 
+/// Caller must free the result.
+def substring_cse(s: char*, start: i32, end: i32): char* {
+    unsafe {
+        mut len: i32 = end - start;
+        mut result: char* = C.malloc(len + 1);
+        if (result != nil) {
+            C.memcpy(result, s + start, len);
+            result[len] = '\0';
+        }
+        return result;
+    }
+}
+
 /// Compares string with char*. Returns 0 if equal.
 pub def equals_c(a: string, b: char*): i32 {
     mut result: i32 = 0;
@@ -735,8 +749,9 @@ test {
     assert get_char(string.create("hello"), 1) == 'e', "get_char should return correct character";
     assert equals_c(string.create("test"), "test") == 0, "equals_c should return 0 for equal strings";
     assert equals_c(string.create("test"), "TEST") != 0, "equals_c should return non-zero for different strings";
-
     assert concat_chr(string.create("Price: "), '$').data != nil, "concat_chr should append character to string";
+
+    assert str_to_int(string.create("12345")) == 12345, "str_to_int should convert string to integer";
 
     val y = 10;
     
