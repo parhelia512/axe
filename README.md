@@ -2,7 +2,7 @@
 
 Axe is a compiled programming language with a focus on type safety, ease of concurrency, and performance. 
 
-It began as a re-engineering of Scar, though evolved into its own entity later on. Axe provides a clean syntax for systems programming with modern and parallel language features.
+It provides a clean syntax for systems programming with modern and parallel language features.
 
 ```axe
 use std.string;
