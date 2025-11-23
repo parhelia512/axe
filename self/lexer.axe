@@ -98,4 +98,6 @@ def is_whitespace(ch: char): bool {
 }
 
 pub def lex(source: string): ref Token[] {
+    mut tokens: Token[];
+    mut pos: i32 = 0;
 }
