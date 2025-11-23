@@ -1084,9 +1084,46 @@ string generateC(ASTNode ast)
             break;
         }
 
+        // WORKAROUND: Fix args that were incorrectly split at commas inside string literals
+        // If we have args like: '"text' and 'more text"', rejoin them
+        string[] fixedArgs;
+        for (size_t i = 0; i < callNode.args.length; i++)
+        {
+            string arg = callNode.args[i];
+
+            // Check if this arg starts with a quote but doesn't end with one
+            if (arg.strip().startsWith('"') && !arg.strip().endsWith('"'))
+            {
+                // Look ahead for the closing quote in subsequent args
+                string combined = arg;
+                size_t j = i + 1;
+                while (j < callNode.args.length)
+                {
+                    combined ~= ", " ~ callNode.args[j];
+                    if (callNode.args[j].strip().endsWith('"'))
+                    {
+                        // Found the closing quote
+                        fixedArgs ~= combined;
+                        i = j; // Skip the args we just combined
+                        break;
+                    }
+                    j++;
+                }
+                // If we didn't find a closing quote, just add the arg as-is
+                if (j >= callNode.args.length)
+                {
+                    fixedArgs ~= arg;
+                }
+            }
+            else
+            {
+                fixedArgs ~= arg;
+            }
+        }
+
         string[] processedArgs;
 
-        foreach (arg; callNode.args)
+        foreach (arg; fixedArgs)
         {
             string trimmedArg = arg.strip();
 
@@ -2504,6 +2541,44 @@ string processExpression(string expr, string context = "")
 {
     expr = expr.strip();
 
+    // EARLY EXIT: If the entire expression is a string literal, return it as-is without any processing
+    // Handle both " and ' as starting quotes (sometimes quotes get corrupted in parsing)
+    if (expr.length >= 2 && (expr[0] == '"' || expr[0] == '\''))
+    {
+        // Check if it's actually a complete string literal (not multiple strings)
+        // Look for either " or ' as the ending quote
+        bool inEscape = false;
+        size_t endQuotePos = 0;
+
+        for (size_t i = 1; i < expr.length; i++)
+        {
+            if (inEscape)
+            {
+                inEscape = false;
+            }
+            else if (expr[i] == '\\')
+            {
+                inEscape = true;
+            }
+            else if (expr[i] == '"' || expr[i] == '\'')
+            {
+                endQuotePos = i;
+                break;
+            }
+        }
+
+        // If we found the closing quote and it's at the end of the expression, it's a complete string
+        if (endQuotePos > 0 && endQuotePos + 1 == expr.length)
+        {
+            // Fix corrupted opening quote if needed
+            if (expr[0] != '"' && expr[endQuotePos] == '"')
+            {
+                return '"' ~ expr[1 .. $];
+            }
+            return expr;
+        }
+    }
+
     import std.regex : regex, matchFirst;
     import std.array : replace;
     import std.regex : replaceAll;
@@ -2587,25 +2662,69 @@ string processExpression(string expr, string context = "")
         return processInterpolatedString(interpContent, false);
     }
 
-    expr = expr.replace(" mod ", " % ");
-    expr = expr.replaceAll(regex(r"([^a-zA-Z_])mod([^a-zA-Z_])"), "$1%$2");
-    expr = expr.replaceAll(regex(r"^mod([^a-zA-Z_])"), "%$1");
-    expr = expr.replaceAll(regex(r"([^a-zA-Z_])mod$"), "$1%");
+    string replaceKeywordOutsideStrings(string input, string keyword, string replacement)
+    {
+        string result = "";
+        bool inString = false;
+        size_t i = 0;
 
-    expr = expr.replaceAll(regex(r"([^a-zA-Z_])and([^a-zA-Z_])"), "$1&&$2");
-    expr = expr.replaceAll(regex(r"^and([^a-zA-Z_])"), "&&$1");
-    expr = expr.replaceAll(regex(r"([^a-zA-Z_])and$"), "$1&&");
-    expr = expr.replace(" and ", " && ");
+        while (i < input.length)
+        {
+            if (input[i] == '"' && (i == 0 || input[i - 1] != '\\'))
+            {
+                inString = !inString;
+                result ~= input[i];
+                i++;
+            }
+            else if (!inString)
+            {
+                bool matches = false;
+                size_t matchLen = 0;
 
-    expr = expr.replaceAll(regex(r"([^a-zA-Z_])or([^a-zA-Z_])"), "$1||$2");
-    expr = expr.replaceAll(regex(r"^or([^a-zA-Z_])"), "||$1");
-    expr = expr.replaceAll(regex(r"([^a-zA-Z_])or$"), "$1||");
-    expr = expr.replace(" or ", " || ");
+                if (i > 0 && i + keyword.length + 1 < input.length &&
+                    input[i - 1] == ' ' && input[i .. i + keyword.length] == keyword &&
+                    input[i + keyword.length] == ' ')
+                {
+                    result ~= replacement;
+                    i += keyword.length;
+                    matches = true;
+                }
+                else if (i + keyword.length <= input.length && input[i .. i + keyword.length] == keyword)
+                {
+                    import std.ascii : isAlphaNum;
 
-    expr = expr.replaceAll(regex(r"([^a-zA-Z_])xor([^a-zA-Z_])"), "$1^$2");
-    expr = expr.replaceAll(regex(r"^xor([^a-zA-Z_])"), "^$1");
-    expr = expr.replaceAll(regex(r"([^a-zA-Z_])xor$"), "$1^");
-    expr = expr.replace(" xor ", " ^ ");
+                    bool beforeOk = (i == 0 || (!isAlphaNum(input[i - 1]) && input[i - 1] != '_'));
+                    bool afterOk = (i + keyword.length >= input.length ||
+                            (!isAlphaNum(input[i + keyword.length]) && input[i + keyword.length] != '_'));
+
+                    if (beforeOk && afterOk)
+                    {
+                        result ~= replacement;
+                        i += keyword.length;
+                        matches = true;
+                    }
+                }
+
+                if (!matches)
+                {
+                    result ~= input[i];
+                    i++;
+                }
+            }
+            else
+            {
+                result ~= input[i];
+                i++;
+            }
+        }
+
+        return result;
+    }
+
+    expr = replaceKeywordOutsideStrings(expr, "mod", "%");
+    expr = replaceKeywordOutsideStrings(expr, "and", "&&");
+    expr = replaceKeywordOutsideStrings(expr, "or", "||");
+    expr = replaceKeywordOutsideStrings(expr, "xor", "^");
 
     import std.string : indexOf, lastIndexOf;
 

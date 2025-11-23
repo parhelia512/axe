@@ -8,7 +8,8 @@ use std.string;
 use lexer;
 
 main {
-    val args: ref StringList = get_cmdline_args();
+    val arena: Arena = Arena.create(1024);
+    val args: ref StringList = get_cmdline_args(ref_of(arena));
     
     if StringList.length(args) < 2 {
         println("Usage: axe <input.axe|axec> [options]");
