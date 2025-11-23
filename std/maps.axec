@@ -6,7 +6,7 @@ macro create_map(keytype_elem: untyped, valtype_elem: untyped, mapname: untyped,
     model mapname {
         keys: ref keytype;
         values: ref valtype;
-        
+
         def create(arena: ref Arena, capacity: i32): ref mapname {
             mut map: ref mapname;
             unsafe {
@@ -16,7 +16,7 @@ macro create_map(keytype_elem: untyped, valtype_elem: untyped, mapname: untyped,
             map.values = valtype.create(arena, capacity);
             return map;
         }
-        
+
         def clear(map: ref mapname) {
             map.keys.len = 0;
             map.values.len = 0;
@@ -124,6 +124,7 @@ create_map(i32, f32, IntFloatMap, IntList, FloatList);
 create_map(f32, i32, FloatIntMap, FloatList, IntList);
 create_map(string, bool, StringBoolMap, StringList, BoolList);
 create_map(bool, string, BoolStringMap, BoolList, StringList);
+create_map(string, bool, StringBoolMap, StringList, BoolList);
 create_map(i32, bool, IntBoolMap, IntList, BoolList);
 create_map(bool, i32, BoolIntMap, BoolList, IntList);
 create_map(f32, bool, FloatBoolMap, FloatList, BoolList);
