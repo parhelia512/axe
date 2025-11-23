@@ -1611,7 +1611,6 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                     }
                 }
 
-                // Add the last argument if there is one (even if empty)
                 macroArgs ~= currentArg.strip();
 
                 enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
@@ -1625,7 +1624,6 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                     "Expected ';' after macro invocation");
                 pos++; // Skip ';'
 
-                // Expand macro
                 auto macroDef = g_macros[identName];
                 Token[] expandedTokens = macroDef.bodyTokens.dup;
 
