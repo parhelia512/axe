@@ -146,7 +146,7 @@ void validateFunctionCalls(ASTNode node, bool[string] declared, string[string] m
 {
     // Add built-in functions that are always available
     declared["append"] = true;
-    
+
     if (node.nodeType == "Model")
     {
         auto modelNode = cast(ModelNode) node;
@@ -715,18 +715,18 @@ string[] extractSnippetsFromCLine(string cLine)
     import std.string : strip, lastIndexOf, indexOf, split;
     import std.algorithm : filter, map;
     import std.array : array;
-    
+
     string[] candidates;
     string line = cLine.strip();
-    
+
     // Skip comments and very generic lines
     if (line.startsWith("//") || line.startsWith("/*") || line.length < 5)
         return candidates;
-    
+
     // Skip lines that look like includes or preprocessor directives
     if (line.startsWith("#") || line.startsWith("typedef") || line.startsWith("struct"))
         return candidates;
-    
+
     // Pattern 1: Function calls to Axe-generated functions (most reliable)
     auto funcCallMatch = line.matchFirst(r"([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^;]+)\);");
     if (!funcCallMatch.empty)
@@ -737,7 +737,7 @@ string[] extractSnippetsFromCLine(string cLine)
         {
             // Filter out common C library functions
             string[] commonCFuncs = [
-                "printf", "malloc", "free", "strcpy", "strlen", 
+                "printf", "malloc", "free", "strcpy", "strlen",
                 "memcpy", "memset", "exit", "fprintf", "scanf",
                 "strcmp", "strcat", "atoi", "atol", "atof"
             ];
@@ -745,7 +745,7 @@ string[] extractSnippetsFromCLine(string cLine)
                 candidates ~= funcName;
         }
     }
-    
+
     // Pattern 2: Variable assignments with function calls
     ptrdiff_t eqPos = line.lastIndexOf('=');
     if (eqPos >= 0 && eqPos + 1 < cast(ptrdiff_t) line.length)
@@ -754,7 +754,7 @@ string[] extractSnippetsFromCLine(string cLine)
         ptrdiff_t semiPos = rhs.indexOf(';');
         if (semiPos > 0)
             rhs = rhs[0 .. semiPos].strip();
-        
+
         if (rhs.canFind("(") && rhs.canFind(")"))
         {
             auto funcMatch = rhs.matchFirst(r"([a-zA-Z_][a-zA-Z0-9_]*)\s*\(");
@@ -766,14 +766,14 @@ string[] extractSnippetsFromCLine(string cLine)
             }
         }
     }
-    
+
     // Pattern 3: Variable declarations that look like Axe types
     auto varDeclMatch = line.matchFirst(r"\w+\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([^;]+);");
     if (!varDeclMatch.empty)
     {
         string varName = varDeclMatch[1];
         string initExpr = varDeclMatch[2].strip();
-        
+
         // Only use variables that look like Axe identifiers (not temp vars)
         if (varName.length >= 5 && !varName.startsWith("temp") && !varName.startsWith("tmp") &&
             !varName.startsWith("_"))
@@ -793,15 +793,15 @@ string[] extractSnippetsFromCLine(string cLine)
             candidates ~= varName;
         }
     }
-    
+
     // Pattern 4: Return statements with function calls
     if (line.startsWith("return"))
     {
-        string expr = line[6..$].strip();
+        string expr = line[6 .. $].strip();
         ptrdiff_t semiPos = expr.indexOf(';');
         if (semiPos > 0)
             expr = expr[0 .. semiPos].strip();
-        
+
         if (expr.canFind("(") && expr.canFind(")"))
         {
             auto retFuncMatch = expr.matchFirst(r"([a-zA-Z_][a-zA-Z0-9_]*)\s*\(");
@@ -813,19 +813,20 @@ string[] extractSnippetsFromCLine(string cLine)
             }
         }
     }
-    
+
     // Filter and deduplicate - prefer longer, more specific snippets
     import std.algorithm : canFind, sort;
+
     string[] result;
     foreach (candidate; candidates)
     {
         if (candidate.length >= 5 && candidate.length <= 50 && !result.canFind(candidate))
             result ~= candidate;
     }
-    
+
     // Sort by length (longer first) as they're likely more specific
     result.sort!((a, b) => a.length > b.length);
-    
+
     return result;
 }
 
@@ -837,17 +838,18 @@ int findAxeLineForSnippet(string axeText, string snippet)
 {
     import std.string : indexOf, splitLines, strip;
     import std.regex : regex, matchAll;
-    
+
     // Strategy 1: Exact match
     ptrdiff_t pos = axeText.indexOf(snippet);
     if (pos >= 0)
     {
         int line = 1;
-        foreach (i, ch; axeText[0..pos])
+        foreach (i, ch; axeText[0 .. pos])
         {
-            if (ch == '\n') line++;
+            if (ch == '\n')
+                line++;
         }
-        
+
         // Check if this line is a comment - if so, reject it
         string[] lines = axeText.splitLines();
         if (line > 0 && line <= cast(int) lines.length)
@@ -856,21 +858,22 @@ int findAxeLineForSnippet(string axeText, string snippet)
             if (lineText.startsWith("//") || lineText.startsWith("/*"))
                 return -1;
         }
-        
+
         return line;
     }
-    
+
     // Strategy 2: Case-insensitive match
     auto caseInsensitiveMatch = axeText.matchFirst(snippet, "i");
     if (!caseInsensitiveMatch.empty)
     {
         ptrdiff_t posb = caseInsensitiveMatch.pre.length;
         int line = 1;
-        foreach (i, ch; axeText[0..posb])
+        foreach (i, ch; axeText[0 .. posb])
         {
-            if (ch == '\n') line++;
+            if (ch == '\n')
+                line++;
         }
-        
+
         // Check if this line is a comment - if so, reject it
         string[] lines = axeText.splitLines();
         if (line > 0 && line <= cast(int) lines.length)
@@ -879,10 +882,10 @@ int findAxeLineForSnippet(string axeText, string snippet)
             if (lineText.startsWith("//") || lineText.startsWith("/*"))
                 return -1;
         }
-        
+
         return line;
     }
-    
+
     // Strategy 3: Word boundary match
     string pattern = r"\b" ~ snippet.replace(" ", r"\s+") ~ r"\b";
     auto wordMatch = axeText.matchFirst(pattern);
@@ -890,11 +893,12 @@ int findAxeLineForSnippet(string axeText, string snippet)
     {
         ptrdiff_t posa = wordMatch.pre.length;
         int line = 1;
-        foreach (i, ch; axeText[0..posa])
+        foreach (i, ch; axeText[0 .. posa])
         {
-            if (ch == '\n') line++;
+            if (ch == '\n')
+                line++;
         }
-        
+
         // Check if this line is a comment - if so, reject it
         string[] lines = axeText.splitLines();
         if (line > 0 && line <= cast(int) lines.length)
@@ -903,10 +907,10 @@ int findAxeLineForSnippet(string axeText, string snippet)
             if (lineText.startsWith("//") || lineText.startsWith("/*"))
                 return -1;
         }
-        
+
         return line;
     }
-    
+
     return -1;
 }
 
@@ -974,14 +978,14 @@ string mapCErrorsToAxe(string stderrOutput, string inputName, string ext)
 {
     import std.string;
     import std.format;
-    
+
     auto infos = parseCErrorLines(stderrOutput);
     if (infos.length == 0)
         return "";
 
     string result;
     int mappedCount = 0;
-    
+
     foreach (err; infos)
     {
         string mapped = mapSingleCErrorToAxe(err, inputName, ext);
@@ -994,13 +998,11 @@ string mapCErrorsToAxe(string stderrOutput, string inputName, string ext)
 
     if (mappedCount > 0)
     {
-        // Successfully mapped at least one error - return clean Axe-only output
         return result.stripRight();
     }
     else
     {
-        // No mappings succeeded - return simplified fallback
-        return format("Could not map C errors to Axe source. %d error(s) occurred:\n%s", 
-                    infos.length, stderrOutput);
+        return format("Fallthrough error, report at https://github.com/axelang/axe. %d error(s) occurred:\n%s",
+            infos.length, stderrOutput);
     }
 }
