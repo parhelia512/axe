@@ -283,7 +283,8 @@ Token[] lex(string source)
             enforce(cend != -1, "Unterminated character literal");
             auto clen = cend - (pos + 1);
             enforce(clen >= 1 && clen <= 10,
-                "Character literals must contain between 1 and 10 characters, full context: " ~ source[pos .. cend + 10]);
+                "Character literals must contain between 1 and 10 characters, full context: " ~
+                    source[pos .. cend + 10]);
             tokens ~= Token(TokenType.CHAR, source[pos + 1 .. cend]);
             pos = cend + 1;
             break;
