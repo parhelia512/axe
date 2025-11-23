@@ -113,10 +113,6 @@ def is_whitespace(ch: char): bool {
     return ch == ' ' or ch == '\t' or ch == '\r';
 }
 
-def char_at(s: string, pos: i32): char {
-    return s[pos];
-}
-
 def substring(s: string, start: i32, end: i32): string {
     mut result: string = "";
     mut i: i32 = start;
@@ -139,7 +135,7 @@ def str_equals(s1: string, s2: string, start: i32, len: i32, source_len: i32): b
         if i >= len {
             break;
         }
-        if s1[start + i] != s2[i] {
+        if (get_char(s1, start + i) != get_char(s2, i)) {
             return false;
         }
         i = i + 1;
@@ -147,11 +143,11 @@ def str_equals(s1: string, s2: string, start: i32, len: i32, source_len: i32): b
     return true;
 }
 
-def check_boundary(source: char*, pos: i32, source_len: i32): bool {
+def check_boundary(source: string, pos: i32, source_len: i32): bool {
     if pos >= source_len {
         return true;
     }
-    mut ch: char = source[pos];
+    mut ch: char = source.data[pos];
     return not is_alphanum(ch);
 }
 
@@ -164,10 +160,10 @@ pub def lex(source: string): list_of(Token) {
         if pos >= source_len {
             break;
         }
-        mut ch: char = source[pos];
+        mut ch: char = get_char(source, pos);
         
         if ch == '*' {
-            if pos + 1 < source_len and source[pos + 1] == '.' {
+            if pos + 1 < source_len and get_char(source, pos + 1) == '.' {
                 append(tokens, create_token(TokenType.STAR_DOT, "*."));
                 pos = pos + 2;
             } else {
@@ -193,7 +189,7 @@ pub def lex(source: string): list_of(Token) {
             append(tokens, create_token(TokenType.COLON, ":"));
             pos = pos + 1;
         } elif ch == '!' {
-            if pos + 1 < source_len and source[pos + 1] == '=' {
+            if pos + 1 < source_len and get_char(source, pos + 1) == '=' {
                 append(tokens, create_token(TokenType.OPERATOR, "!="));
                 pos = pos + 2;
             } else {
@@ -201,10 +197,10 @@ pub def lex(source: string): list_of(Token) {
                 pos = pos + 1;
             }
         } elif ch == '=' {
-            if pos + 1 < source_len and source[pos + 1] == '=' {
+            if pos + 1 < source_len and get_char(source, pos + 1) == '=' {
                 append(tokens, create_token(TokenType.OPERATOR, "=="));
                 pos = pos + 2;
-            } elif pos + 1 < source_len and source[pos + 1] == '>' {
+            } elif pos + 1 < source_len and get_char(source, pos + 1) == '>' {
                 append(tokens, create_token(TokenType.OPERATOR, "=>"));
                 pos = pos + 2;
             } else {
@@ -212,7 +208,7 @@ pub def lex(source: string): list_of(Token) {
                 pos = pos + 1;
             }
         } elif ch == '-' {
-            if pos + 1 < source_len and source[pos + 1] == '-' {
+            if pos + 1 < source_len and get_char(source, pos + 1) == '-' {
                 append(tokens, create_token(TokenType.DECREMENT, "--"));
                 pos = pos + 2;
             } else {
@@ -220,7 +216,7 @@ pub def lex(source: string): list_of(Token) {
                 pos = pos + 1;
             }
         } elif ch == '+' {
-            if pos + 1 < source_len and source[pos + 1] == '+' {
+            if pos + 1 < source_len and get_char(source, pos + 1) == '+' {
                 append(tokens, create_token(TokenType.INCREMENT, "++"));
                 pos = pos + 2;
             } else {
@@ -228,10 +224,10 @@ pub def lex(source: string): list_of(Token) {
                 pos = pos + 1;
             }
         } elif ch == '>' {
-            if pos + 1 < source_len and source[pos + 1] == '=' {
+            if pos + 1 < source_len and get_char(source, pos + 1) == '=' {
                 append(tokens, create_token(TokenType.OPERATOR, ">="));
                 pos = pos + 2;
-            } elif pos + 1 < source_len and source[pos + 1] == '>' {
+            } elif pos + 1 < source_len and get_char(source, pos + 1) == '>' {
                 append(tokens, create_token(TokenType.OPERATOR, ">>"));
                 pos = pos + 2;
             } else {
@@ -239,10 +235,10 @@ pub def lex(source: string): list_of(Token) {
                 pos = pos + 1;
             }
         } elif ch == '<' {
-            if pos + 1 < source_len and source[pos + 1] == '=' {
+            if pos + 1 < source_len and get_char(source, pos + 1) == '=' {
                 append(tokens, create_token(TokenType.OPERATOR, "<="));
                 pos = pos + 2;
-            } elif pos + 1 < source_len and source[pos + 1] == '<' {
+            } elif pos + 1 < source_len and get_char(source, pos + 1) == '<' {
                 append(tokens, create_token(TokenType.OPERATOR, "<<"));
                 pos = pos + 2;
             } else {
@@ -250,10 +246,10 @@ pub def lex(source: string): list_of(Token) {
                 pos = pos + 1;
             }
         } elif ch == '/' {
-            if pos + 1 < source_len and source[pos + 1] == '/' {
+            if pos + 1 < source_len and get_char(source, pos + 1) == '/' {
                 mut start: i32 = pos;
                 loop {
-                    if pos >= source_len or source[pos] == '\n' {
+                    if pos >= source_len or get_char(source, pos) == '\n' {
                         break;
                     }
                     pos = pos + 1;
@@ -276,7 +272,7 @@ pub def lex(source: string): list_of(Token) {
             append(tokens, create_token(TokenType.OPERATOR, "~"));
             pos = pos + 1;
         } elif ch == '$' {
-            if pos + 1 < source_len and source[pos + 1] == '"' {
+            if pos + 1 < source_len and get_char(source, pos + 1) == '"' {
                 pos = pos + 2;
                 mut str_start: i32 = pos;
                 mut ending: i32 = pos;
@@ -314,7 +310,7 @@ pub def lex(source: string): list_of(Token) {
         } elif ch == '\'' {
             mut cend: i32 = pos + 1;
             loop {
-                if cend >= source_len or source[cend] == '\'' {
+                if cend >= source_len or get_char(source, cend) == '\'' {
                     break;
                 }
                 cend = cend + 1;
@@ -349,7 +345,7 @@ pub def lex(source: string): list_of(Token) {
             } else {
                 mut start: i32 = pos;
                 loop {
-                    if pos >= source_len or not is_alphanum(source[pos]) {
+                    if pos >= source_len or not is_alphanum(get_char(source, pos)) {
                         break;
                     }
                     pos = pos + 1;
@@ -363,7 +359,7 @@ pub def lex(source: string): list_of(Token) {
             } else {
                 mut start: i32 = pos;
                 loop {
-                    if pos >= source_len or not is_alphanum(source[pos]) {
+                    if pos >= source_len or not is_alphanum(get_char(source, pos)) {
                         break;
                     }
                     pos = pos + 1;
@@ -380,7 +376,7 @@ pub def lex(source: string): list_of(Token) {
             } else {
                 mut start: i32 = pos;
                 loop {
-                    if pos >= source_len or not is_alphanum(source[pos]) {
+                    if pos >= source_len or not is_alphanum(get_char(source, pos)) {
                         break;
                     }
                     pos = pos + 1;
@@ -397,7 +393,7 @@ pub def lex(source: string): list_of(Token) {
             } else {
                 mut start: i32 = pos;
                 loop {
-                    if pos >= source_len or not is_alphanum(source[pos]) {
+                    if pos >= source_len or not is_alphanum(get_char(source, pos)) {
                         break;
                     }
                     pos = pos + 1;
@@ -423,7 +419,7 @@ pub def lex(source: string): list_of(Token) {
             } else {
                 mut start: i32 = pos;
                 loop {
-                    if pos >= source_len or not is_alphanum(source[pos]) {
+                    if pos >= source_len or not is_alphanum(get_char(source, pos)) {
                         break;
                     }
                     pos = pos + 1;
@@ -437,7 +433,7 @@ pub def lex(source: string): list_of(Token) {
             } else {
                 mut start: i32 = pos;
                 loop {
-                    if pos >= source_len or not is_alphanum(source[pos]) {
+                    if pos >= source_len or not is_alphanum(get_char(source, pos)) {
                         break;
                     }
                     pos = pos + 1;
@@ -454,7 +450,7 @@ pub def lex(source: string): list_of(Token) {
             } else {
                 mut start: i32 = pos;
                 loop {
-                    if pos >= source_len or not is_alphanum(source[pos]) {
+                    if pos >= source_len or not is_alphanum(get_char(source, pos)) {
                         break;
                     }
                     pos = pos + 1;
@@ -468,7 +464,7 @@ pub def lex(source: string): list_of(Token) {
             } else {
                 mut start: i32 = pos;
                 loop {
-                    if pos >= source_len or not is_alphanum(source[pos]) {
+                    if pos >= source_len or not is_alphanum(get_char(source, pos)) {
                         break;
                     }
                     pos = pos + 1;
@@ -494,7 +490,7 @@ pub def lex(source: string): list_of(Token) {
             } else {
                 mut start: i32 = pos;
                 loop {
-                    if pos >= source_len or not is_alphanum(source[pos]) {
+                    if pos >= source_len or not is_alphanum(get_char(source, pos)) {
                         break;
                     }
                     pos = pos + 1;
@@ -508,7 +504,7 @@ pub def lex(source: string): list_of(Token) {
             } else {
                 mut start: i32 = pos;
                 loop {
-                    if pos >= source_len or not is_alphanum(source[pos]) {
+                    if pos >= source_len or not is_alphanum(get_char(source, pos)) {
                         break;
                     }
                     pos = pos + 1;
@@ -528,7 +524,7 @@ pub def lex(source: string): list_of(Token) {
             } else {
                 mut start: i32 = pos;
                 loop {
-                    if pos >= source_len or not is_alphanum(source[pos]) {
+                    if pos >= source_len or not is_alphanum(get_char(source, pos)) {
                         break;
                     }
                     pos = pos + 1;
@@ -554,7 +550,7 @@ pub def lex(source: string): list_of(Token) {
             } else {
                 mut start: i32 = pos;
                 loop {
-                    if pos >= source_len or not is_alphanum(source[pos]) {
+                    if pos >= source_len or not is_alphanum(get_char(source, pos)) {
                         break;
                     }
                     pos = pos + 1;
@@ -575,17 +571,17 @@ pub def lex(source: string): list_of(Token) {
                 append(tokens, create_token(TokenType.RAW, "raw"));
                 pos = pos + 3;
                 loop {
-                    if pos >= source_len or (not is_whitespace(source[pos]) and source[pos] != '\n') {
+                    if pos >= source_len or (not is_whitespace(get_char(source, pos)) and get_char(source, pos) != '\n') {
                         break;
                     }
-                    if source[pos] == '\n' {
+                    if get_char(source, pos) == '\n' {
                         append(tokens, create_token(TokenType.NEWLINE, "\n"));
-                    } elif source[pos] == ' ' or source[pos] == '\t' {
+                    } elif get_char(source, pos) == ' ' or get_char(source, pos) == '\t' {
                         append(tokens, create_token(TokenType.WHITESPACE, substring(source, pos, pos + 1)));
                     }
                     pos = pos + 1;
                 }
-                if pos < source_len and source[pos] == '{' {
+                if pos < source_len and get_char(source, pos) == '{' {
                     append(tokens, create_token(TokenType.LBRACE, "{"));
                     pos = pos + 1;
                     mut brace_depth: i32 = 1;
@@ -594,9 +590,9 @@ pub def lex(source: string): list_of(Token) {
                         if pos >= source_len or brace_depth <= 0 {
                             break;
                         }
-                        if source[pos] == '{' {
+                        if get_char(source, pos) == '{' {
                             brace_depth = brace_depth + 1;
-                        } elif source[pos] == '}' {
+                        } elif get_char(source, pos) == '}' {
                             brace_depth = brace_depth - 1;
                             if brace_depth == 0 {
                                 break;
@@ -607,7 +603,7 @@ pub def lex(source: string): list_of(Token) {
                     if pos > content_start {
                         append(tokens, create_token(TokenType.IDENTIFIER, substring(source, content_start, pos)));
                     }
-                    if pos < source_len and source[pos] == '}' {
+                    if pos < source_len and get_char(source, pos) == '}' {
                         append(tokens, create_token(TokenType.RBRACE, "}"));
                         pos = pos + 1;
                     }
@@ -615,7 +611,7 @@ pub def lex(source: string): list_of(Token) {
             } else {
                 mut start: i32 = pos;
                 loop {
-                    if pos >= source_len or not is_alphanum(source[pos]) {
+                    if pos >= source_len or not is_alphanum(get_char(source, pos)) {
                         break;
                     }
                     pos = pos + 1;
@@ -632,7 +628,7 @@ pub def lex(source: string): list_of(Token) {
             } else {
                 mut start: i32 = pos;
                 loop {
-                    if pos >= source_len or not is_alphanum(source[pos]) {
+                    if pos >= source_len or not is_alphanum(get_char(source, pos)) {
                         break;
                     }
                     pos = pos + 1;
@@ -649,7 +645,7 @@ pub def lex(source: string): list_of(Token) {
             } else {
                 mut start: i32 = pos;
                 loop {
-                    if pos >= source_len or not is_alphanum(source[pos]) {
+                    if pos >= source_len or not is_alphanum(get_char(source, pos)) {
                         break;
                     }
                     pos = pos + 1;
@@ -666,7 +662,7 @@ pub def lex(source: string): list_of(Token) {
             } else {
                 mut start: i32 = pos;
                 loop {
-                    if pos >= source_len or not is_alphanum(source[pos]) {
+                    if pos >= source_len or not is_alphanum(get_char(source, pos)) {
                         break;
                     }
                     pos = pos + 1;
@@ -680,7 +676,7 @@ pub def lex(source: string): list_of(Token) {
             } else {
                 mut start: i32 = pos;
                 loop {
-                    if pos >= source_len or not is_alphanum(source[pos]) {
+                    if pos >= source_len or not is_alphanum(get_char(source, pos)) {
                         break;
                     }
                     pos = pos + 1;
@@ -697,7 +693,7 @@ pub def lex(source: string): list_of(Token) {
             } else {
                 mut start: i32 = pos;
                 loop {
-                    if pos >= source_len or not is_alphanum(source[pos]) {
+                    if pos >= source_len or not is_alphanum(get_char(source, pos)) {
                         break;
                     }
                     pos = pos + 1;
@@ -711,7 +707,7 @@ pub def lex(source: string): list_of(Token) {
             } else {
                 mut start: i32 = pos;
                 loop {
-                    if pos >= source_len or not is_alphanum(source[pos]) {
+                    if pos >= source_len or not is_alphanum(get_char(source, pos)) {
                         break;
                     }
                     pos = pos + 1;
@@ -722,7 +718,7 @@ pub def lex(source: string): list_of(Token) {
             mut start: i32 = pos;
             pos = pos + 2;
             loop {
-                if pos >= source_len or not is_hex_digit(source[pos]) {
+                if pos >= source_len or not is_hex_digit(get_char(source, pos)) {
                     break;
                 }
                 pos = pos + 1;
@@ -731,7 +727,7 @@ pub def lex(source: string): list_of(Token) {
         } elif is_alphanum(ch) {
             mut start: i32 = pos;
             loop {
-                if pos >= source_len or not is_alphanum(source[pos]) {
+                if pos >= source_len or not is_alphanum(get_char(source, pos)) {
                     break;
                 }
                 pos = pos + 1;
