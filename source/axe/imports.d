@@ -49,7 +49,7 @@ bool hasImportedModule(string moduleName)
  * Process use statements and merge imported ASTs, recursively handling transitive dependencies
  */
 ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentFilePath = "",
-    bool isTopLevel = true)
+    bool isTopLevel = true, string moduleName = "")
 {
     auto programNode = cast(ProgramNode) ast;
     if (programNode is null)
@@ -93,7 +93,15 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
 
     string currentModulePrefix = "";
     bool isStdModule = currentFilePath.canFind("std");
-    if (isTopLevel && currentFilePath.length > 0 && isAxec)
+    
+    if (isTopLevel && moduleName.length > 0)
+    {
+        import std.string : replace;
+        currentModulePrefix = moduleName.replace(".", "_");
+        g_currentModulePrefix = currentModulePrefix;
+        debugWriteln("DEBUG: Set currentModulePrefix='", currentModulePrefix, "' from moduleName='", moduleName, "'");
+    }
+    else if (isTopLevel && currentFilePath.length > 0 && isAxec)
     {
         import std.path : baseName, stripExtension;
 
@@ -193,15 +201,15 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
 
             if (useNode.moduleName.startsWith("std."))
             {
-                string moduleName = useNode.moduleName[4 .. $].replace(".", dirSeparator);
+                string moduleFile = useNode.moduleName[4 .. $].replace(".", dirSeparator);
 
                 if (baseDir.endsWith("std") || baseDir.endsWith("std/"))
                 {
-                    modulePath = buildPath(baseDir, moduleName ~ ".axec");
+                    modulePath = buildPath(baseDir, moduleFile ~ ".axec");
                 }
                 else
                 {
-                    modulePath = buildPath(baseDir, "std", moduleName ~ ".axec");
+                    modulePath = buildPath(baseDir, "std", moduleFile ~ ".axec");
                 }
 
                 if (!exists(modulePath))
@@ -212,7 +220,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         throw new Exception("Could not determine user home directory");
                     }
 
-                    modulePath = buildPath(homeDir, ".axe", "std", moduleName ~ ".axec");
+                    modulePath = buildPath(homeDir, ".axe", "std", moduleFile ~ ".axec");
 
                     if (!exists(modulePath))
                     {

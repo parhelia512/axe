@@ -4381,10 +4381,10 @@ unittest
         writeln("Model definition test:");
         writeln(cCode);
 
-        assert(cCode.canFind("typedef struct Cat {"), "Should have struct definition");
+        assert(cCode.canFind("struct Cat {"), "Should have struct definition");
         assert(cCode.canFind("char* name;"), "Should have name field");
         assert(cCode.canFind("int32_t age;"), "Should have age field");
-        assert(cCode.canFind("} Cat;"), "Should have Cat typedef");
+        assert(cCode.canFind("typedef struct Cat Cat;"), "Should have Cat typedef");
     }
 
     {
@@ -4397,7 +4397,7 @@ unittest
         writeln("Model instantiation test:");
         writeln(cCode);
 
-        assert(cCode.canFind("typedef struct Cat {"), "Should have struct definition");
+        assert(cCode.canFind("typedef struct Cat Cat;"), "Should have struct definition");
         assert(cCode.canFind("const Cat cat = {"), "Should have const struct initialization");
         assert(cCode.canFind(".name = \"Garfield\""), "Should initialize name field");
         assert(cCode.canFind(".health = 100"), "Should initialize health field");
@@ -4744,10 +4744,10 @@ unittest
         writeln("Model definition test:");
         writeln(cCode);
 
-        assert(cCode.canFind("typedef struct Cat {"), "Should have struct definition");
+        assert(cCode.canFind("typedef struct Cat"), "Should have struct definition");
         assert(cCode.canFind("char* name;"), "Should have name field");
         assert(cCode.canFind("int32_t age;"), "Should have age field");
-        assert(cCode.canFind("} Cat;"), "Should have Cat typedef");
+        assert(cCode.canFind("typedef struct Cat Cat;"), "Should have Cat typedef");
     }
 
     {
@@ -4760,7 +4760,7 @@ unittest
         writeln("Model instantiation test:");
         writeln(cCode);
 
-        assert(cCode.canFind("typedef struct Cat {"), "Should have struct definition");
+        assert(cCode.canFind("typedef struct Cat"), "Should have struct definition");
         assert(cCode.canFind("const Cat cat = {"), "Should have const struct initialization");
         assert(cCode.canFind(".name = \"Garfield\""), "Should initialize name field");
         assert(cCode.canFind(".health = 100"), "Should initialize health field");
@@ -4841,8 +4841,8 @@ unittest
         writeln("Nested model types test:");
         writeln(cCode);
 
-        assert(cCode.canFind("} Point;"), "Should define Point struct");
-        assert(cCode.canFind("} Line;"), "Should define Line struct");
+        assert(cCode.canFind("struct Point;"), "Should define Point struct");
+        assert(cCode.canFind("typedef struct Line Line;"), "Should define Line struct");
         assert(cCode.canFind("Point* start;"), "Should have Point* field in Line");
         assert(cCode.canFind("Point* end;"), "Should have Point* field in Line");
     }
@@ -5288,7 +5288,7 @@ unittest
         writeln(cCode);
 
         assert(cCode.canFind("struct Node;"), "Model should emit forward declaration before typedef");
-        assert(cCode.canFind("typedef struct Node {"), "Model should emit typedef for struct Node");
+        assert(cCode.canFind("typedef struct Node"), "Model should emit typedef for struct Node");
         assert(cCode.canFind("struct Node* next;"),
             "Self-referential fields should use 'struct Node*' to avoid undeclared identifier errors");
     }

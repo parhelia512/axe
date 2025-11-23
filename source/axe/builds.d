@@ -366,14 +366,29 @@ bool handleMachineArgs(string[] args)
             writeln(tokens);
 
         string moduleName = "";
-        if (name.canFind("std/") || name.canFind("std\\"))
         {
-            import std.path : baseName, stripExtension;
+            import std.path : baseName, stripExtension, dirName;
             import std.string : replace;
 
             string fileName = baseName(name);
             string moduleBase = stripExtension(fileName);
-            moduleName = "std." ~ moduleBase;
+            string directory = dirName(name);
+            
+            if (directory.canFind("std/") || directory.canFind("std\\"))
+            {
+                moduleName = "std." ~ moduleBase;
+            }
+            else if (directory != "." && directory.length > 0)
+            {
+                string dirBase = baseName(directory);
+                moduleName = dirBase ~ "." ~ moduleBase;
+            }
+            else
+            {
+                moduleName = moduleBase;
+            }
+            
+            debugWriteln("DEBUG: Derived module name '", moduleName, "' from file '", name, "'");
         }
 
         writeln("3 | Parse");
@@ -383,7 +398,7 @@ bool handleMachineArgs(string[] args)
         resetProcessedModules();
 
         writeln("5 | Imports");
-        ast = processImports(ast, dirName(name), isAxec, name); // SLOW.
+        ast = processImports(ast, dirName(name), isAxec, name, true, moduleName); // SLOW.
 
         bool[string] declaredFunctions;
         writeln("6 | Collect Decls");
