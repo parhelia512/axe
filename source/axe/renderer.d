@@ -651,6 +651,8 @@ string generateC(ASTNode ast)
             }
         }
 
+        cCode ~= "#define len(x) __list_length_ ## x\n";
+
         foreach (child; ast.children)
         {
             if (child.nodeType == "Enum")
@@ -1052,24 +1054,6 @@ string generateC(ASTNode ast)
                     cCode ~= varName ~ "[" ~ lengthVar ~ "] = " ~ processedValue ~ ";\n";
                     cCode ~= lengthVar ~ "++;\n";
                     debugWriteln("DEBUG: Generated append code for '", varName, "'");
-                    break;
-                }
-            }
-        }
-
-        // Handle length() for list types
-        if (callName == "length")
-        {
-            if (callNode.args.length >= 1)
-            {
-                string varName = callNode.args[0].strip();
-
-                // Check if this is a list variable
-                if (varName in g_listOfTypes)
-                {
-                    string lengthVar = "__list_length_" ~ varName;
-                    cCode ~= lengthVar;
-                    debugWriteln("DEBUG: Generated length() code for '", varName, "'");
                     break;
                 }
             }
