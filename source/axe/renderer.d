@@ -323,6 +323,17 @@ string[] computeReorderedCParams(FunctionNode funcNode, out int[] reorderMap, ou
     return dimensionParams ~ otherParams;
 }
 
+string mapAxeTypeToCForReturnOrParam(string axeType)
+{
+    if (axeType.endsWith("[999]"))
+    {
+        string elementType = axeType[0 .. $-5];
+        string mappedElementType = mapAxeTypeToC(elementType);
+        return mappedElementType ~ "*";
+    }
+    return mapAxeTypeToC(axeType);
+}
+
 string mapAxeTypeToC(string axeType)
 {
     if (axeType.startsWith("mut "))
@@ -769,7 +780,7 @@ string generateC(ASTNode ast)
                 auto funcNode = cast(FunctionNode) child;
                 if (funcNode.name != "main")
                 {
-                    string processedReturnType = mapAxeTypeToC(funcNode.returnType);
+                    string processedReturnType = mapAxeTypeToCForReturnOrParam(funcNode.returnType);
                     cCode ~= processedReturnType ~ " " ~ funcNode.name ~ "(";
                     if (funcNode.params.length > 0)
                     {
@@ -797,7 +808,7 @@ string generateC(ASTNode ast)
                     auto methodFunc = cast(FunctionNode) method;
                     if (methodFunc !is null)
                     {
-                        string processedReturnType = mapAxeTypeToC(methodFunc.returnType);
+                        string processedReturnType = mapAxeTypeToCForReturnOrParam(methodFunc.returnType);
                         cCode ~= processedReturnType ~ " " ~ methodFunc.name ~ "(";
                         if (methodFunc.params.length > 0)
                         {
@@ -899,7 +910,7 @@ string generateC(ASTNode ast)
         }
         else
         {
-            string processedReturnType = mapAxeTypeToC(funcNode.returnType);
+            string processedReturnType = mapAxeTypeToCForReturnOrParam(funcNode.returnType);
             cCode ~= processedReturnType ~ " " ~ funcName ~ "(";
             debugWriteln("DEBUG: Function '", funcName, "' params: ", params);
             if (params.length > 0)
