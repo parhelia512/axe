@@ -40,14 +40,14 @@ model Scope {
 
 // Entry point for parsing tokens into an AST
 pub def parse(tokens: list(Token), is_axec: bool, check_entry_point: bool, current_module: string): ASTNode {
-    mut val ctx: ParserContext;
+    mut ctx: ParserContext;
     ctx.tokens = tokens;
     ctx.pos = 0;
     ctx.is_axec = is_axec;
     ctx.check_entry_point = check_entry_point;
     ctx.current_module = current_module;
     
-    mut val ast: ASTNode;
+    mut ast: ASTNode;
     ast.node_type = "Program";
     
     // TODO: Clear global state
@@ -105,7 +105,7 @@ def peek(ctx: ref ParserContext): Token {
     }
     
     // Return empty token if at end
-    mut val empty: Token;
+    mut empty: Token;
     empty.token_type = TokenType.IDENTIFIER;
     empty.value = "";
     empty.line = 0;
@@ -136,7 +136,7 @@ def parse_type(ctx: ref ParserContext): string {
         return str("");
     }
     
-    mut val ref_prefix: string = str("");
+    mut ref_prefix: string = str("");
     
     loop {
         val token = peek(ctx);
@@ -149,7 +149,7 @@ def parse_type(ctx: ref ParserContext): string {
         }
     }
     
-    mut val type_name: string = "";
+    mut type_name: string = "";
     val token = peek(ctx);
     
     // Handle 'model' keyword as type for anonymous models
@@ -239,7 +239,7 @@ def parse_type(ctx: ref ParserContext): string {
 
 // Parse ref depth (e.g., "ref ref int" returns 2)
 def parse_ref_depth(ctx: ref ParserContext): i32 {
-    mut val depth: i32 = 0;
+    mut depth: i32 = 0;
     
     loop {
         skip_whitespace(ctx);
