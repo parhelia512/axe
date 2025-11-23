@@ -3241,8 +3241,26 @@ string processExpression(string expr, string context = "")
     // Handle unsafe pointer member access (*.)
     if (expr.canFind("*."))
     {
-        // Replace all *. with -> since it's explicit pointer dereference
-        expr = expr.replace("*.", "->");
+        string result = "";
+        bool inString = false;
+        for (size_t i = 0; i < expr.length; i++)
+        {
+            if (expr[i] == '"' && (i == 0 || expr[i - 1] != '\\'))
+            {
+                inString = !inString;
+                result ~= expr[i];
+            }
+            else if (!inString && i + 1 < expr.length && expr[i] == '*' && expr[i + 1] == '.')
+            {
+                result ~= "->";
+                i++;
+            }
+            else
+            {
+                result ~= expr[i];
+            }
+        }
+        expr = result;
     }
 
     // Handle member access with auto-detection of pointer types.
