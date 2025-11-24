@@ -2410,7 +2410,27 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                             "Expected ';' after increment");
                         pos++;
-                        funcNode.children ~= new IncrementDecrementNode(identName, true);
+
+                        if (leftSide != identName)
+                        {
+                            import std.string : lastIndexOf;
+
+                            auto dotPos = leftSide.lastIndexOf(".");
+                            if (dotPos > 0)
+                            {
+                                string objectName = leftSide[0 .. dotPos];
+                                string memberName = leftSide[dotPos + 1 .. $];
+                                funcNode.children ~= new MemberIncrementDecrementNode(objectName, memberName, true);
+                            }
+                            else
+                            {
+                                funcNode.children ~= new IncrementDecrementNode(identName, true);
+                            }
+                        }
+                        else
+                        {
+                            funcNode.children ~= new IncrementDecrementNode(identName, true);
+                        }
                     }
                     else if (pos < tokens.length && tokens[pos].type == TokenType.DECREMENT)
                     {
@@ -2426,7 +2446,27 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                             "Expected ';' after decrement");
                         pos++;
-                        funcNode.children ~= new IncrementDecrementNode(identName, false);
+
+                        if (leftSide != identName)
+                        {
+                            import std.string : lastIndexOf;
+
+                            auto dotPos = leftSide.lastIndexOf(".");
+                            if (dotPos > 0)
+                            {
+                                string objectName = leftSide[0 .. dotPos];
+                                string memberName = leftSide[dotPos + 1 .. $];
+                                funcNode.children ~= new MemberIncrementDecrementNode(objectName, memberName, false);
+                            }
+                            else
+                            {
+                                funcNode.children ~= new IncrementDecrementNode(identName, false);
+                            }
+                        }
+                        else
+                        {
+                            funcNode.children ~= new IncrementDecrementNode(identName, false);
+                        }
                     }
                     else if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
                     {
