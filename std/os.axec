@@ -60,7 +60,7 @@ pub def read_file(path: string): string {
     raw {
         FILE *f = fopen(path.data, "rb");
         if (!f) {
-            std_errors_panic(std_errors_error_create("Failed to open file"));
+            std__errors__panic(std__errors__error_create("Failed to open file"));
         }
 
         fseek(f, 0, SEEK_END);
@@ -72,7 +72,7 @@ pub def read_file(path: string): string {
         buf[size] = 0;
         fclose(f);
 
-        out = std_string_string_create(buf);
+        out = std__string__string_create(buf);
     }
 
     return out;
@@ -503,8 +503,8 @@ pub def get_cmdline_args(arena: ref Arena): ref StringList {
             argc++;
         }
         for (int i = 0; i < argc; i++) {
-            struct std_string_string str = std_string_string_create(argv[i]);
-            std_lists_StringList_push((struct std_lists_StringList*)result, arena, str);
+            struct std__string__string str = std__string__string_create(argv[i]);
+            std__lists__StringList_push((struct std__lists__StringList*)result, arena, str);
         }
     }
     

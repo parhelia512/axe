@@ -42,7 +42,7 @@ pub model Arena {
 
         raw {
             if (arena->offset + size > arena->capacity) {
-                std_errors_panic(std_errors_error_create("Arena out of memory!\n"));
+                std__errors__panic(std__errors__error_create("Arena out of memory!\n"));
                 return nil;
             }
             result = (void *)(arena->buffer + arena->offset);

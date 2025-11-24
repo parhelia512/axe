@@ -502,17 +502,30 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                     auto funcNode = cast(FunctionNode) importChild;
                     writeln("DEBUG: Checking function '", funcNode.name, "' isPublic=", funcNode
                             .isPublic);
+
                     // For .axec modules, map ALL functions (public and non-public) so they all get prefixed
+                    //
                     // For .axe modules, only map explicitly imported or non-public functions
+
                     if (importIsAxec && funcNode.name != "main")
                     {
-                        string prefixedName = funcNode.name.startsWith("std_") ? funcNode.name
+                        string prefixedName = funcNode.name.startsWith("std__") ? funcNode.name
                             : (sanitizedModuleName ~ "__" ~ funcNode.name);
                         moduleFunctionMap[funcNode.name] = prefixedName;
+                        
+                        if (prefixedName.canFind("__"))
+                        {
+                            auto lastUnderscore = prefixedName.lastIndexOf("__");
+                            if (lastUnderscore >= 0)
+                            {
+                                string baseName = prefixedName[lastUnderscore + 2 .. $];
+                                moduleFunctionMap[baseName] = prefixedName;
+                            }
+                        }
                         writeln("DEBUG: Mapped function from .axec '", funcNode.name, "' -> '", prefixedName, "'");
                     }
                     else if (funcNode.isPublic && (useNode.importAll || useNode.imports.canFind(funcNode.name)
-                            || funcNode.name.startsWith("std_")))
+                            || funcNode.name.startsWith("std__")))
                     {
                         string prefixedName = funcNode.name.startsWith("std_") ? funcNode.name
                             : (sanitizedModuleName ~ "__" ~ funcNode.name);
