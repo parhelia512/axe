@@ -1284,7 +1284,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                 "Expected ';' after use statement");
             pos++; // Skip ';'
 
-            string modulePrefix = moduleName.replace(".", "_"); // "stdlib_arena"
+            string modulePrefix = moduleName.replace(".", "__"); // "std__arena"
 
             // For each imported identifier, create a type alias
             foreach (importName; imports)
@@ -1292,8 +1292,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                 // Assume imports that start with uppercase are types
                 if (importName.length > 0 && importName[0] >= 'A' && importName[0] <= 'Z')
                 {
-                    debugWriteln("Storing alias, ", importName, " -> ", modulePrefix ~ "_" ~ importName);
-                    g_typeAliases[importName] = modulePrefix ~ "_" ~ importName;
+                    debugWriteln("Storing alias, ", importName, " -> ", modulePrefix ~ "__" ~ importName);
+                    g_typeAliases[importName] = modulePrefix ~ "__" ~ importName;
                 }
             }
 

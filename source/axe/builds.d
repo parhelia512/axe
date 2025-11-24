@@ -239,7 +239,7 @@ void validateFunctionCalls(ASTNode node, bool[string] declared, string[string] m
 
                     if (!isDeclared && modulePrefix.length > 0)
                     {
-                        string fullyPrefixed = modulePrefix ~ "_" ~ underscored;
+                        string fullyPrefixed = modulePrefix ~ "__" ~ underscored;
                         if (auto r = fullyPrefixed in declared)
                         {
                             isDeclared = *r;

@@ -500,7 +500,7 @@ pub def substr(s: string, start: usize, length: usize): string {
         }
         memcpy(buf, s.data + start, copy_len);
         buf[copy_len] = '\0';
-        result = std__string__string__create(buf);
+        result = std__string__string_create(buf);
         free(buf);
     }
     return result;
