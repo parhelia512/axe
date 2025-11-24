@@ -270,11 +270,9 @@ def byte_to_hex(byte_val: i32, arena: ref Arena): string {
     val high: i32 = (byte_val >> 4) & 0xf;
     val low: i32 = byte_val & 0xf;
     
-    raw {
-        result.data[0] = hex_chars[high];
-        result.data[1] = hex_chars[low];
-        result.data[2] = '\0';
-    }
+    result.data[0] = hex_chars[high];
+    result.data[1] = hex_chars[low];
+    result.data[2] = '\0';
     result.len = 2;
     
     return result;
