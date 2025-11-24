@@ -29,7 +29,7 @@ import std.regex : regex, matchAll, matchFirst;
  */
 bool hasParallelBlocks(ASTNode node)
 {
-    if (node.nodeType == "ParallelFor" || node.nodeType == "Parallel")
+    if (node.nodeType == "ParallelFor" || node.nodeType == "Parallel" || node.nodeType == "ParallelLocal")
         return true;
 
     foreach (child; node.children)
@@ -39,6 +39,15 @@ bool hasParallelBlocks(ASTNode node)
     }
 
     return false;
+}
+
+/**
+ * Check if parallelism module is imported
+ */
+bool hasParallelismImport()
+{
+    import axe.parser : g_importedModules;
+    return ("std.parallelism" in g_importedModules) !is null;
 }
 
 void collectModelNames(ASTNode node, ref string[string] modelNames)
@@ -449,7 +458,7 @@ bool handleMachineArgs(string[] args)
             }
             string ext = isAxec ? ".axec" : ".axe";
             std.file.write(replace(name, ext, ".c"), cCode);
-            bool needsOpenMP = hasParallelBlocks(ast);
+            bool needsOpenMP = hasParallelBlocks(ast) || hasParallelismImport() || name.canFind("parallelism.axec");
             bool makeDll = args.canFind("-dll");
             string[] clangCmd;
 

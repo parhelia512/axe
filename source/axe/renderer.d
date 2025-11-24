@@ -1948,6 +1948,35 @@ string generateC(ASTNode ast)
         cCode ~= "}\n";
         break;
 
+    case "ParallelLocal":
+        auto parallelLocalNode = cast(ParallelLocalNode) ast;
+        
+        foreach (i, varName; parallelLocalNode.privateVars)
+        {
+            string typeStr = parallelLocalNode.privateTypes[i];
+            string cType = mapAxeTypeToC(typeStr);
+            
+            cCode ~= cType ~ " " ~ varName ~ ";\n";
+        }
+        
+        cCode ~= "#pragma omp parallel private(";
+        foreach (i, varName; parallelLocalNode.privateVars)
+        {
+            if (i > 0) cCode ~= ", ";
+            cCode ~= varName;
+        }
+        cCode ~= ")\n{\n";
+        loopLevel++;
+
+        foreach (child; ast.children)
+        {
+            cCode ~= generateC(child);
+        }
+
+        loopLevel--;
+        cCode ~= "}\n";
+        break;
+
     case "Single":
         cCode ~= "#pragma omp single\n{\n";
         loopLevel++;

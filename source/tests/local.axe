@@ -1,5 +1,6 @@
 use std.arena;
 use std.io;
+use std.parallelism;
 
 def worker(arena: ref Arena, value: i32): i32 {
     mut p: ref i32 = (ref i32)Arena.alloc(arena, sizeof(i32));
@@ -7,17 +8,16 @@ def worker(arena: ref Arena, value: i32): i32 {
     return deref(p);
 }
 
-test{}
-// def main() {
-//     println "Running parallel computation...";
+def main() {
+    println "Running parallel computation...";
 
-//     parallel local(mut arena: Arena) {
-//         arena = Arena.create(1024);
-//         val tid = omp.thread_id();
-//         val result = worker(ref_of(arena), tid);
-//         println $"Thread {tid} computed {result}";
-//         Arena.destroy(ref_of(arena));
-//     }
+    parallel local(mut arena: Arena) {
+        arena = Arena.create(1024);
+        val tid = Parallel.thread_id();
+        val result = worker(ref_of(arena), tid);
+        println $"Thread {tid} computed {result}";
+        Arena.destroy(ref_of(arena));
+    }
 
-//     println "Done.";
-// }
+    println "Done.";
+}

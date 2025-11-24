@@ -17,7 +17,7 @@ import axe.gstate;
 
 private string[string] g_typeAliases;
 private MacroDef[string] g_macros;
-private bool[string] g_importedModules;
+bool[string] g_importedModules;
 private string[string] g_listOfTypes;
 
 /**
@@ -2454,6 +2454,16 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                                 lastWasRef = false;
                                 pos++;
                             }
+                            else if (tokens[pos].type == TokenType.INTERPOLATED_STR)
+                            {
+                                string rawContent = tokens[pos].value;
+                                enforce(rawContent.canFind("{"),
+                                    "Interpolated string must contain at least one {} expression. " ~
+                                    "Use a regular string if no interpolation is needed.");
+                                functionArgs ~= "__INTERPOLATED__" ~ tokens[pos].value ~ "__INTERPOLATED__";
+                                lastWasRef = false;
+                                pos++;
+                            }
                             else
                             {
                                 if (tokens[pos].value == "ref")
@@ -3021,6 +3031,102 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         if (pos < tokens.length && tokens[pos].type == TokenType.FOR)
         {
             return parseParallelForHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
+        }
+        else if (pos < tokens.length && tokens[pos].type == TokenType.LOCAL)
+        {
+            pos++; // Skip 'local'
+            
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+            
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
+                "Expected '(' after 'parallel local'");
+            pos++; // Skip '('
+            
+            string[] privateVars;
+            string[] privateTypes;
+            bool[] isMutable;
+            
+            while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
+            {
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+                
+                bool isMut = false;
+                if (pos < tokens.length && tokens[pos].type == TokenType.MUT)
+                {
+                    isMut = true;
+                    pos++; // Skip 'mut'
+                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                        pos++;
+                }
+                
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                    "Expected variable name in parallel local");
+                string varName = tokens[pos].value;
+                pos++;
+                
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+                
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.COLON,
+                    "Expected ':' after variable name in parallel local");
+                pos++;
+                
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+                
+                int refDepth = 0;
+                while (pos < tokens.length && tokens[pos].type == TokenType.REF)
+                {
+                    refDepth++;
+                    pos++;
+                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                        pos++;
+                }
+                
+                string typeName = parseTypeHelper(pos, tokens, isAxec);
+                
+                privateVars ~= varName;
+                privateTypes ~= (refDepth > 0 ? "ref " : "") ~ typeName;
+                isMutable ~= isMut;
+                
+                currentScope.addVariable(varName, isMut);
+                
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+                
+                if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
+                {
+                    pos++; // Skip ','
+                }
+            }
+            
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                "Expected ')' after parallel local variables");
+            pos++; // Skip ')'
+            
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+            
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                "Expected '{' after parallel local declaration");
+            pos++; // Skip '{'
+            
+            auto parallelLocalNode = new ParallelLocalNode(privateVars, privateTypes, isMutable);
+            
+            while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+            {
+                auto stmt = parseStatementHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
+                if (stmt !is null)
+                    parallelLocalNode.children ~= stmt;
+            }
+            
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                "Expected '}' after parallel local block");
+            pos++; // Skip '}'
+            
+            return parallelLocalNode;
         }
         else
         {
@@ -3744,6 +3850,16 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                         if (functionArgs.length > 0)
                             functionArgs ~= " ";
                         functionArgs ~= "\"" ~ tokens[pos].value ~ "\"";
+                    }
+                    else if (tokens[pos].type == TokenType.INTERPOLATED_STR)
+                    {
+                        if (functionArgs.length > 0)
+                            functionArgs ~= " ";
+                        string rawContent = tokens[pos].value;
+                        enforce(rawContent.canFind("{"),
+                            "Interpolated string must contain at least one {} expression. " ~
+                            "Use a regular string if no interpolation is needed.");
+                        functionArgs ~= "__INTERPOLATED__" ~ tokens[pos].value ~ "__INTERPOLATED__";
                     }
                     else
                     {

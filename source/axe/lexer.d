@@ -561,6 +561,12 @@ Token[] lex(string source)
                 tokens ~= Token(TokenType.SINGLE, "single");
                 pos += 6;
             }
+            else if (pos + 5 <= source.length && source[pos .. pos + 5] == "local" &&
+                (pos + 5 >= source.length || !(source[pos + 5].isAlphaNum || source[pos + 5] == '_')))
+            {
+                tokens ~= Token(TokenType.LOCAL, "local");
+                pos += 5;
+            }
             else if (pos + 5 <= source.length && source[pos .. pos + 5] == "posix" &&
                 (pos + 5 >= source.length || !(source[pos + 5].isAlphaNum || source[pos + 5] == '_')))
             {
