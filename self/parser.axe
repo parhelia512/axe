@@ -55,11 +55,11 @@ pub def parse(tokens: list(Token), is_axec: bool, check_entry_point: bool, curre
     ctx.current_module = current_module;
     
     mut ast: ASTNode;
-    ast.node_type = "Program";
+    ast.node_type = str("Program");
     
-    StringHashMapString.clear(g_type_aliases);
-    StringHashMapBool.clear(g_imported_modules);
-    StringHashMapString.clear(g_list_of_types);
+    StringHashMapString.clear(addr_of(g_type_aliases));
+    StringHashMapBool.clear(addr_of(g_imported_modules));
+    StringHashMapString.clear(addr_of(g_list_of_types));
     
     if str_len(current_module) > 0 {
         // g_imported_modules[current_module] = true
