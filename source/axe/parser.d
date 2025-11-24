@@ -5524,7 +5524,7 @@ void validateNoRawPointerSyntax(string typeName)
         refSuggestion ~= baseType;
 
         throw new Exception(
-            "Raw C pointer syntax '" ~ typeName ~ "' is deprecated.\n" ~
+            "Pointer syntax '" ~ typeName ~ "' is deprecated.\n" ~
             "Use 'ref' semantics instead: " ~ refSuggestion ~ "\n"
         );
     }
