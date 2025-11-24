@@ -1,6 +1,6 @@
 # Axe Programming Language
 
-Axe is a programming language that centred around ease of concurrency and memory safety. It is designed to be simple and easy to learn. 
+Axe is a statically typed, compiled programming language that centred around ease of concurrency and memory safety. It is designed to be simple and easy to learn. 
 
 ## Requirements
 
