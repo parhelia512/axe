@@ -477,115 +477,115 @@ def expect(ctx: ref ParserContext, expected_type: i32): bool {
     return token.token_type == expected_type;
 }
 
-// // Parse a type specification (e.g., "i32", "ref string", "list(Token)")
-// def parse_type(ctx: ref ParserContext): string {
-//     skip_whitespace(ctx);
+/// Parse a type specification (e.g., "i32", "ref string", "list(Token)")
+def parse_type(ctx: ref ParserContext): string {
+    skip_whitespace(ctx);
     
-//     if ctx.pos >= len(ctx.tokens) {
-//         println "ERROR: Expected type but reached end of tokens";
-//         return str("");
-//     }
+    if ctx.pos >= len(ctx.tokens) {
+        println "ERROR: Expected type but reached end of tokens";
+        return str("");
+    }
     
-//     mut ref_prefix: string = str("");
+    mut ref_prefix: string = str("");
     
-//     loop {
-//         val token = peek(ctx);
-//         if token.token_type == TokenType.REF {
-//             ref_prefix = concat(ref_prefix, "ref ");
-//             consume(ctx);
-//             skip_whitespace(ctx);
-//         } else {
-//             break;
-//         }
-//     }
+    loop {
+        val token: Token = peek(ctx);
+        if token.token_type == TokenType.REF {
+            ref_prefix = concat_c(ref_prefix, "ref ");
+            consume(ctx);
+            skip_whitespace(ctx);
+        } else {
+            break;
+        }
+    }
     
-//     mut type_name: string = "";
-//     val token = peek(ctx);
+    mut type_name: string = str("");
+    val token: Token = peek(ctx);
     
-//     // Handle 'model' keyword as type for anonymous models
-//     if token.token_type == TokenType.MODEL {
-//         consume(ctx);
-//         return concat(ref_prefix, "model");
-//     }
+    // Handle 'model' keyword as type for anonymous models
+    if token.token_type == TokenType.MODEL {
+        consume(ctx);
+        return concat(ref_prefix, "model");
+    }
     
-//     if token.token_type == TokenType.IDENTIFIER {
-//         type_name = token.value;
-//         consume(ctx);
+    if token.token_type == TokenType.IDENTIFIER {
+        type_name = token.value;
+        consume(ctx);
         
-//         // Handle list(ElementType) syntax
-//         if equals_c(type_name, "list") {
-//             skip_whitespace(ctx);
+        // Handle list(ElementType) syntax
+        if equals_c(type_name, "list") {
+            skip_whitespace(ctx);
             
-//             if !expect(ctx, TokenType.LPAREN) {
-//                 println "ERROR: Expected '(' after 'list'";
-//                 return "";
-//             }
-//             consume(ctx);
+            if !expect(ctx, TokenType.LPAREN) {
+                println "ERROR: Expected '(' after 'list'";
+                return str("");
+            }
+            consume(ctx);
             
-//             skip_whitespace(ctx);
-//             val elem_token = consume(ctx);
-//             val element_type = elem_token.value;
+            skip_whitespace(ctx);
+            val elem_token: Token = consume(ctx);
+            val element_type: string = elem_token.value;
             
-//             skip_whitespace(ctx);
-//             if !expect(ctx, TokenType.RPAREN) {
-//                 println "ERROR: Expected ')' after list element type";
-//                 return "";
-//             }
-//             consume(ctx);
-//             type_name = concat(element_type, "[999]");
+            skip_whitespace(ctx);
+            if !expect(ctx, TokenType.RPAREN) {
+                println "ERROR: Expected ')' after list element type";
+                return str("");
+            }
+            consume(ctx);
+            type_name = concat(element_type, str("[999]"));
             
-//             println "DEBUG: Parsed list(";
-//             println element_type;
-//             println ") -> ";
-//             println type_name;
-//         }
+            println "DEBUG: Parsed list(";
+            println element_type;
+            println ") -> ";
+            println type_name;
+        }
 
-//         // Handle array brackets [size]
-//         loop {
-//             if expect(ctx, TokenType.LBRACKET) {
-//                 consume(ctx);
-//                 type_name = concat(type_name, "[");
+        // Handle array brackets [size]
+        loop {
+            if expect(ctx, TokenType.LBRACKET) {
+                consume(ctx);
+                type_name = concat(type_name, str("["));
                 
-//                 loop {
-//                     val tok = peek(ctx);
-//                     if tok.token_type == TokenType.RBRACKET {
-//                         break;
-//                     }
-//                     type_name = concat(type_name, tok.value);
-//                     consume(ctx);
-//                 }
+                loop {
+                    val tok: Token = peek(ctx);
+                    if tok.token_type == TokenType.RBRACKET {
+                        break;
+                    }
+                    type_name = concat(type_name, tok.value);
+                    consume(ctx);
+                }
                 
-//                 if expect(ctx, TokenType.RBRACKET) {
-//                     consume(ctx);
-//                     type_name = concat(type_name, "]");
-//                 }
-//             } else {
-//                 break
-//             }
-//         }
+                if expect(ctx, TokenType.RBRACKET) {
+                    consume(ctx);
+                    type_name = concat(type_name, str("]"));
+                }
+            } else {
+                break;
+            }
+        }
         
-//         // Handle pointer syntax *
-//         loop {
-//             val tok = peek(ctx);
-//             if tok.token_type == TokenType.OPERATOR && equals_c(tok.value, "*") {
-//                 consume(ctx)
-//                 type_name = concat(type_name, "*");
-//             } else {
-//                 break;
-//             }
-//         }
-//     } else {
-//         println "ERROR: Invalid type specification";
-//         return "";
-//     }
+        // Handle pointer syntax *
+        loop {
+            val tok: Token = peek(ctx);
+            if tok.token_type == TokenType.OPERATOR && equals_c(tok.value, "*") {
+                consume(ctx);
+                type_name = concat(type_name, str("*"));
+            } else {
+                break;
+            }
+        }
+    } else {
+        println "ERROR: Invalid type specification";
+        return str("");
+    }
     
-//     // TODO: Check type aliases
-//     // if type_name in g_type_aliases {
-//     //     type_name = g_type_aliases[type_name]
-//     // }
+    // TODO: Check type aliases
+    // if type_name in g_type_aliases {
+    //     type_name = g_type_aliases[type_name]
+    // }
     
-//     return concat(ref_prefix, type_name);
-// }
+    return concat(ref_prefix, type_name);
+}
 
 // // Parse ref depth (e.g., "ref ref int" returns 2)
 // def parse_ref_depth(ctx: ref ParserContext): i32 {

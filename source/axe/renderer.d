@@ -2976,6 +2976,132 @@ string lookupExpressionType(string expr)
 }
 
 /**
+ * Replace keywords with C operators outside of string literals.
+ * Respects word boundaries to avoid replacing keywords inside identifiers.
+ */
+private string replaceKeywordOutsideStrings(string input, string keyword, string replacement)
+{
+    string result = "";
+    bool inString = false;
+    bool inCharLiteral = false;
+    size_t i = 0;
+
+    while (i < input.length)
+    {
+        // Track double-quoted strings
+        if (input[i] == '"' && !inCharLiteral)
+        {
+            // Check if it's escaped (but not a double-escape)
+            bool isEscaped = false;
+            if (i > 0 && input[i - 1] == '\\')
+            {
+                // Count consecutive backslashes before this quote
+                size_t backslashCount = 0;
+                size_t j = i - 1;
+                while (j > 0 && input[j] == '\\')
+                {
+                    backslashCount++;
+                    if (j == 0) break;
+                    j--;
+                }
+                // If odd number of backslashes, the quote is escaped
+                isEscaped = (backslashCount % 2 == 1);
+            }
+            if (!isEscaped)
+            {
+                inString = !inString;
+            }
+            result ~= input[i];
+            i++;
+        }
+        // Track single-quoted char literals
+        else if (input[i] == '\'' && !inString)
+        {
+            // Check if it's escaped (but not a double-escape)
+            bool isEscaped = false;
+            if (i > 0 && input[i - 1] == '\\')
+            {
+                // Count consecutive backslashes before this quote
+                size_t backslashCount = 0;
+                size_t j = i - 1;
+                while (j > 0 && input[j] == '\\')
+                {
+                    backslashCount++;
+                    if (j == 0) break;
+                    j--;
+                }
+                // If odd number of backslashes, the quote is escaped
+                isEscaped = (backslashCount % 2 == 1);
+            }
+            if (!isEscaped)
+            {
+                inCharLiteral = !inCharLiteral;
+            }
+            result ~= input[i];
+            i++;
+        }
+        else if (!inString && !inCharLiteral)
+        {
+            bool matches = false;
+            size_t matchLen = 0;
+
+            if (i > 0 && i + keyword.length + 1 < input.length &&
+                input[i - 1] == ' ' && input[i .. i + keyword.length] == keyword &&
+                input[i + keyword.length] == ' ')
+            {
+                result ~= replacement;
+                i += keyword.length;
+                matches = true;
+            }
+            else if (i + keyword.length <= input.length && input[i .. i + keyword.length] == keyword)
+            {
+                import std.ascii : isAlphaNum, isDigit;
+
+                bool beforeOk = (i == 0 || (!isAlphaNum(input[i - 1]) && input[i - 1] != '_'));
+                bool afterOk = (i + keyword.length >= input.length ||
+                        (!isAlphaNum(input[i + keyword.length]) && input[i + keyword.length] != '_'));
+
+                // Special case: For logical operators (and/or/xor/not), if preceded by
+                // a character that clearly ends an expression (like ', ), ], digit, operator),
+                // allow the match even if followed by alphanumeric. This handles cases like
+                // '0'andch where the parser squashed operators without spaces.
+                bool isLogicalOp = (keyword == "and" || keyword == "or" || 
+                                   keyword == "xor" || keyword == "not");
+                bool afterOperatorOrLiteral = (i > 0 && (input[i - 1] == '\'' || 
+                                                         input[i - 1] == ')' ||
+                                                         input[i - 1] == ']' ||
+                                                         isDigit(input[i - 1])));
+                
+                // Match if: (beforeOk AND afterOk) OR (logical operator after expression)
+                if ((beforeOk && afterOk) || (isLogicalOp && beforeOk && afterOperatorOrLiteral))
+                {
+                    if (i > 0 && input[i - 1] != ' ')
+                        result ~= " ";
+                    result ~= replacement;
+                    if (i + keyword.length < input.length && input[i + keyword.length] != ' ')
+                        result ~= " ";
+                    i += keyword.length;
+                    matches = true;
+                }
+            }
+
+            if (!matches)
+            {
+                result ~= input[i];
+                i++;
+            }
+        }
+        else
+        {
+            result ~= input[i];
+            i++;
+        }
+    }
+
+    return result;
+}
+
+/**
  * Function to process arithmetic expressions
  */
 string processExpression(string expr, string context = "")
@@ -3131,79 +3257,6 @@ string processExpression(string expr, string context = "")
     {
         string interpContent = strippedExpr[16 .. $ - 16];
         return processInterpolatedString(interpContent, false);
-    }
-
-    string replaceKeywordOutsideStrings(string input, string keyword, string replacement)
-    {
-        string result = "";
-        bool inString = false;
-        size_t i = 0;
-
-        while (i < input.length)
-        {
-            if (input[i] == '"' && (i == 0 || input[i - 1] != '\\'))
-            {
-                inString = !inString;
-                result ~= input[i];
-                i++;
-            }
-            else if (!inString)
-            {
-                bool matches = false;
-                size_t matchLen = 0;
-
-                if (i > 0 && i + keyword.length + 1 < input.length &&
-                    input[i - 1] == ' ' && input[i .. i + keyword.length] == keyword &&
-                    input[i + keyword.length] == ' ')
-                {
-                    result ~= replacement;
-                    i += keyword.length;
-                    matches = true;
-                }
-                else if (i + keyword.length <= input.length && input[i .. i + keyword.length] == keyword)
-                {
-                    import std.ascii : isAlphaNum;
-
-                    bool beforeOk = (i == 0 || (!isAlphaNum(input[i - 1]) && input[i - 1] != '_'));
-                    bool afterOk = (i + keyword.length >= input.length ||
-                            (!isAlphaNum(input[i + keyword.length]) && input[i + keyword.length] != '_'));
-
-                    if (beforeOk && (keyword == "and" || keyword == "or" || keyword == "xor" || keyword == "not"))
-                    {
-                        if (i > 0 && input[i - 1] != ' ')
-                            result ~= " ";
-                        result ~= replacement;
-                        if (i + keyword.length < input.length && input[i + keyword.length] != ' ')
-                            result ~= " ";
-                        i += keyword.length;
-                        matches = true;
-                    }
-                    else if (beforeOk && afterOk)
-                    {
-                        if (i > 0 && input[i - 1] != ' ')
-                            result ~= " ";
-                        result ~= replacement;
-                        if (i + keyword.length < input.length && input[i + keyword.length] != ' ')
-                            result ~= " ";
-                        i += keyword.length;
-                        matches = true;
-                    }
-                }
-
-                if (!matches)
-                {
-                    result ~= input[i];
-                    i++;
-                }
-            }
-            else
-            {
-                result ~= input[i];
-                i++;
-            }
-        }
-
-        return result;
     }
 
     expr = replaceKeywordOutsideStrings(expr, "mod", "%");
@@ -4351,23 +4404,17 @@ private string processCondition(string condition)
 {
     import std.array : replace;
     import std.string : indexOf;
-    import std.stdio : writeln;
 
-    debugWriteln("DEBUG processCondition input: '", condition, "'");
-
-    condition = condition.replace(" mod ", " % ");
-    condition = condition.replace(" and ", " && ");
-    condition = condition.replace(")and ", ") && ");
-    condition = condition.replace(" band ", " & ");
-    condition = condition.replace(" bor ", " | ");
-    condition = condition.replace(" shl ", " << ");
-    condition = condition.replace(" shr ", " >> ");
-    condition = condition.replace(" not ", " ! ");
-    condition = condition.replace(" or ", " || ");
-    condition = condition.replace(")or ", ") || ");
-    condition = condition.replace(" xor ", " ^ ");
-
-    debugWriteln("DEBUG processCondition after replace: '", condition, "'");
+    // Use replaceKeywordOutsideStrings for proper word-boundary checking
+    condition = replaceKeywordOutsideStrings(condition, "mod", "%");
+    condition = replaceKeywordOutsideStrings(condition, "and", "&&");
+    condition = replaceKeywordOutsideStrings(condition, "band", "&");
+    condition = replaceKeywordOutsideStrings(condition, "bor", "|");
+    condition = replaceKeywordOutsideStrings(condition, "shl", "<<");
+    condition = replaceKeywordOutsideStrings(condition, "shr", ">>");
+    condition = replaceKeywordOutsideStrings(condition, "not", "!");
+    condition = replaceKeywordOutsideStrings(condition, "or", "||");
+    condition = replaceKeywordOutsideStrings(condition, "xor", "^");
 
     // Handle logical operators (&&, ||) first - they have lowest precedence
     foreach (op; ["&&", "||"])

@@ -255,6 +255,33 @@ pub def compare(a: string, b: string): i32 {
     return 0;
 }
 
+/// Concatenates a char pointer to a string
+pub def concat_c(original: string, addon: ref char): string {
+    mut result: string;
+    unsafe {
+        result.data = nil;
+        result.len = 0;
+        result.cap = 0;
+        
+        val addon_len: usize = C.strlen(addon);
+        val new_len: usize = original.len + addon_len;
+        
+        result.data = C.malloc(new_len + 1);
+        if result.data != nil {
+            if original.len > 0 {
+                C.memcpy(result.data, original.data, original.len);
+            }
+            if addon_len > 0 {
+                C.memcpy(result.data + original.len, addon, addon_len);
+            }
+            result.data[new_len] = '\0';
+            result.len = new_len;
+            result.cap = new_len + 1;
+        }
+    }
+    return result;
+}
+
 /// Concatenates source string to destination. Returns a new string.
 pub def concat(dest: string, src: string): string {
     mut result: string;
