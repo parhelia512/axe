@@ -1,0 +1,11 @@
+use std.io;
+
+// This test should fail with an error about deprecated pointer syntax
+def test_raw_pointer() {
+    val x: char* = "hello";
+    println str(x);
+}
+
+def main() {
+    test_raw_pointer();
+}

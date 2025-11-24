@@ -1,0 +1,11 @@
+use std.io;
+
+// This test should fail with an error about deprecated double pointer syntax
+def test_double_pointer() {
+    val x: int** = 0;
+    println str(x);
+}
+
+def main() {
+    test_double_pointer();
+}
