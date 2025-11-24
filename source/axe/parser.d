@@ -2396,6 +2396,38 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
 
                         funcNode.children ~= new AssignmentNode(leftSide, expr);
                     }
+                    else if (pos < tokens.length && tokens[pos].type == TokenType.INCREMENT)
+                    {
+                        if (!funcScope.isDeclared(identName))
+                        {
+                            enforce(false, "Undeclared variable: " ~ identName);
+                        }
+                        if (!funcScope.isMutable(identName))
+                        {
+                            enforce(false, "Cannot increment immutable variable: " ~ identName);
+                        }
+                        pos++;
+                        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                            "Expected ';' after increment");
+                        pos++;
+                        funcNode.children ~= new IncrementDecrementNode(identName, true);
+                    }
+                    else if (pos < tokens.length && tokens[pos].type == TokenType.DECREMENT)
+                    {
+                        if (!funcScope.isDeclared(identName))
+                        {
+                            enforce(false, "Undeclared variable: " ~ identName);
+                        }
+                        if (!funcScope.isMutable(identName))
+                        {
+                            enforce(false, "Cannot decrement immutable variable: " ~ identName);
+                        }
+                        pos++;
+                        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                            "Expected ';' after decrement");
+                        pos++;
+                        funcNode.children ~= new IncrementDecrementNode(identName, false);
+                    }
                     else if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
                     {
                         // Function call
@@ -4091,7 +4123,39 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 return new FunctionCallNode(fullLeftSide, args.join(", "));
             }
 
-            if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
+            if (pos < tokens.length && tokens[pos].type == TokenType.INCREMENT)
+            {
+                if (!currentScope.isDeclared(identName))
+                    enforce(false, "Undeclared variable: " ~ identName);
+
+                if (!currentScope.isMutable(identName))
+                    enforce(false, "Cannot increment member of immutable variable: " ~ identName);
+
+                pos++; // Skip '++'
+
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                    "Expected ';' after member increment");
+                pos++;
+
+                return new MemberIncrementDecrementNode(identName, memberName, true);
+            }
+            else if (pos < tokens.length && tokens[pos].type == TokenType.DECREMENT)
+            {
+                if (!currentScope.isDeclared(identName))
+                    enforce(false, "Undeclared variable: " ~ identName);
+
+                if (!currentScope.isMutable(identName))
+                    enforce(false, "Cannot decrement member of immutable variable: " ~ identName);
+
+                pos++; // Skip '--'
+
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                    "Expected ';' after member decrement");
+                pos++;
+
+                return new MemberIncrementDecrementNode(identName, memberName, false);
+            }
+            else if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
             {
                 // Check if the object is declared (could be a function parameter or local variable)
                 // Note: Function parameters are registered in the scope, so this should work

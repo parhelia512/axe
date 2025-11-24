@@ -79,14 +79,371 @@ pub def parse(tokens: list(Token), is_axec: bool, check_entry_point: bool, curre
         }
         
         // Parse next top-level item
-        // val child = parse_top_level(ctx)
-        // ast.children.append(child)
-        
-        // TODO: JUST ADVANCING TO AVOID INFINITE LOOP. REMOVE LATER.
-        ctx.pos++;
+        parse_top_level(addr_of(ctx), addr_of(ast));
     }
     
     return ast;
+}
+
+/// Parse a top-level construct (use, def, model, enum, val, mut val, etc.)
+def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
+    if ctx.pos >= len(ctx.tokens) {
+        return;
+    }
+    
+    val token_type = ctx.tokens.data[ctx.pos].token_type;
+    
+    // Handle USE statements
+    if token_type == TokenType.USE {
+        ctx.pos++;  // Skip 'use'
+        skip_whitespace(ctx);
+        
+        // For now, just skip until semicolon
+        loop {
+            if ctx.pos >= len(ctx.tokens) {
+                break;
+            }
+            if ctx.tokens.data[ctx.pos].token_type == TokenType.SEMICOLON {
+                ctx.pos++;
+                break;
+            }
+            ctx.pos++;
+        }
+        return;
+    }
+    
+    // Handle DEF (function definitions)
+    if token_type == TokenType.DEF {
+        ctx.pos++;  // Skip 'def'
+        skip_whitespace(ctx);
+        
+        // Skip function name
+        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.IDENTIFIER {
+            ctx.pos++;
+        }
+        
+        // Skip parameters
+        skip_whitespace(ctx);
+        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.LPAREN {
+            ctx.pos++;
+            mut depth: i32 = 1;
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+                if ctx.tokens.data[ctx.pos].token_type == TokenType.LPAREN {
+                    depth = depth + 1;
+                }
+                if ctx.tokens.data[ctx.pos].token_type == TokenType.RPAREN {
+                    depth = depth - 1;
+                    if depth == 0 {
+                        ctx.pos++;
+                        break;
+                    }
+                }
+                ctx.pos++;
+            }
+        }
+        
+        // Skip return type if present (: type)
+        skip_whitespace(ctx);
+        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.COLON {
+            ctx.pos++;
+            // Skip return type tokens until we hit {
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+                if ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
+                    break;
+                }
+                ctx.pos++;
+            }
+        }
+        
+        // Skip function body
+        skip_whitespace(ctx);
+        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
+            ctx.pos++;
+            mut depth: i32 = 1;
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+                if ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
+                    depth = depth + 1;
+                }
+                if ctx.tokens.data[ctx.pos].token_type == TokenType.RBRACE {
+                    depth = depth - 1;
+                    if depth == 0 {
+                        ctx.pos++;
+                        break;
+                    }
+                }
+                ctx.pos++;
+            }
+        }
+        return;
+    }
+    
+    // Handle MODEL definitions
+    if token_type == TokenType.MODEL {
+        ctx.pos++;  // Skip 'model'
+        skip_whitespace(ctx);
+        
+        // Skip model name
+        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.IDENTIFIER {
+            ctx.pos++;
+        }
+        
+        // Skip model body
+        skip_whitespace(ctx);
+        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
+            ctx.pos++;
+            mut depth: i32 = 1;
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+                if ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
+                    depth = depth + 1;
+                }
+                if ctx.tokens.data[ctx.pos].token_type == TokenType.RBRACE {
+                    depth = depth - 1;
+                    if depth == 0 {
+                        ctx.pos++;
+                        break;
+                    }
+                }
+                ctx.pos++;
+            }
+        }
+        return;
+    }
+    
+    // Handle ENUM definitions
+    if token_type == TokenType.ENUM {
+        ctx.pos++;  // Skip 'enum'
+        skip_whitespace(ctx);
+        
+        // Skip enum name
+        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.IDENTIFIER {
+            ctx.pos++;
+        }
+        
+        // Skip enum body
+        skip_whitespace(ctx);
+        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
+            ctx.pos++;
+            mut depth: i32 = 1;
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+                if ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
+                    depth = depth + 1;
+                }
+                if ctx.tokens.data[ctx.pos].token_type == TokenType.RBRACE {
+                    depth = depth - 1;
+                    if depth == 0 {
+                        ctx.pos++;
+                        break;
+                    }
+                }
+                ctx.pos++;
+            }
+        }
+        return;
+    }
+    
+    // Handle MUT VAL (mutable global variables)
+    if token_type == TokenType.MUT {
+        ctx.pos++;  // Skip 'mut'
+        skip_whitespace(ctx);
+        // Fall through to handle as VAL
+        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.VAL {
+            ctx.pos++;  // Skip 'val'
+        }
+        // Skip until semicolon
+        loop {
+            if ctx.pos >= len(ctx.tokens) {
+                break;
+            }
+            if ctx.tokens.data[ctx.pos].token_type == TokenType.SEMICOLON {
+                ctx.pos++;
+                break;
+            }
+            ctx.pos++;
+        }
+        return;
+    }
+    
+    // Handle VAL (immutable global variables)
+    if token_type == TokenType.VAL {
+        ctx.pos++;  // Skip 'val'
+        // Skip until semicolon
+        loop {
+            if ctx.pos >= len(ctx.tokens) {
+                break;
+            }
+            if ctx.tokens.data[ctx.pos].token_type == TokenType.SEMICOLON {
+                ctx.pos++;
+                break;
+            }
+            ctx.pos++;
+        }
+        return;
+    }
+    
+    // Handle TEST blocks
+    if token_type == TokenType.TEST {
+        ctx.pos++;  // Skip 'test'
+        skip_whitespace(ctx);
+        
+        // Skip test body
+        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
+            ctx.pos++;
+            mut depth: i32 = 1;
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+                if ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
+                    depth = depth + 1;
+                }
+                if ctx.tokens.data[ctx.pos].token_type == TokenType.RBRACE {
+                    depth = depth - 1;
+                    if depth == 0 {
+                        ctx.pos++;
+                        break;
+                    }
+                }
+                ctx.pos++;
+            }
+        }
+        return;
+    }
+    
+    // Handle PUB modifier
+    if token_type == TokenType.PUB {
+        ctx.pos++;  // Skip 'pub'
+        skip_whitespace(ctx);
+        // Recursively handle the next item
+        parse_top_level(ctx, ast);
+        return;
+    }
+    
+    // Handle MACRO definitions
+    if token_type == TokenType.MACRO {
+        ctx.pos++;  // Skip 'macro'
+        skip_whitespace(ctx);
+        
+        // Skip macro name
+        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.IDENTIFIER {
+            ctx.pos++;
+        }
+        
+        // Skip parameters
+        skip_whitespace(ctx);
+        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.LPAREN {
+            ctx.pos++;
+            mut depth: i32 = 1;
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+                if ctx.tokens.data[ctx.pos].token_type == TokenType.LPAREN {
+                    depth = depth + 1;
+                }
+                if ctx.tokens.data[ctx.pos].token_type == TokenType.RPAREN {
+                    depth = depth - 1;
+                    if depth == 0 {
+                        ctx.pos++;
+                        break;
+                    }
+                }
+                ctx.pos++;
+            }
+        }
+        
+        // Skip macro body
+        skip_whitespace(ctx);
+        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
+            ctx.pos++;
+            mut depth: i32 = 1;
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+                if ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
+                    depth = depth + 1;
+                }
+                if ctx.tokens.data[ctx.pos].token_type == TokenType.RBRACE {
+                    depth = depth - 1;
+                    if depth == 0 {
+                        ctx.pos++;
+                        break;
+                    }
+                }
+                ctx.pos++;
+            }
+        }
+        return;
+    }
+    
+    // Handle OPAQUE type declarations
+    if token_type == TokenType.OPAQUE {
+        ctx.pos++;  // Skip 'opaque'
+        loop {
+            if ctx.pos >= len(ctx.tokens) {
+                break;
+            }
+            if ctx.tokens.data[ctx.pos].token_type == TokenType.SEMICOLON {
+                ctx.pos++;
+                break;
+            }
+            ctx.pos++;
+        }
+        return;
+    }
+    
+    // Handle PLATFORM blocks
+    if token_type == TokenType.PLATFORM {
+        ctx.pos++;  // Skip 'platform'
+        skip_whitespace(ctx);
+        
+        // Skip platform name (windows/posix)
+        if ctx.pos < len(ctx.tokens) {
+            ctx.pos++;
+        }
+        
+        // Skip platform body
+        skip_whitespace(ctx);
+        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
+            ctx.pos++;
+            mut depth: i32 = 1;
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+                if ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
+                    depth = depth + 1;
+                }
+                if ctx.tokens.data[ctx.pos].token_type == TokenType.RBRACE {
+                    depth = depth - 1;
+                    if depth == 0 {
+                        ctx.pos++;
+                        break;
+                    }
+                }
+                ctx.pos++;
+            }
+        }
+        return;
+    }
+    
+    // Unknown token type - skip it
+    ctx.pos++;
 }
 
 /// Skip the whitespace and newline tokens
