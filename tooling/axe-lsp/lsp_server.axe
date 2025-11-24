@@ -316,9 +316,7 @@ def process_message(message: string) {
         } elif equals_c(method, "shutdown") {
             send_response(id, str("null"));
         } elif equals_c(method, "exit") {
-            unsafe {
-                C.exit(0);
-            }
+            quit(0);
         } elif equals_c(method, "textDocument/didOpen") {
             handle_did_open(params_val);
         } elif equals_c(method, "textDocument/didChange") {
