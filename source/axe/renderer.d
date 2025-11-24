@@ -1195,10 +1195,6 @@ string generateC(ASTNode ast)
         {
             callName = callName[2 .. $];
         }
-        else if (callName.startsWith("C_"))
-        {
-            callName = callName[2 .. $];
-        }
 
         if (callName.canFind("."))
         {
@@ -3668,6 +3664,13 @@ string processExpression(string expr, string context = "")
         expr = result;
     }
 
+    // Strip C. prefix for raw C function calls all the way before dot handling
+    // This prevents C.some_function() from being treated as god damn member access
+    if (expr.startsWith("C."))
+    {
+        expr = expr[2 .. $];
+    }
+    
     // Handle member access with auto-detection of pointer types.
     //
     // IMPORTANT: Be string-literal aware so we never rewrite dots inside quoted strings
