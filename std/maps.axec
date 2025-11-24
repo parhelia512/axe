@@ -4,11 +4,11 @@ use std.string;
 
 /// Generic Map using memcmp for key comparison
 macro make_map(keytype_elem: untyped, valtype_elem: untyped, mapname: untyped, keytype: untyped, valtype: untyped) {
-    model mapname {
+    pub model mapname {
         keys: ref keytype;
         values: ref valtype;
 
-        def create(arena: ref Arena, capacity: i32): ref mapname {
+        pub def create(arena: ref Arena, capacity: i32): ref mapname {
             mut map: ref mapname;
             unsafe {
                 map = Arena.alloc(arena, C.sizeof(mapname));
@@ -18,22 +18,22 @@ macro make_map(keytype_elem: untyped, valtype_elem: untyped, mapname: untyped, k
             return map;
         }
 
-        def clear(map: ref mapname) {
+        pub def clear(map: ref mapname) {
             map.keys.len = 0;
             map.values.len = 0;
         }
         
-        def append(map: ref mapname, arena: ref Arena, key: keytype_elem, value: valtype_elem) {
+        pub def append(map: ref mapname, arena: ref Arena, key: keytype_elem, value: valtype_elem) {
             keytype.push(map.keys, arena, key);
             valtype.push(map.values, arena, value);
         }
         
-        def add(map: ref mapname, arena: ref Arena, key: keytype_elem, value: valtype_elem) {
+        pub def add(map: ref mapname, arena: ref Arena, key: keytype_elem, value: valtype_elem) {
             keytype.push(map.keys, arena, key);
             valtype.push(map.values, arena, value);
         }
         
-        def get(map: ref mapname, key: keytype_elem): valtype_elem {
+        pub def get(map: ref mapname, key: keytype_elem): valtype_elem {
             mut i: i32 = 0;
             val keys: ref keytype = map.keys;
             val values: ref valtype = map.values;
@@ -55,7 +55,7 @@ macro make_map(keytype_elem: untyped, valtype_elem: untyped, mapname: untyped, k
             return default_val;
         }
         
-        def contains(map: ref mapname, key: keytype_elem): bool {
+        pub def contains(map: ref mapname, key: keytype_elem): bool {
             mut i: i32 = 0;
             val keys: ref keytype = map.keys;
             loop {
@@ -72,12 +72,12 @@ macro make_map(keytype_elem: untyped, valtype_elem: untyped, mapname: untyped, k
             return false;
         }
         
-        def size(map: ref mapname): i32 {
+        pub def size(map: ref mapname): i32 {
             val keys: ref keytype = map.keys;
             return keys.len;
         }
         
-        def pop(map: ref mapname, key: keytype_elem): valtype_elem {
+        pub def pop(map: ref mapname, key: keytype_elem): valtype_elem {
             mut i: i32 = 0;
             mut keys: ref keytype = map.keys;
             mut values: ref valtype = map.values;
@@ -117,7 +117,7 @@ macro make_map(keytype_elem: untyped, valtype_elem: untyped, mapname: untyped, k
 
 /// Generic StringHashMap with proper string comparison
 macro make_string_map(valtype_elem: untyped, mapname: untyped, valtype: untyped) {
-    model mapname {
+    pub model mapname {
         keys: ref StringList;
         values: ref valtype;
 

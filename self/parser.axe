@@ -16,9 +16,17 @@ use std.string;
 use std.io;
 use std.maps;
 
-test {
+mut g_type_aliases: StringHashMapString;
+mut g_imported_modules: StringHashMapBool;
+mut g_list_of_types: StringHashMapString;
 
+def initialize_all() {
+    mut arena: Arena = Arena.create(1024 * 1024);
+    g_type_aliases = deref(StringHashMapString.create(ref_of(arena), 128));
+    g_imported_modules = deref(StringHashMapBool.create(ref_of(arena), 128));
+    g_list_of_types = deref(StringHashMapString.create(ref_of(arena), 128));
 }
+
 // val g_type_aliases: map(string, string);
 // val g_macros: map(string, MacroDef);
 // val g_imported_modules: map(string, bool);
@@ -275,3 +283,7 @@ test {
 //     println "Parser module loaded";
 //     println "TODO: Implement remaining parser functions";
 // }
+
+test {
+
+}

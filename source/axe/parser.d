@@ -667,10 +667,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                         "Expected '{' after function declaration");
                     pos++;
 
-                    Scope funcScope = new Scope();
+                    Scope funcScope = new Scope(currentScope);
                     ASTNode funcScopeNode = funcNode;
-
-                    // Register function parameters in the scope
                     foreach (param; params)
                     {
                         import std.string : split, strip;
@@ -806,7 +804,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                         "Expected '{' after method declaration");
                     pos++;
 
-                    Scope methodScope = new Scope();
+                    Scope methodScope = new Scope(currentScope);
 
                     foreach (param; params)
                     {
@@ -2078,7 +2076,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
             pos++;
 
             // Create function scope and register parameters
-            Scope funcScope = new Scope();
+            Scope funcScope = new Scope(currentScope);
             ASTNode funcScopeNode = funcNode;
 
             // Register function parameters in the scope
@@ -2687,6 +2685,9 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
 
             auto declNode = new DeclarationNode(varName, isMutable, initializer.strip(), varType);
             ast.children ~= declNode;
+            
+            // Register global variable in currentScope so it can be found by isDeclared checks
+            currentScope.addVariable(varName, isMutable);
             continue;
 
         case TokenType.WHITESPACE, TokenType.NEWLINE:
