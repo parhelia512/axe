@@ -327,6 +327,16 @@ pub def substring(haystack: string, needle: string): char* {
     return result;
 }
 
+/// Checks if string contains substring.
+pub def str_contains(s: string, substr: string): bool {
+    return substring(s, substr) != 0;
+}
+
+/// Checks if string contains substring.
+pub def str_contains_c(s: string, substr: char*): bool {
+    return substring(s, str(substr)) != 0;
+}
+
 /// Converts string to integer.
 pub def str_to_int(s: string): i32 {
     mut result: i32 = 0;
