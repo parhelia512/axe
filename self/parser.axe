@@ -72,14 +72,10 @@ pub def parse(tokens: list(Token), is_axec: bool, check_entry_point: bool, curre
         if ctx.pos >= len(tokens) {
             break;
         }
-        
-        skip_whitespace(addr_of(ctx));
-        
+        skip_whitespace(addr_of(ctx));        
         if ctx.pos >= len(tokens) {
             break;
         }
-        
-        // Parse next top-level item
         parse_top_level(addr_of(ctx), addr_of(ast));
     }
     
@@ -96,9 +92,10 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
     
     // Handle USE statements
     if token_type == TokenType.USE {
-        ctx.pos++;  // Skip 'use'
+        ctx.pos++;
         skip_whitespace(ctx);
         
+        // TODO: Parse module path. 
         // For now, just skip until semicolon
         loop {
             if ctx.pos >= len(ctx.tokens) {
@@ -115,15 +112,13 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
     
     // Handle DEF (function definitions)
     if token_type == TokenType.DEF {
-        ctx.pos++;  // Skip 'def'
+        ctx.pos++;
         skip_whitespace(ctx);
         
-        // Skip function name
         if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.IDENTIFIER {
             ctx.pos++;
         }
         
-        // Skip parameters
         skip_whitespace(ctx);
         if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.LPAREN {
             ctx.pos++;
@@ -146,11 +141,9 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
             }
         }
         
-        // Skip return type if present (: type)
         skip_whitespace(ctx);
         if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.COLON {
             ctx.pos++;
-            // Skip return type tokens until we hit {
             loop {
                 if ctx.pos >= len(ctx.tokens) {
                     break;
@@ -162,7 +155,6 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
             }
         }
         
-        // Skip function body
         skip_whitespace(ctx);
         if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
             ctx.pos++;
@@ -189,15 +181,13 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
     
     // Handle MODEL definitions
     if token_type == TokenType.MODEL {
-        ctx.pos++;  // Skip 'model'
+        ctx.pos++;
         skip_whitespace(ctx);
         
-        // Skip model name
         if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.IDENTIFIER {
             ctx.pos++;
         }
         
-        // Skip model body
         skip_whitespace(ctx);
         if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
             ctx.pos++;
@@ -227,12 +217,10 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         ctx.pos++;  // Skip 'enum'
         skip_whitespace(ctx);
         
-        // Skip enum name
         if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.IDENTIFIER {
             ctx.pos++;
         }
         
-        // Skip enum body
         skip_whitespace(ctx);
         if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
             ctx.pos++;
@@ -257,15 +245,12 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         return;
     }
     
-    // Handle MUT VAL (mutable global variables)
     if token_type == TokenType.MUT {
-        ctx.pos++;  // Skip 'mut'
+        ctx.pos++;
         skip_whitespace(ctx);
-        // Fall through to handle as VAL
         if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.VAL {
             ctx.pos++;  // Skip 'val'
         }
-        // Skip until semicolon
         loop {
             if ctx.pos >= len(ctx.tokens) {
                 break;
