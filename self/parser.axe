@@ -19,6 +19,7 @@ use std.maps;
 mut g_type_aliases: StringHashMapString;
 mut g_imported_modules: StringHashMapBool;
 mut g_list_of_types: StringHashMapString;
+// val g_macros: map(string, MacroDef);
 
 def initialize_all() {
     mut arena: Arena = Arena.create(1024 * 1024);
@@ -27,26 +28,22 @@ def initialize_all() {
     g_list_of_types = deref(StringHashMapString.create(ref_of(arena), 128));
 }
 
-// val g_type_aliases: map(string, string);
-// val g_macros: map(string, MacroDef);
-// val g_imported_modules: map(string, bool);
-// val g_list_of_types: map(string, string);
 
-// /// Parser context - holds state during parsing
-// model ParserContext {
-//     tokens: list(Token);
-//     pos: i32;
-//     is_axec: bool;
-//     check_entry_point: bool;
-//     current_module: string;
-//     current_scope: Scope;
-// }
+/// Parser context - holds state during parsing
+model ParserContext {
+    tokens: list(Token);
+    pos: i32;
+    is_axec: bool;
+    check_entry_point: bool;
+    current_module: string;
+    current_scope: Scope;
+}
 
-// /// Scope tracking for variable declarations
-// model Scope {
-//     variables: map(string, string);
-//     parent: ref Scope;
-// }
+/// Scope tracking for variable declarations
+model Scope {
+    variables: StringHashMapString;
+    parent: ref Scope;
+}
 
 // // Entry point for parsing tokens into an AST
 // pub def parse(tokens: list(Token), is_axec: bool, check_entry_point: bool, current_module: string): ASTNode {
