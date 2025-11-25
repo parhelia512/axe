@@ -470,6 +470,4 @@ test {
     assert equals_c(process_parameter_type(str("ref i32")), "int32_t*"), "Expected ref i32 -> int32_t*";
     assert equals_c(process_parameter_type(str("mut i32")), "int32_t"), "Expected mut i32 -> int32_t";
     assert equals_c(process_parameter_type(str("i32*")), "int32_t*"), "Expected i32* -> int32_t*";
-    
-    println "\nAll renderer tests passed!";
 }
