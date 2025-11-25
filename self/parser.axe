@@ -94,8 +94,6 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         ctx.pos++;
         skip_whitespace(ctx);
         
-        // TODO: Parse module path. 
-        // For now, just skip until semicolon
         loop {
             if ctx.pos >= len(ctx.tokens) {
                 break;
@@ -1849,6 +1847,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         skip_whitespace(ctx);
         
         node.node_type = str("Opaque");
+        // TODO: Fix.
         // For now, just mark it as Opaque - proper list assignment in unions needs compiler support
         // node.data.opaque_node.type_names = type_names;
         return node;
