@@ -46,9 +46,9 @@ model Scope {
 }
 
 /// Parse the tokens into an AST
-pub def parse(tokens: list(Token), is_axec: bool, check_entry_point: bool, current_module: string): ASTNode {
+pub def parse(tokens: ref list(Token), is_axec: bool, check_entry_point: bool, current_module: string): ASTNode {
     mut ctx: ParserContext;
-    ctx.tokens = addr_of(tokens);
+    ctx.tokens = tokens;
     ctx.pos = 0;
     ctx.is_axec = is_axec;
     ctx.check_entry_point = check_entry_point;
@@ -2109,11 +2109,11 @@ test {
     mut func8: ASTNode = parse_function(addr_of(ctx8));
     assert equals_c(func8.node_type, "Function"), "Expected Function node for function with params";
 
-    // println "\nTest 9: parse full program with def main";
-    // mut tokens9: list(Token) = lex(str("def main() { }"));
-    // mut empty_module: string = str("");
-    // mut ast9: ASTNode = parse(addr_of(tokens9), false, false, empty_module);
-    // assert equals_c(ast9.node_type, "Program"), "Expected Program AST node";
+    println "\nTest 9: parse full program with def main";
+    mut tokens9: list(Token) = lex(str("def main() { }"));
+    mut empty_module: string = str("");
+    mut ast9: ASTNode = parse(addr_of(tokens9), false, false, empty_module);
+    assert equals_c(ast9.node_type, "Program"), "Expected Program AST node";
 
     println "\nTest 10: parse program with model definition";
     mut tokens10: list(Token) = lex(str("model Point { x: i32 } def main() { }"));
