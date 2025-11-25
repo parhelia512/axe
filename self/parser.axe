@@ -2010,13 +2010,13 @@ test {
     assert equals_c(stmt26.node_type, "Case"), "Expected Case node";
     assert stmt26.data.case_node.is_default == false, "Expected non-default case";
 
-    // println "\nTest 27: parse_statement_helper with default";
-    // mut tokens27: list(Token) = lex(str("default { println \"other\"; }"));
-    // mut ctx27: ParserContext;
-    // ctx27.tokens = addr_of(tokens27);
-    // ctx27.pos = 0;
-    // ctx27.is_axec = false;
-    // mut stmt27: ASTNode = parse_statement_helper(addr_of(ctx27));
-    // assert equals_c(stmt27.node_type, "Case"), "Expected Case node for default";
-    // assert stmt27.data.case_node.is_default == true, "Expected default case";
+    println "\nTest 27: parse_statement_helper with default";
+    mut tokens27: list(Token) = lex(str("default { println \"other\"; }"));
+    mut ctx27: ParserContext;
+    ctx27.tokens = addr_of(tokens27);
+    ctx27.pos = 0;
+    ctx27.is_axec = false;
+    mut stmt27: ASTNode = parse_statement_helper(addr_of(ctx27));
+    assert equals_c(stmt27.node_type, "Case"), "Expected Case node for default";
+    assert stmt27.data.case_node.is_default == true, "Expected default case";
 }
