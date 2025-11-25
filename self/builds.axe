@@ -37,8 +37,8 @@ def compile_file(filename: string, is_axec: bool): bool {
     }
     
     println str("3 | Parse");
-    val ast: ref ASTNode = parse(addr_of(tokens), is_axec, true, str(""));
-    if ast == nil {
+    mut ast: ASTNode = parse(addr_of(tokens), is_axec, true, str(""));
+    if len(ast.children) == 0 {
         println str("Error: Failed to parse");
         return false;
     }
@@ -51,7 +51,7 @@ def compile_file(filename: string, is_axec: bool): bool {
 
     initialize_renderer();
     
-    val c_code: string = generate_c(ast);
+    val c_code: string = generate_c(ref ast);
     if str_len(c_code) == 0 {
         println str("Error: Failed to generate C code");
         return false;
