@@ -540,14 +540,62 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 else if (importChild.nodeType == "Model")
                 {
                     auto modelNode = cast(ModelNode) importChild;
-                    // import std.stdio : writeln;
-                    // writeln("DEBUG: Checking importChild Model: ", modelNode.name);
                     if (modelNode.isPublic && (useNode.importAll || useNode.imports.canFind(modelNode.name)
                             || modelNode.name.startsWith("std_")))
                     {
-                        string prefixedName = modelNode.name.startsWith("std_") ? modelNode.name
-                            : (sanitizedModuleName ~ "__" ~ modelNode.name);
-                        moduleModelMap[modelNode.name] = prefixedName;
+                        string prefixedName;
+
+                        // If the model name already looks like a fully-prefixed
+                        // C type (e.g. "structs__ASTNode" or "foo__Bar"), then
+                        // treat that as the canonical C name and avoid layering
+                        // another module prefix on top of it. This prevents
+                        // double-prefixing like renderer__structs__ASTNode.
+                        bool hasDoubleUnderscore = modelNode.name.canFind("__");
+                        bool isAlreadyPrefixedModel = false;
+
+                        if (hasDoubleUnderscore)
+                        {
+                            import std.array : split;
+
+                            auto parts = modelNode.name.split("__");
+                            if (parts.length >= 2)
+                            {
+                                string lastPart = parts[$ - 1];
+                                if (lastPart.length > 0 && lastPart[0] >= 'A' && lastPart[0] <= 'Z')
+                                {
+                                    isAlreadyPrefixedModel = true;
+                                }
+                            }
+                        }
+
+                        if (isAlreadyPrefixedModel)
+                        {
+                            string canonicalName = modelNode.name;
+                            prefixedName = canonicalName;
+
+                            // Map both the full name and the short base name to the
+                            // same canonical C type so that any module importing via
+                            // an intermediate re-export still instantiates lists and
+                            // other templates against the canonical type, rather than
+                            // creating per-import variants.
+                            moduleModelMap[modelNode.name] = canonicalName;
+
+                            import std.string : lastIndexOf;
+
+                            auto lastUnderscore = canonicalName.lastIndexOf("__");
+                            if (lastUnderscore >= 0)
+                            {
+                                string baseName = canonicalName[lastUnderscore + 2 .. $];
+                                moduleModelMap[baseName] = canonicalName;
+                            }
+                        }
+                        else
+                        {
+                            prefixedName = modelNode.name.startsWith("std_") ? modelNode.name
+                                : (sanitizedModuleName ~ "__" ~ modelNode.name);
+
+                            moduleModelMap[modelNode.name] = prefixedName;
+                        }
 
                         foreach (method; modelNode.methods)
                         {
