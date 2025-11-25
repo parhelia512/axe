@@ -13,8 +13,8 @@ def main() {
 
     parallel local(mut arena: Arena) {
         arena = Arena.create(1024);
-        val tid = Parallel.thread_id();
-        val result = worker(ref_of(arena), tid);
+        val tid: i32 = Parallel.thread_id();
+        val result: i32 = worker(ref_of(arena), tid);
         println $"Thread {tid} computed {result}";
         Arena.destroy(ref_of(arena));
     }

@@ -6211,4 +6211,38 @@ unittest
 strcpy(x, "hello");`),
             "Should create char array with correct size for interpolated string");
     }
+
+    {
+        auto tokens = lex(`
+def worker(arena: ref Arena, value: i32): i32 {
+    mut p: ref i32 = (ref i32)Arena.alloc(arena, sizeof(i32));
+    deref(p) = value * value;
+    return deref(p);
+}
+
+def main() {
+    println "Running parallel computation...";
+
+    parallel local(mut arena: Arena) {
+        arena = Arena.create(1024);
+        val tid: i32 = Parallel.thread_id();
+        val result: i32 = worker(ref_of(arena), tid);
+        println $"Thread {tid} computed {result}";
+        Arena.destroy(ref_of(arena));
+    }
+
+    println "Done.";
+}
+`);
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Parallel local with arena allocation test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("#pragma omp parallel private(arena)"),
+            "Should generate OpenMP parallel pragma for parallel local block");
+        assert(cCode.canFind("Arena__destroy(&arena);"),
+            "Should destroy Arena at end of parallel local block");
+    }
 }
