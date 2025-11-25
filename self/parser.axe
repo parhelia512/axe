@@ -2926,16 +2926,10 @@ test {
 // TDL: Missing features from parser.d that need to be ported to parser.axe
 // =============================================================================
 //
-//
 // HIGH PRIORITY (Core Language Features):
 // ---------------------------------------
-// 3. PRINTLN/PRINT dedicated handling
-//    - parser.d lines 2830-2833: Separate cases for PRINTLN and PRINT tokens
-//    - parsePrintlnHelper (lines 5335+): Handles string literals, expressions, interpolation
-//    - parsePrintHelper: Similar handling for print without newline
-//    - Currently parser.axe treats println/print as regular function calls
-//    - Special handling enables: println "text", expr, "more"; syntax
-//    - Supports string interpolation detection and std.string requirement checking
+// 3. STRING INTERPOLATION
+//    - Support string interpolation detection and std.string requirement checking
 //
 // MEDIUM PRIORITY (Statement Enhancements):
 // -----------------------------------------
