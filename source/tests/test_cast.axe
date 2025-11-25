@@ -1,0 +1,11 @@
+use std.string;
+
+def main() {
+    mut dummy: list(string);
+    unsafe {
+        val x: usize = 42;
+        val y: ref i32 = cast[ref i32](x);
+        val size: usize = C.sizeof(list(string));
+        println size;
+    }
+}

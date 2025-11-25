@@ -1,0 +1,16 @@
+use std.io;
+
+def main() {
+    mut nums: list(i32);
+    
+    append(nums, 1);
+    append(nums, 2);
+    append(nums, 3);
+    
+    println "Length: ";
+    println len(nums);
+    
+    for n in nums {
+        println n;
+    }
+}
