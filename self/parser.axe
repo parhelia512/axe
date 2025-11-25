@@ -2008,7 +2008,7 @@ test {
     ctx26.is_axec = false;
     mut stmt26: ASTNode = parse_statement_helper(addr_of(ctx26));
     assert equals_c(stmt26.node_type, "Case"), "Expected Case node";
-    // assert stmt26.data.case_node.is_default == false, "Expected non-default case";
+    assert stmt26.data.case_node.is_default == false, "Expected non-default case";
 
     // println "\nTest 27: parse_statement_helper with default";
     // mut tokens27: list(Token) = lex(str("default { println \"other\"; }"));

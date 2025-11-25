@@ -1801,7 +1801,9 @@ string generateC(ASTNode ast)
             }
             else
             {
-                cCode ~= decl ~ ";\n";
+                // Initialize structs to zero to avoid uninitialized memory issues,
+                // especially with unions where reading one variant after writing another can cause segfaults
+                cCode ~= decl ~ " = {0};\n";
             }
         }
 
