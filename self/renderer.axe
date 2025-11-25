@@ -81,6 +81,122 @@ def map_type(axe_type: string): string {
     return axe_type;
 }
 
+/// Get canonical model C name from g_model_names
+def canonical_model_c_name(name: string): string {
+    if StringStringMap.contains(addr_of(g_model_names), name) {
+        return StringStringMap.get(addr_of(g_model_names), name);
+    }
+    return str("");
+}
+
+/// Map Axe type to C type (comprehensive version for model fields)
+def map_axe_type_to_c(axe_type: string): string {
+    mut result: string = axe_type;
+    
+    // Handle mut prefix
+    if has_prefix(result, str("mut ")) {
+        result = strip(substr(result, 4, str_len(result) - 4));
+        return map_axe_type_to_c(result);
+    }
+    
+    // Handle list types [999]
+    if has_suffix(result, str("[999]")) {
+        val element_type: string = strip(substring_se(result, 0, str_len(result) - 5));
+        if has_prefix(element_type, str("ref ")) {
+            val base_elem: string = strip(substr(element_type, 4, str_len(element_type) - 4));
+            val mapped_elem: string = map_axe_type_to_c(base_elem);
+            mut struct_name: string = str("__list_");
+            struct_name = concat(struct_name, mapped_elem);
+            struct_name = concat(struct_name, str("_t*"));
+            return struct_name;
+        } else {
+            val mapped_elem: string = map_axe_type_to_c(element_type);
+            mut struct_name: string = str("__list_");
+            struct_name = concat(struct_name, mapped_elem);
+            struct_name = concat(struct_name, str("_t"));
+            return struct_name;
+        }
+    }
+    
+    // Handle ref prefix
+    if has_prefix(result, str("ref ")) {
+        val base_type: string = strip(substr(result, 4, str_len(result) - 4));
+        val mapped_base: string = map_axe_type_to_c(base_type);
+        return concat(mapped_base, str("*"));
+    }
+    
+    // Handle pointer suffix
+    if has_suffix(result, str("*")) {
+        val base_type: string = strip(substring_se(result, 0, str_len(result) - 1));
+        val mapped_base: string = map_axe_type_to_c(base_type);
+        return concat(mapped_base, str("*"));
+    }
+    
+    // Check type mappings
+    if StringStringMap.contains(addr_of(g_type_mappings), result) {
+        return StringStringMap.get(addr_of(g_type_mappings), result);
+    }
+    
+    // Check model names
+    if StringStringMap.contains(addr_of(g_model_names), result) {
+        return StringStringMap.get(addr_of(g_model_names), result);
+    }
+    
+    return result;
+}
+
+/// Format model field type with proper struct prefix
+def format_model_field_type(field_type: string): string {
+    mut trimmed: string = strip(field_type);
+    mut qualifiers: string = str("");
+    
+    loop {
+        if !has_prefix(trimmed, str("const ")) {
+            break;
+        }
+        qualifiers = concat(qualifiers, str("const "));
+        trimmed = strip(substr(trimmed, 6, str_len(trimmed) - 6));
+    }
+    
+    mut had_struct_prefix: bool = false;
+    if has_prefix(trimmed, str("struct ")) {
+        had_struct_prefix = true;
+        trimmed = strip(substr(trimmed, 7, str_len(trimmed) - 7));
+    }
+    
+    mut pointer_suffix: string = str("");
+    loop {
+        val len: i32 = str_len(trimmed);
+        if len == 0 {
+            break;
+        }
+        val last_char: char = get_char(trimmed, len - 1);
+        if last_char != '*' {
+            break;
+        }
+        pointer_suffix = concat(pointer_suffix, str("*"));
+        trimmed = strip(substring_se(trimmed, 0, len - 1));
+    }
+    
+    val model_name: string = canonical_model_c_name(trimmed);
+    if str_len(model_name) > 0 {
+        if StringBoolMap.contains(addr_of(g_enum_names), model_name) {
+            trimmed = model_name;
+        } else {
+            trimmed = concat(str("struct "), model_name);
+        }
+    } else {
+        if had_struct_prefix {
+            trimmed = concat(str("struct "), trimmed);
+        }
+    }
+    
+    mut final_result: string = qualifiers;
+    final_result = concat(final_result, trimmed);
+    final_result = concat(final_result, pointer_suffix);
+    return final_result;
+}
+
 /// Process parameter type (handle ref, mut, pointers, etc.)
 def process_parameter_type(param_type: string): string {
     mut result: string = param_type;
@@ -402,13 +518,52 @@ def generate_c(ast: ref ASTNode): string {
                 }
                 
                 val field_name: string = field_names.data[field_idx];
-                val field_type: string = field_types.data[field_idx];
-                val mapped_type: string = process_parameter_type(field_type);
+                mut field_type: string = field_types.data[field_idx];
+                mut array_part: string = str("");
+                
+                // Check for list types [999]
+                if has_suffix(field_type, str("[999]")) {
+                    val base_type: string = substring_se(field_type, 0, str_len(field_type) - 5);
+                    mut mapped_type: string = map_axe_type_to_c(base_type);
+                    
+                    if !has_suffix(mapped_type, str("*")) {
+                        mapped_type = concat(mapped_type, str("*"));
+                    }
+                    
+                    result = concat(result, str("    "));
+                    result = concat(result, mapped_type);
+                    result = concat(result, str(" "));
+                    result = concat(result, field_name);
+                    result = concat(result, str(";\n"));
+                    
+                    field_idx++;
+                    continue;
+                }
+                
+                val bracket_pos: i32 = find_char_from(field_type, '[', 0);
+                if bracket_pos >= 0 {
+                    array_part = substr(field_type, bracket_pos, str_len(field_type) - bracket_pos);
+                    field_type = strip(substring_se(field_type, 0, bracket_pos));
+                }
+                
+                mut mapped_type: string = map_axe_type_to_c(field_type);
+                
+                if has_prefix(mapped_type, str("ref ")) {
+                    mapped_type = concat(strip(substr(mapped_type, 4, str_len(mapped_type) - 4)), str("*"));
+                }
+                
+                mapped_type = format_model_field_type(mapped_type);
+                
+                if compare(field_type, model_name) == 0 {
+                    mapped_type = concat(str("struct "), field_type);
+                    mapped_type = concat(mapped_type, str("*"));
+                }
                 
                 result = concat(result, str("    "));
                 result = concat(result, mapped_type);
                 result = concat(result, str(" "));
                 result = concat(result, field_name);
+                result = concat(result, array_part);
                 result = concat(result, str(";\n"));
                 
                 field_idx++;
@@ -524,4 +679,50 @@ test {
     assert str_contains_c(model2_code, "int32_t age"), "Expected int32_t age field";
     assert str_contains_c(model2_code, "float height"), "Expected float height field";
     assert str_contains_c(model2_code, "bool active"), "Expected bool active field";
+    
+    println "\nTest 9: Model with array field";
+    mut model3_ast: ASTNode;
+    model3_ast.node_type = str("Model");
+    model3_ast.data.model_node.name = str("Buffer");
+    model3_ast.data.model_node.is_public = false;
+    
+    val field_names3: ref StringList = StringList.create(addr_of(model_arena), 10);
+    StringList.push(field_names3, addr_of(model_arena), str("data"));
+    model3_ast.data.model_node.field_names = field_names3;
+    
+    val field_types3: ref StringList = StringList.create(addr_of(model_arena), 10);
+    StringList.push(field_types3, addr_of(model_arena), str("i32[100]"));
+    model3_ast.data.model_node.field_types = field_types3;
+    
+    model3_ast.children = nil;
+    val model3_code: string = generate_c(addr_of(model3_ast));
+    assert str_contains_c(model3_code, "struct Buffer"), "Expected struct Buffer";
+    assert str_contains_c(model3_code, "int32_t data[100]"), "Expected array field";
+    
+    println "\nTest 10: Model with pointer field";
+    mut model4_ast: ASTNode;
+    model4_ast.node_type = str("Model");
+    model4_ast.data.model_node.name = str("Node");
+    model4_ast.data.model_node.is_public = false;
+    
+    val field_names4: ref StringList = StringList.create(addr_of(model_arena), 10);
+    StringList.push(field_names4, addr_of(model_arena), str("value"));
+    StringList.push(field_names4, addr_of(model_arena), str("next"));
+    model4_ast.data.model_node.field_names = field_names4;
+    
+    val field_types4: ref StringList = StringList.create(addr_of(model_arena), 10);
+    StringList.push(field_types4, addr_of(model_arena), str("i32"));
+    StringList.push(field_types4, addr_of(model_arena), str("ref Node"));
+    model4_ast.data.model_node.field_types = field_types4;
+    
+    model4_ast.children = nil;
+    val model4_code: string = generate_c(addr_of(model4_ast));
+    assert str_contains_c(model4_code, "struct Node"), "Expected struct Node";
+    assert str_contains_c(model4_code, "int32_t value"), "Expected value field";
+    assert str_contains_c(model4_code, "Node* next"), "Expected pointer field";
+    
+    println "\nTest 11: Test helper functions";
+    assert equals_c(map_axe_type_to_c(str("i32")), "int32_t"), "Expected i32 mapping";
+    assert equals_c(map_axe_type_to_c(str("ref i64")), "int64_t*"), "Expected ref i64 mapping";
+    assert equals_c(map_axe_type_to_c(str("mut f32")), "float"), "Expected mut f32 mapping";
 }
