@@ -116,10 +116,10 @@ string generateAsm(ASTNode ast)
                     asmCode ~= `
                     section .data
                         msg_`
-                    ~ msgCounter.to!string ~ ` db '` ~ combinedMsg ~ `', 0
+                        ~ msgCounter.to!string ~ ` db '` ~ combinedMsg ~ `', 0
                     section .text
                         mov rcx, msg_`
-                    ~ msgCounter.to!string ~ `
+                        ~ msgCounter.to!string ~ `
                         call printf
                         mov rcx, nl
                         call printf
@@ -184,10 +184,10 @@ string generateAsm(ASTNode ast)
                             asmCode ~= `
                             section .data
                                 msg_`
-                            ~ msgCounter.to!string ~ ` db '` ~ combinedMsg ~ `', 0
+                                ~ msgCounter.to!string ~ ` db '` ~ combinedMsg ~ `', 0
                             section .text
                                 mov rcx, msg_`
-                            ~ msgCounter.to!string ~ `
+                                ~ msgCounter.to!string ~ `
                                 call printf
                                 mov rcx, nl
                                 call printf
@@ -306,10 +306,10 @@ string generateAsm(ASTNode ast)
                     asmCode ~= `
                     section .data
                         msg_`
-                    ~ msgCounter.to!string ~ ` db '` ~ combinedMsg ~ `', 0
+                        ~ msgCounter.to!string ~ ` db '` ~ combinedMsg ~ `', 0
                     section .text
                         mov rcx, msg_`
-                    ~ msgCounter.to!string ~ `
+                        ~ msgCounter.to!string ~ `
                         call printf
                         mov rcx, nl
                         call printf
@@ -433,10 +433,10 @@ string generateAsm(ASTNode ast)
                             asmCode ~= `
                             section .data
                                 msg_`
-                            ~ msgCounter.to!string ~ ` db '` ~ combinedMsg ~ `', 0
+                                ~ msgCounter.to!string ~ ` db '` ~ combinedMsg ~ `', 0
                             section .text
                                 mov rcx, msg_`
-                            ~ msgCounter.to!string ~ `
+                                ~ msgCounter.to!string ~ `
                                 call printf
                                 mov rcx, nl
                                 call printf
@@ -543,10 +543,10 @@ string generateAsm(ASTNode ast)
                     asmCode ~= `
                     section .data
                         msg_`
-                    ~ loopId.to!string ~ ` db '` ~ combinedMsg ~ `', 0
+                        ~ loopId.to!string ~ ` db '` ~ combinedMsg ~ `', 0
                     section .text
                         mov rcx, msg_`
-                    ~ loopId.to!string ~ `
+                        ~ loopId.to!string ~ `
                         call printf
                         mov rcx, nl
                         call printf
