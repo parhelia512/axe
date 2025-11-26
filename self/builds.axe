@@ -197,6 +197,7 @@ def collect_declared_functions(ast: ref ASTNode) {
 
 test {
     println "\nTest 1: Replace extension";
+    
     assert equals_c(replace_extension(str("test.axe"), str(".c")), "test.c"), "Expected test.c";
     assert equals_c(replace_extension(str("file.txt"), str(".exe")), "file.exe"), "Expected file.exe";
     assert equals_c(replace_extension(str("noext"), str(".c")), "noext.c"), "Expected noext.c";
@@ -205,6 +206,7 @@ test {
     mut simple_ast: ASTNode;
     simple_ast.node_type = str("Program");
     simple_ast.children = nil;
+
     assert !has_parallel_blocks(addr_of(simple_ast)), "Expected no parallel blocks";
     
     println "\nTest 3: Collect model names";
@@ -212,5 +214,6 @@ test {
     model_ast.node_type = str("Model");
     model_ast.data.model_node.name = str("TestModel");
     model_ast.children = nil;
+    
     collect_model_names(addr_of(model_ast));
 }
