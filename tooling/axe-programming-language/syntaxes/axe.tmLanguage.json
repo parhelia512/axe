@@ -48,6 +48,17 @@
     "strings": {
       "patterns": [
         {
+          "name": "string.quoted.single.axe",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.axe",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
           "name": "string.quoted.double.axe",
           "begin": "\"",
           "end": "\"",
