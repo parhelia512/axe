@@ -1137,7 +1137,9 @@ def parse_function(ctx: ref ParserContext): ASTNode {
     
     skip_whitespace(ctx);
     if !expect(ctx, TokenType.LBRACE) {
-        enforce_raw(false, "ERROR: Expected '{' after function declaration");
+        mut msg: string = str("ERROR: Expected '{' after function declaration, instead got: ");
+        msg = concat(msg, ctx.tokens.data[ctx.pos].value);
+        enforce_raw(false, msg.data);
         return func;
     }
     consume(ctx);
