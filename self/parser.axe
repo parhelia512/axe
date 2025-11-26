@@ -1588,20 +1588,73 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
         val var_name: Token = consume(ctx);
         skip_whitespace(ctx);
-        
-        loop {
-            if ctx.pos >= len(ctx.tokens) {
-                break;
-            }
-            val t: Token = peek(ctx);
-            if t.token_type == TokenType.SEMICOLON {
+
+        mut initializer: string = str("");
+
+        if expect(ctx, TokenType.OPERATOR) {
+            val op_token: Token = peek(ctx);
+            if equals_c(op_token.value, "=") {
                 consume(ctx);
-                break;
+                skip_whitespace(ctx);
+
+                loop {
+                    if ctx.pos >= len(ctx.tokens) {
+                        break;
+                    }
+                    val t: Token = peek(ctx);
+                    if t.token_type == TokenType.SEMICOLON {
+                        consume(ctx);
+                        break;
+                    }
+                    if t.token_type == TokenType.STR {
+                        initializer = concat(initializer, str("\""));
+                        initializer = concat(initializer, t.value);
+                        initializer = concat(initializer, str("\" "));
+                    } elif t.token_type == TokenType.CHAR {
+                        initializer = concat(initializer, str("'"));
+                        initializer = concat(initializer, t.value);
+                        initializer = concat(initializer, str("' "));
+                    } elif t.token_type == TokenType.WHITESPACE or t.token_type == TokenType.NEWLINE {
+                        // skip
+                    } else {
+                        initializer = concat(initializer, t.value);
+                        initializer = concat(initializer, str(" "));
+                    }
+                    consume(ctx);
+                }
+            } else {
+                loop {
+                    if ctx.pos >= len(ctx.tokens) {
+                        break;
+                    }
+                    val t: Token = peek(ctx);
+                    if t.token_type == TokenType.SEMICOLON {
+                        consume(ctx);
+                        break;
+                    }
+                    consume(ctx);
+                }
             }
-            consume(ctx);
+        } else {
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+                val t: Token = peek(ctx);
+                if t.token_type == TokenType.SEMICOLON {
+                    consume(ctx);
+                    break;
+                }
+                consume(ctx);
+            }
         }
-        
+
         node.node_type = str("Declaration");
+        node.data.declaration.name = var_name.value;
+        node.data.declaration.is_mutable = false;
+        node.data.declaration.initializer = initializer;
+        node.data.declaration.type_name = str("i32");
+        node.data.declaration.ref_depth = 0;
         return node;
     }
     
@@ -1620,20 +1673,73 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
         val var_name: Token = consume(ctx);
         skip_whitespace(ctx);
-        
-        loop {
-            if ctx.pos >= len(ctx.tokens) {
-                break;
+
+        mut initializer: string = str("");
+
+        if expect(ctx, TokenType.OPERATOR) {
+            val op_token: Token = peek(ctx);
+            if equals_c(op_token.value, "=") {
+                consume(ctx); // Skip '='
+                skip_whitespace(ctx);
+
+                loop {
+                    if ctx.pos >= len(ctx.tokens) {
+                        break;
+                    }
+                    val t: Token = peek(ctx);
+                    if t.token_type == TokenType.SEMICOLON {
+                        consume(ctx);
+                        break;
+                    }
+                    if t.token_type == TokenType.STR {
+                        initializer = concat(initializer, str("\""));
+                        initializer = concat(initializer, t.value);
+                        initializer = concat(initializer, str("\" "));
+                    } elif t.token_type == TokenType.CHAR {
+                        initializer = concat(initializer, str("'"));
+                        initializer = concat(initializer, t.value);
+                        initializer = concat(initializer, str("' "));
+                    } elif t.token_type == TokenType.WHITESPACE or t.token_type == TokenType.NEWLINE {
+                        // skip
+                    } else {
+                        initializer = concat(initializer, t.value);
+                        initializer = concat(initializer, str(" "));
+                    }
+                    consume(ctx);
+                }
+            } else {
+                loop {
+                    if ctx.pos >= len(ctx.tokens) {
+                        break;
+                    }
+                    val t: Token = peek(ctx);
+                    if t.token_type == TokenType.SEMICOLON {
+                        consume(ctx);
+                        break;
+                    }
+                    consume(ctx);
+                }
             }
-            val t: Token = peek(ctx);
-            if t.token_type == TokenType.SEMICOLON {
+        } else {
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+                val t: Token = peek(ctx);
+                if t.token_type == TokenType.SEMICOLON {
+                    consume(ctx);
+                    break;
+                }
                 consume(ctx);
-                break;
             }
-            consume(ctx);
         }
-        
+
         node.node_type = str("Declaration");
+        node.data.declaration.name = var_name.value;
+        node.data.declaration.is_mutable = true;
+        node.data.declaration.initializer = initializer;
+        node.data.declaration.type_name = str("i32");
+        node.data.declaration.ref_depth = 0;
         return node;
     }
     
@@ -1676,6 +1782,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             }
             
             node.node_type = str("FunctionCall");
+            node.data.func_call.function_name = ident_name;
             return node;
         }
         
