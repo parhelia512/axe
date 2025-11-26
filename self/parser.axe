@@ -23,6 +23,7 @@ use std.errors;
 mut g_type_aliases: StringStringMap;
 mut g_imported_modules: StringBoolMap;
 mut g_list_of_types: StringStringMap;
+mut g_var_mutability: StringBoolMap;
 
 /// Initialize the state-related globals
 pub def initialize_all() {
@@ -30,6 +31,53 @@ pub def initialize_all() {
     g_type_aliases = deref(StringStringMap.create(ref_of(arena), 128));
     g_imported_modules = deref(StringBoolMap.create(ref_of(arena), 128));
     g_list_of_types = deref(StringStringMap.create(ref_of(arena), 128));
+    g_var_mutability = deref(StringBoolMap.create(ref_of(arena), 128));
+}
+
+/// Register a variable's mutability (true for mut, false for val)
+def register_variable(var_name: string, is_mutable: bool) {
+    mut arena: Arena = Arena.create(1024);
+    println "[DEBUG] register_variable:";
+    println "[DEBUG]   name:";
+    println var_name;
+    println "[DEBUG]   is_mutable:";
+    if is_mutable {
+        println "true";
+    } else {
+        println "false";
+    }
+    StringBoolMap.set(addr_of(g_var_mutability), addr_of(arena), var_name, is_mutable);
+}
+
+/// Check if a variable has been declared (tracked in mutability map)
+def is_variable_declared(var_name: string): bool {
+    val declared: bool = StringBoolMap.contains(addr_of(g_var_mutability), var_name);
+    println "[DEBUG] is_variable_declared:";
+    println var_name;
+    if declared {
+        println "[DEBUG]   declared: true";
+    } else {
+        println "[DEBUG]   declared: false";
+    }
+    return declared;
+}
+
+/// Check if a variable is mutable; undeclared variables are treated as mutable here
+def is_variable_mutable(var_name: string): bool {
+    if !is_variable_declared(var_name) {
+        println "[DEBUG] is_variable_mutable: not declared, treating as mutable:";
+        println var_name;
+        return true;
+    }
+    val mut_val: bool = StringBoolMap.get(addr_of(g_var_mutability), var_name);
+    println "[DEBUG] is_variable_mutable:";
+    println var_name;
+    if mut_val {
+        println "[DEBUG]   mutable: true";
+    } else {
+        println "[DEBUG]   mutable: false";
+    }
+    return mut_val;
 }
 
 /// Add a child AST node to a parent AST node
@@ -87,6 +135,7 @@ pub def parse(tokens: ref list(Token), is_axec: bool, check_entry_point: bool, c
     StringStringMap.clear(addr_of(g_type_aliases));
     StringBoolMap.clear(addr_of(g_imported_modules));
     StringStringMap.clear(addr_of(g_list_of_types));
+    StringBoolMap.clear(addr_of(g_var_mutability));
     
     if str_len(current_module) > 0 {
         // g_imported_modules[current_module] = true
@@ -1669,6 +1718,9 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         node.data.declaration.initializer = initializer;
         node.data.declaration.type_name = type_name;
         node.data.declaration.ref_depth = 0;
+        register_variable(var_name.value, false);
+        println "[DEBUG] VAL declaration finished for:";
+        println var_name.value;
         return node;
     }
     
@@ -1700,7 +1752,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         if expect(ctx, TokenType.OPERATOR) {
             val op_token: Token = peek(ctx);
             if equals_c(op_token.value, "=") {
-                consume(ctx); // Skip '='
+                consume(ctx);
                 skip_whitespace(ctx);
 
                 loop {
@@ -1761,6 +1813,9 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         node.data.declaration.initializer = initializer;
         node.data.declaration.type_name = type_name;
         node.data.declaration.ref_depth = 0;
+        register_variable(var_name.value, true);
+        println "[DEBUG] MUT declaration finished for:";
+        println var_name.value;
         return node;
     }
     
@@ -2051,10 +2106,31 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             if expect(ctx, TokenType.OPERATOR) {
                 val op_token: Token = peek(ctx);
                 if equals_c(op_token.value, "=") {
-                    consume(ctx); // Skip '='
+                    println "[DEBUG] MemberAccess assignment check:";
+                    println "[DEBUG]   object ident_name:";
+                    println ident_name;
+                    println "[DEBUG]   member_name:";
+                    println member_name;
+
+                    if !is_variable_declared(ident_name) {
+                        mut err: string = str("ERROR: Undeclared variable: ");
+                        err = concat(err, ident_name);
+                        enforce_raw(false, err.data);
+                        return node;
+                    }
+                    if !is_variable_mutable(ident_name) {
+                        mut err: string = str("ERROR: Cannot assign to member '");
+                        err = concat(err, member_name);
+                        err = concat(err, str("' of immutable variable '"));
+                        err = concat(err, ident_name);
+                        err = concat(err, str("'"));
+                        enforce_raw(false, err.data);
+                        return node;
+                    }
+
+                    consume(ctx);
                     skip_whitespace(ctx);
                     
-                    // Collect the value expression until semicolon
                     mut value_expr: string = str("");
                     loop {
                         if ctx.pos >= len(ctx.tokens) {
@@ -2130,7 +2206,20 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             println "[DEBUG]   ident_name:";
             println ident_name;
 
-            consume(ctx); // Skip '='
+            if !is_variable_declared(ident_name) {
+                mut err: string = str("ERROR: Undeclared variable: ");
+                err = concat(err, ident_name);
+                enforce_raw(false, err.data);
+                return node;
+            }
+            if !is_variable_mutable(ident_name) {
+                mut err: string = str("ERROR: Cannot assign to immutable variable: ");
+                err = concat(err, ident_name);
+                enforce_raw(false, err.data);
+                return node;
+            }
+
+            consume(ctx);
             skip_whitespace(ctx);
 
             mut expr: string = str("");
@@ -2183,6 +2272,21 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             val is_inc: bool = next_token.token_type == TokenType.INCREMENT;
             consume(ctx);
             skip_whitespace(ctx);
+
+            if !is_variable_declared(ident_name) {
+                mut err: string = str("ERROR: Undeclared variable: ");
+                err = concat(err, ident_name);
+                enforce_raw(false, err.data);
+                return node;
+            }
+            if !is_variable_mutable(ident_name) {
+                println "[DEBUG] Variable is not mutable:";
+                println ident_name;
+                mut err: string = str("ERROR: Cannot increment/decrement immutable variable: ");
+                err = concat(err, ident_name);
+                enforce_raw(false, err.data);
+                return node;
+            }
             
             if !expect(ctx, TokenType.SEMICOLON) {
                 enforce_raw(false, "ERROR: Expected ';' after increment/decrement");
