@@ -2126,22 +2126,55 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
         
         if next_token.token_type == TokenType.OPERATOR and equals_c(next_token.value, "=") {
+            println "[DEBUG] parse_statement_helper: entering Assignment branch";
+            println "[DEBUG]   ident_name:";
+            println ident_name;
+
             consume(ctx); // Skip '='
             skip_whitespace(ctx);
-            
+
+            mut expr: string = str("");
             loop {
                 if ctx.pos >= len(ctx.tokens) {
+                    println "[DEBUG]   reached end of tokens while collecting RHS";
                     break;
                 }
                 val t: Token = peek(ctx);
                 if t.token_type == TokenType.SEMICOLON {
+                    println "[DEBUG]   encountered ';' terminating RHS";
                     consume(ctx);
                     break;
                 }
+
+                // Per-token debug for RHS
+                println "[DEBUG]   RHS token type:";
+                println t.token_type;
+                println "[DEBUG]   RHS token value:";
+                println t.value;
+
+                if t.token_type == TokenType.STR {
+                    expr = concat(expr, str("\""));
+                    expr = concat(expr, t.value);
+                    expr = concat(expr, str("\" "));
+                } elif t.token_type == TokenType.CHAR {
+                    expr = concat(expr, str("'"));
+                    expr = concat(expr, t.value);
+                    expr = concat(expr, str("' "));
+                } elif t.token_type == TokenType.WHITESPACE or t.token_type == TokenType.NEWLINE {
+                    // I dont give a shit
+                } else {
+                    expr = concat(expr, t.value);
+                    expr = concat(expr, str(" "));
+                }
                 consume(ctx);
             }
-            
+
+            println "[DEBUG]   final RHS expr:";
+            println expr;
+
             node.node_type = str("Assignment");
+            node.data.assignment.variable = ident_name;
+            node.data.assignment.expression = expr;
             return node;
         }
         

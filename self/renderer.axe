@@ -672,8 +672,19 @@ pub def generate_c(ast: ref ASTNode): string {
         val variable: string = ast.data.assignment.variable;
         val expression: string = ast.data.assignment.expression;
         
+        println "[DEBUG] renderer: Assignment node";
+        println "[DEBUG]   raw variable:";
+        println variable;
+        println "[DEBUG]   raw expression:";
+        println expression;
+
         val processed_var: string = process_expression(variable);
         val processed_expr: string = process_expression(expression);
+
+        println "[DEBUG]   processed variable:";
+        println processed_var;
+        println "[DEBUG]   processed expression:";
+        println processed_expr;
         
         result = concat(result, processed_var);
         result = concat(result, str(" = "));
@@ -686,13 +697,28 @@ pub def generate_c(ast: ref ASTNode): string {
         val object_name: string = ast.data.member_access.object_name;
         val member_name: string = ast.data.member_access.member_name;
         val value: string = ast.data.member_access.value;
+        
+        println "[DEBUG] renderer: MemberAccess node";
+        println "[DEBUG]   object_name:";
+        println object_name;
+        println "[DEBUG]   member_name:";
+        println member_name;
+        println "[DEBUG]   raw value:";
+        println value;
 
         result = concat(result, object_name);
         result = concat(result, str("."));
         result = concat(result, member_name);
 
         if str_len(strip(value)) > 0 {
-            val processed_value: string = process_expression(strip(value));
+            // NOTE: 
+            // For member assignments, the parser already builds a C-ready
+            // expression string for the value, so just use the thing directly after
+            // stripping, instead of running it through process_expression.
+
+            val processed_value: string = strip(value);
+            println "[DEBUG]   processed value:";
+            println processed_value;
             result = concat(result, str(" = "));
             result = concat(result, processed_value);
         }
