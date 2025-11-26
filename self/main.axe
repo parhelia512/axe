@@ -24,7 +24,7 @@ def main() {
         println("  --release     build in release mode");
         println("  -q, --quiet   suppress debug output");
         println("  -I<path>      pass a C include directory");
-        println("  --version, -v show axe version and exit");
+        println("  --version, -v show axe version and exit\n");
         quit(1);
     }
     
