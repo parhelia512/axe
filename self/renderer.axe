@@ -682,6 +682,25 @@ pub def generate_c(ast: ref ASTNode): string {
         return result;
     }
     
+    if equals_c(node_type, "MemberAccess") {
+        val object_name: string = ast.data.member_access.object_name;
+        val member_name: string = ast.data.member_access.member_name;
+        val value: string = ast.data.member_access.value;
+
+        result = concat(result, object_name);
+        result = concat(result, str("."));
+        result = concat(result, member_name);
+
+        if str_len(strip(value)) > 0 {
+            val processed_value: string = process_expression(strip(value));
+            result = concat(result, str(" = "));
+            result = concat(result, processed_value);
+        }
+
+        result = concat(result, str(";\n"));
+        return result;
+    }
+    
     if equals_c(node_type, "FunctionCall") {
         val func_name: string = ast.data.func_call.function_name;
         
@@ -1063,4 +1082,22 @@ test {
     assert str_contains_c(enum_code, "Color_Green"), "Expected Color_Green value";
     assert str_contains_c(enum_code, "Color_Blue"), "Expected Color_Blue value";
     assert str_contains_c(enum_code, "} Color;"), "Expected } Color;";
+
+    println "\nTest 13: MemberAccess assignment";
+    mut member_assign_ast: ASTNode;
+    member_assign_ast.node_type = str("MemberAccess");
+    member_assign_ast.data.member_access.object_name = str("obj");
+    member_assign_ast.data.member_access.member_name = str("field");
+    member_assign_ast.data.member_access.value = str("42");
+    val member_assign_code: string = generate_c(addr_of(member_assign_ast));
+    assert str_contains_c(member_assign_code, "obj.field = 42;"), "Expected obj.field = 42;";
+
+    println "\nTest 14: MemberAccess read";
+    mut member_read_ast: ASTNode;
+    member_read_ast.node_type = str("MemberAccess");
+    member_read_ast.data.member_access.object_name = str("obj");
+    member_read_ast.data.member_access.member_name = str("field");
+    member_read_ast.data.member_access.value = str("");
+    val member_read_code: string = generate_c(addr_of(member_read_ast));
+    assert str_contains_c(member_read_code, "obj.field;"), "Expected obj.field; for read";
 }
