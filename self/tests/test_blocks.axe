@@ -1,0 +1,12 @@
+macro add(x: untyped, y: untyped) {
+    def some_function() {
+        return x + y;
+    }
+}
+
+add(1, 2);
+
+test {
+    val x: i32 = 1;
+    assert x == 1, "Should be true.";
+}
