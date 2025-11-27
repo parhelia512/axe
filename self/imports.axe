@@ -3,7 +3,8 @@ use structs (
 );
 
 use lexer (
-    Token, lex
+    Token, 
+    lex
 );
 
 use parser (
