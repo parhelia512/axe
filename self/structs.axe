@@ -162,6 +162,14 @@ pub model ASTNode {
             is_public: bool;
             field_names: list(string);
             field_types: list(string);
+
+            // Union field metadata (for fields declared as `field: union { ... }`).
+            // For each union member, we store:
+            //   - union_member_parent: the parent union field name
+            //   - union_member_names/types: the member name and type
+            union_member_parents: list(string);
+            union_member_names: list(string);
+            union_member_types: list(string);
         };
         
         enum_node: model {

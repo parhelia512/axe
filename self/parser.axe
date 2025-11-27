@@ -488,6 +488,10 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         mut field_names: list(string);
         mut field_types: list(string);
 
+        mut union_member_parents: list(string);
+        mut union_member_names: list(string);
+        mut union_member_types: list(string);
+
         loop {
             if ctx.pos >= len(ctx.tokens) {
                 break;
@@ -553,48 +557,115 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
                     // Parse base type
                     mut field_type: string = parse_type(ctx);
 
-                    loop {
+                    // Special handling for `field_name: union { ... }`
+                    if str_len(field_type) == 5 and compare(field_type, str("union")) == 0 and ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
+                        // Record this as a union field
+                        append(field_names, field_name);
+                        append(field_types, field_type);
+
+                        ctx.pos++; // Skip '{'
+
+                        loop {
+                            if ctx.pos >= len(ctx.tokens) {
+                                break;
+                            }
+
+                            skip_whitespace(ctx);
+                            if ctx.pos >= len(ctx.tokens) {
+                                break;
+                            }
+
+                            val t_inner: Token = ctx.tokens.data[ctx.pos];
+                            if t_inner.token_type == TokenType.RBRACE {
+                                ctx.pos++; // Skip '}'
+                                break;
+                            }
+
+                            if t_inner.token_type == TokenType.SEMICOLON or t_inner.token_type == TokenType.NEWLINE {
+                                ctx.pos++;
+                                continue;
+                            }
+
+                            if t_inner.token_type != TokenType.IDENTIFIER {
+                                ctx.pos++;
+                                continue;
+                            }
+
+                            // union member name
+                            val member_name: string = t_inner.value;
+                            ctx.pos++;
+
+                            skip_whitespace(ctx);
+                            if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.COLON {
+                                // Malformed, bail out of this member
+                                continue;
+                            }
+                            ctx.pos++; // Skip ':'
+
+                            skip_whitespace(ctx);
+                            mut member_type: string = parse_type(ctx);
+
+                            // Consume optional semicolon after union member
+                            skip_whitespace(ctx);
+                            if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.SEMICOLON {
+                                ctx.pos++;
+                            }
+
+                            append(union_member_parents, field_name);
+                            append(union_member_names, member_name);
+                            append(union_member_types, member_type);
+                        }
+
+                        // After union block, optional semicolon at model level
                         skip_whitespace(ctx);
-                        if ctx.pos >= len(ctx.tokens) {
-                            break;
-                        }
-
-                        if ctx.tokens.data[ctx.pos].token_type == TokenType.DOT {
-                            field_type = concat(field_type, str("."));
+                        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.SEMICOLON {
                             ctx.pos++;
-
+                        }
+                    } else {
+                        // Normal (non-union) field type, preserve existing suffix handling
+                        loop {
                             skip_whitespace(ctx);
+                            if ctx.pos >= len(ctx.tokens) {
+                                break;
+                            }
 
-                            if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.IDENTIFIER {
-                                field_type = concat(field_type, ctx.tokens.data[ctx.pos].value);
+                            if ctx.tokens.data[ctx.pos].token_type == TokenType.DOT {
+                                field_type = concat(field_type, str("."));
                                 ctx.pos++;
+
+                                skip_whitespace(ctx);
+
+                                if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.IDENTIFIER {
+                                    field_type = concat(field_type, ctx.tokens.data[ctx.pos].value);
+                                    ctx.pos++;
+                                } else {
+                                    break;
+                                }
+                            } elif ctx.tokens.data[ctx.pos].token_type == TokenType.SLASH {
+                                field_type = concat(field_type, str("/"));
+                                ctx.pos++;
+
+                                skip_whitespace(ctx);
+
+                                if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.IDENTIFIER {
+                                    field_type = concat(field_type, ctx.tokens.data[ctx.pos].value);
+                                    ctx.pos++;
+                                } else {
+                                    break;
+                                }
                             } else {
                                 break;
                             }
-                        } elif ctx.tokens.data[ctx.pos].token_type == TokenType.SLASH {
-                            field_type = concat(field_type, str("/"));
-                            ctx.pos++;
-
-                            skip_whitespace(ctx);
-
-                            if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.IDENTIFIER {
-                                field_type = concat(field_type, ctx.tokens.data[ctx.pos].value);
-                                ctx.pos++;
-                            } else {
-                                break;
-                            }
-                        } else {
-                            break;
                         }
-                    }
 
-                    skip_whitespace(ctx);
-                    if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.SEMICOLON {
-                        ctx.pos++;
-                    }
+                        skip_whitespace(ctx);
+                        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.SEMICOLON {
+                            ctx.pos++;
+                        }
 
-                    append(field_names, field_name);
-                    append(field_types, field_type);
+                        append(field_names, field_name);
+                        append(field_types, field_type);
+                    }
                 } else {
                     // No type annotation, skip to semicolon
                     loop {
@@ -626,6 +697,27 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
             if heap_types != nil {
                 C.memcpy(heap_types, addr_of(field_types), list_size);
                 model_node.data.model_node.field_types = heap_types;
+            }
+
+            val union_list_size: usize = C.sizeof(list(string));
+            if len(union_member_parents) > 0 {
+                val heap_union_parents: ref list(string) = cast[ref list(string)](C.malloc(union_list_size));
+                if heap_union_parents != nil {
+                    C.memcpy(heap_union_parents, addr_of(union_member_parents), union_list_size);
+                    model_node.data.model_node.union_member_parents = heap_union_parents;
+                }
+
+                val heap_union_names: ref list(string) = cast[ref list(string)](C.malloc(union_list_size));
+                if heap_union_names != nil {
+                    C.memcpy(heap_union_names, addr_of(union_member_names), union_list_size);
+                    model_node.data.model_node.union_member_names = heap_union_names;
+                }
+
+                val heap_union_types: ref list(string) = cast[ref list(string)](C.malloc(union_list_size));
+                if heap_union_types != nil {
+                    C.memcpy(heap_union_types, addr_of(union_member_types), union_list_size);
+                    model_node.data.model_node.union_member_types = heap_union_types;
+                }
             }
         }
 
