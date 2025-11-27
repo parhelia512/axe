@@ -465,7 +465,9 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         skip_whitespace(ctx);
 
         if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.IDENTIFIER {
-            enforce_raw(false, "ERROR: Expected model name after 'model'");
+            mut err: string = str("ERROR: Expected model name after 'model', instead got: ");
+            err = concat(err, ctx.tokens.data[ctx.pos].value);
+            enforce(false, error.create(err.data));
             return;
         }
 
