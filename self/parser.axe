@@ -108,10 +108,10 @@ def is_all_digits(s: string): bool {
 /// Register a variable's mutability (true for mut, false for val)
 def register_variable(var_name: string, is_mutable: bool) {
     mut arena: Arena = Arena.create(1024);
-    println "[DEBUG] register_variable:";
+    println "\n[DEBUG] register_variable:";
     println "[DEBUG]   name:";
-    println var_name;
-    println "[DEBUG]   is_mutable:";
+    print var_name;
+    println "\n[DEBUG]   is_mutable:";
     if is_mutable {
         println "true";
     } else {
@@ -123,12 +123,12 @@ def register_variable(var_name: string, is_mutable: bool) {
 /// Check if a variable has been declared (tracked in mutability map)
 def is_variable_declared(var_name: string): bool {
     val declared: bool = StringBoolMap.contains(addr_of(g_var_mutability), var_name);
-    println "[DEBUG] is_variable_declared:";
+    println "\n[DEBUG] is_variable_declared:";
     println var_name;
     if declared {
-        println "[DEBUG]   declared: true";
+        println "\n[DEBUG]   declared: true";
     } else {
-        println "[DEBUG]   declared: false";
+        println "\n[DEBUG]   declared: false";
     }
     return declared;
 }
@@ -142,11 +142,11 @@ def is_variable_mutable(var_name: string): bool {
     }
     val mut_val: bool = StringBoolMap.get(addr_of(g_var_mutability), var_name);
     println "[DEBUG] is_variable_mutable:";
-    println var_name;
+    print var_name;
     if mut_val {
-        println "[DEBUG]   mutable: true";
+        println "\n[DEBUG]   mutable: true";
     } else {
-        println "[DEBUG]   mutable: false";
+        println "\n[DEBUG]   mutable: false";
     }
     return mut_val;
 }
@@ -1873,9 +1873,9 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         node.data.assert_node.condition = condition;
         node.data.assert_node.message = message;
         println "[DEBUG] ASSERT condition:";
-        println condition;
-        println "[DEBUG] ASSERT message:";
-        println message;
+        print condition;
+        println "\n[DEBUG] ASSERT message:";
+        print message;
         return node;
     }
     
@@ -1913,8 +1913,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         consume(ctx);
         
         node.node_type = str("Return");
-        println "[DEBUG] RETURN expr:";
-        println expr;
+        println "\n[DEBUG] RETURN expr:";
+        print expr;
         node.data.return_node.expression = expr;
         return node;
     }
@@ -2413,13 +2413,13 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         register_variable(var_name.value, false);
         println "[DEBUG] VAL declaration details:";
         println "[DEBUG]   name:";
-        println var_name.value;
-        println "[DEBUG]   type_name:";
-        println type_name;
-        println "[DEBUG]   initializer:";
-        println initializer;
-        println "[DEBUG] VAL declaration finished for:";
-        println var_name.value;
+        print var_name.value;
+        println "\n[DEBUG]   type_name:";
+        print type_name;
+        println "\n[DEBUG]   initializer:";
+        print initializer;
+        println "\n[DEBUG] VAL declaration finished for:";
+        print var_name.value;
         return node;
     }
     
@@ -2584,7 +2584,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         node.data.declaration.ref_depth = 0;
         register_variable(var_name.value, true);
         println "[DEBUG] MUT declaration finished for:";
-        println var_name.value;
+        print var_name.value;
         return node;
     }
     
@@ -2915,11 +2915,11 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             if expect(ctx, TokenType.OPERATOR) {
                 val op_token: Token = peek(ctx);
                 if equals_c(op_token.value, "=") {
-                    println "[DEBUG] MemberAccess assignment check:";
-                    println "[DEBUG]   object ident_name:";
-                    println ident_name;
-                    println "[DEBUG]   member_name:";
-                    println member_name;
+                    println "\n[DEBUG] MemberAccess assignment check:";
+                    println "\n[DEBUG]   object ident_name:";
+                    print ident_name;
+                    println "\n[DEBUG]   member_name:";
+                    print member_name;
 
                     if !is_variable_declared(ident_name) {
                         mut err: string = str("ERROR: Undeclared variable: ");
@@ -3013,7 +3013,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         if next_token.token_type == TokenType.OPERATOR and equals_c(next_token.value, "=") {
             println "[DEBUG] parse_statement_helper: entering Assignment branch";
             println "[DEBUG]   ident_name:";
-            println ident_name;
+            print ident_name;
 
             if !is_variable_declared(ident_name) {
                 mut err: string = str("ERROR: Undeclared variable: ");
@@ -3045,10 +3045,10 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 }
 
                 // Per-token debug for RHS
-                println "[DEBUG]   RHS token type:";
-                println t.token_type;
-                println "[DEBUG]   RHS token value:";
-                println t.value;
+                println "\n[DEBUG]   RHS token type:";
+                print t.token_type;
+                println "\n[DEBUG]   RHS token value:";
+                print t.value;
 
                 if t.token_type == TokenType.STR {
                     expr = concat(expr, str("\""));

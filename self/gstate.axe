@@ -1,6 +1,6 @@
 use std.io;
 
-mut loud: bool = false;
+pub mut loud_logger: bool = false;
 
 /// Print a debug message
 overload debug_print(x: generic) {
@@ -9,23 +9,28 @@ overload debug_print(x: generic) {
     i32    => debug_print_int;
 }(x);
 
+/// Enable verbose logging
+pub def set_loud_logger(v: bool) {
+    loud_logger = v;
+}
+
 /// Ditto.
 def debug_print_i32(msg: i32) {
-    if loud {
+    if loud_logger {
         println msg;
     }
 }
 
 /// Ditto.
 def debug_print_str(msg: string) {
-    if loud {
+    if loud_logger {
         println msg;
     }
 }
 
 /// Ditto.
 def debug_print_raw(msg: ref char) {
-    if loud {
+    if loud_logger {
         println msg;
     }
 }
