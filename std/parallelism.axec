@@ -23,3 +23,7 @@ pub model Parallel {
         }
     }
 }
+
+test {
+
+}

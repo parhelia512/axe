@@ -387,6 +387,46 @@ def is_ident_start(c: char): bool {
     return false;
 }
 
+def c_prefix_end_index(s: string): i32 {
+    if str_len(s) < 2 {
+        return -1;
+    }
+
+    if get_char(s, 0) != 'C' {
+        return -1;
+    }
+
+    mut i: i32 = 1;
+    loop {
+        if i >= str_len(s) {
+            return -1;
+        }
+        val ch: char = get_char(s, i);
+        if ch != ' ' and ch != '\t' and ch != '\n' {
+            break;
+        }
+        i = i + 1;
+    }
+
+    if get_char(s, i) != '.' {
+        return -1;
+    }
+
+    i = i + 1;
+    loop {
+        if i >= str_len(s) {
+            break;
+        }
+        val ch2: char = get_char(s, i);
+        if ch2 != ' ' and ch2 != '\t' and ch2 != '\n' {
+            break;
+        }
+        i = i + 1;
+    }
+
+    return i;
+}
+
 def process_expression(expr: string): string {
     mut trimmed: string = strip(expr);
     mut has_pointer_sugar: bool = false;
@@ -408,10 +448,9 @@ def process_expression(expr: string): string {
     }
 
     mut has_c_prefix: bool = false;
-    if str_len(trimmed) >= 2 {
-        if get_char(trimmed, 0) == 'C' and get_char(trimmed, 1) == '.' {
-            has_c_prefix = true;
-        }
+    mut c_prefix_end: i32 = c_prefix_end_index(trimmed);
+    if c_prefix_end >= 0 {
+        has_c_prefix = true;
     }
 
     if !has_pointer_sugar and !has_c_prefix {
@@ -521,7 +560,7 @@ def process_expression(expr: string): string {
     }
 
     if has_c_prefix {
-        result = substring_se(result, 2, str_len(result));
+        result = substring_se(result, c_prefix_end, str_len(result));
     }
 
     // After pointer-sugar and C. stripping, run the same normalization pass
