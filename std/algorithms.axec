@@ -1,6 +1,7 @@
 use std.string;
 use std.lists;
 
+/// Check if some StringList contains a value
 def strlst_contains(lst: StringList, value: string): bool {
     for mut i = 0; i < lst.len; i++ {
         if compare(lst.data[i], value) == 0 {
@@ -10,6 +11,7 @@ def strlst_contains(lst: StringList, value: string): bool {
     return false;
 }
 
+/// Check if some StringList contains a value, but search by raw char pointer.
 def strlst_contains_c(lst: StringList, value: ref char): bool {
     for mut i = 0; i < lst.len; i++ {
         if equals_c(lst.data[i], value) {
@@ -19,6 +21,7 @@ def strlst_contains_c(lst: StringList, value: ref char): bool {
     return false;
 }
 
+/// Check if some IntList contains an i32.
 def intlst_contains(lst: IntList, vlue: i32): bool { 
     for mut i = 0; i < lst.len; i++ {
         if lst.data[i] == vlue {
