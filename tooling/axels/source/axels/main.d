@@ -620,7 +620,7 @@ struct SymbolInfo
     string doc;
 }
 
-SymbolInfo analyzeSymbol(string word, string fullText, size_t line0, size_t char0)
+SymbolInfo analyzeSymbol(string word, string fullText, size_t line0, size_t char0, string currentUri)
 {
     SymbolInfo info;
     info.name = word;
@@ -657,24 +657,70 @@ SymbolInfo analyzeSymbol(string word, string fullText, size_t line0, size_t char
     if (line0 < lines.length)
     {
         string currentLine = lines[line0];
-
-        if (char0 + word.length < currentLine.length)
+        size_t startPos = char0;
+        while (startPos > 0 && wordChars.canFind(currentLine[startPos - 1]))
         {
-            size_t nextPos = char0 + word.length;
+            --startPos;
+        }
+
+        size_t nextPos = startPos + word.length;
+        if (nextPos <= currentLine.length)
+        {
             while (nextPos < currentLine.length && currentLine[nextPos] == ' ')
             {
                 nextPos++;
+            }
+            while (nextPos < currentLine.length && currentLine[nextPos] == ' ')
+            {
+                ++nextPos;
             }
             if (nextPos < currentLine.length && currentLine[nextPos] == '(')
             {
                 info.kind = SymbolKind.Function;
                 info.context = "function call";
+                bool found = false;
                 foreach (idx, ln; lines)
                 {
-                    if (ln.strip().startsWith("def " ~ word))
+                    auto stripped = ln.strip();
+                    if (stripped.startsWith("def " ~ word) || stripped.startsWith("pub def " ~ word))
                     {
                         info.doc = getDocStringAboveLine(lines, idx);
+                        found = true;
                         break;
+                    }
+                }
+
+                if (!found)
+                {
+                    string defUri;
+                    size_t outLine;
+                    size_t outChar;
+                    string currPath = uriToPath(currentUri);
+                    if (findDefinitionAcrossFiles(currPath, word, defUri, outLine, outChar))
+                    {
+                        auto it2 = defUri in g_openDocs;
+                        string defText;
+                        if (it2 !is null)
+                        {
+                            defText = *it2;
+                        }
+                        else
+                        {
+                            try
+                            {
+                                defText = readText(uriToPath(defUri));
+                            }
+                            catch (Exception)
+                            {
+                                defText = "";
+                            }
+                        }
+                        if (defText.length > 0)
+                        {
+                            auto defLines = defText.splitLines();
+                            info.doc = getDocStringAboveLine(defLines, outLine);
+                            found = true;
+                        }
                     }
                 }
                 return info;
@@ -682,7 +728,8 @@ SymbolInfo analyzeSymbol(string word, string fullText, size_t line0, size_t char
         }
 
         auto defPattern = "def " ~ word;
-        if (currentLine.strip().startsWith(defPattern))
+        auto pubDefPattern = "pub def " ~ word;
+        if (currentLine.strip().startsWith(defPattern) || currentLine.strip().startsWith(pubDefPattern))
         {
             info.kind = SymbolKind.Function;
             info.context = "function definition";
@@ -920,7 +967,7 @@ void handleHover(LspRequest req)
         return;
     }
 
-    SymbolInfo symbolInfo = analyzeSymbol(word, text, line0, char0);
+    SymbolInfo symbolInfo = analyzeSymbol(word, text, line0, char0, uri);
     string hoverText = getHoverText(symbolInfo);
 
     JSONValue contents;

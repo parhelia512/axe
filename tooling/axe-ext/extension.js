@@ -123,8 +123,6 @@ function activate(context) {
 
     outputChannel.appendLine('Notification handlers registered.');
 
-    // Start the client - in newer versions, start() returns a promise
-    // and the client is ready when start() resolves
     const startPromise = client.start();
 
     startPromise.then(() => {
@@ -238,7 +236,7 @@ To restart the server, run command: "Axe: Restart Language Server"`;
     });
 
     const testHover = vscode.commands.registerCommand('axe.lsp.testHover', async () => {
-        const content = `/// This is a docstring\ndef some_function() { }\n\ndef main() {\n    some_function()\n    // a comment with some_function inside comment\n    var s = "some_function() inside string"\n}`;
+        const content = `/// This is a docstring\ndef some_function() { }\n\n/// Pub docstring for pub_fn\npub def pub_fn() { }\n\ndef main() {\n    some_function()\n    pub_fn()\n    // a comment with some_function inside comment\n    var s = "some_function() inside string"\n}`;
         const doc = await vscode.workspace.openTextDocument({ language: 'axe', content });
         const editor = await vscode.window.showTextDocument(doc);
 
@@ -246,7 +244,7 @@ To restart the server, run command: "Axe: Restart Language Server"`;
         outputChannel.appendLine(`Document: ${editor.document.uri.toString()}`);
         outputChannel.appendLine(`Client State: ${client ? client.state : 'no-client'}`);
 
-        const callPos = new vscode.Position(3, 6);
+            const callPos = new vscode.Position(3, 6);
         editor.selection = new vscode.Selection(callPos, callPos);
 
         try {
@@ -258,7 +256,7 @@ To restart the server, run command: "Axe: Restart Language Server"`;
 
             if (hovers && hovers.length > 0) {
                 outputChannel.appendLine(`✓ Got ${hovers.length} hover result(s)`);
-                const containsDoc = hovers.some(h => h.contents && h.contents.some(c => (typeof c === 'string' && c.includes('This is a docstring')) || (c.value && c.value.includes && c.value.includes('This is a docstring'))));
+                    const containsDoc = hovers.some(h => h.contents && h.contents.some(c => (typeof c === 'string' && c.includes('This is a docstring')) || (c.value && c.value.includes && c.value.includes('This is a docstring'))));
                 if (containsDoc) outputChannel.appendLine('✓ Hover contains docstring');
                 else outputChannel.appendLine('✗ Hover does not contain expected docstring');
             } else {
@@ -284,7 +282,18 @@ To restart the server, run command: "Axe: Restart Language Server"`;
                 outputChannel.appendLine('✗ No definition information returned for callsite');
             }
 
-            const commentPos = new vscode.Position(4, 10);
+            const pubCallPos = new vscode.Position(4, 6);
+            const commentPos = new vscode.Position(5, 10);
+            const pubHovers = await vscode.commands.executeCommand('vscode.executeHoverProvider', editor.document.uri, pubCallPos);
+            if (pubHovers && pubHovers.length > 0) {
+                outputChannel.appendLine(`✓ Pub call hover returned ${pubHovers.length} result(s)`);
+                const pubContains = pubHovers.some(h => h.contents && h.contents.some(c => (typeof c === 'string' && c.includes('Pub docstring for pub_fn')) || (c.value && c.value.includes && c.value.includes('Pub docstring for pub_fn'))));
+                if (pubContains) outputChannel.appendLine('✓ Pub call hover contains docstring');
+                else outputChannel.appendLine('✗ Pub call hover did not contain expected docstring');
+            } else {
+                outputChannel.appendLine('✗ No hover returned for pub callsite');
+            }
+
             const commentHovers = await vscode.commands.executeCommand('vscode.executeHoverProvider', editor.document.uri, commentPos);
             if (commentHovers && commentHovers.length > 0) {
                 outputChannel.appendLine(`✗ Hover inside a comment returned ${commentHovers.length} result(s) (unexpected)`);
