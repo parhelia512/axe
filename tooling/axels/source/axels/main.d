@@ -70,13 +70,13 @@ string extractWordAt(string text, size_t line0, size_t char0)
     {
         return "";
     }
-    
+
     auto line = lines[line0];
     if (char0 >= line.length)
     {
         if (line.length == 0)
             return "";
-        char0 = cast(size_t)(cast(int)line.length - 1);
+        char0 = cast(size_t)(cast(int) line.length - 1);
     }
 
     size_t start = char0;
