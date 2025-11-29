@@ -615,6 +615,7 @@ struct SymbolInfo
     string name;
     SymbolKind kind;
     string context;
+    string doc;
 }
 
 SymbolInfo analyzeSymbol(string word, string fullText, size_t line0, size_t char0)
@@ -666,6 +667,14 @@ SymbolInfo analyzeSymbol(string word, string fullText, size_t line0, size_t char
             {
                 info.kind = SymbolKind.Function;
                 info.context = "function call";
+                foreach (idx, ln; lines)
+                {
+                    if (ln.strip().startsWith("def " ~ word))
+                    {
+                        info.doc = getDocStringAboveLine(lines, idx);
+                        break;
+                    }
+                }
                 return info;
             }
         }
@@ -675,6 +684,7 @@ SymbolInfo analyzeSymbol(string word, string fullText, size_t line0, size_t char
         {
             info.kind = SymbolKind.Function;
             info.context = "function definition";
+            info.doc = getDocStringAboveLine(lines, line0);
             return info;
         }
 
@@ -712,6 +722,107 @@ SymbolInfo analyzeSymbol(string word, string fullText, size_t line0, size_t char
     return info;
 }
 
+string getDocStringAboveLine(string[] lines, size_t defLine)
+{
+    if (defLine == 0) return "";
+    string[] parts;
+    long i = cast(long) defLine - 1;
+    for (; i >= 0; --i)
+    {
+        auto trimmed = lines[i].strip();
+        if (trimmed.length == 0)
+        {
+            continue;
+        }
+        if (trimmed.startsWith("///"))
+        {
+            parts ~= trimmed[3 .. $].strip();
+            continue;
+        }
+        break;
+    }
+    if (parts.length == 0) return "";
+    parts.reverse();
+    return parts.join("\n");
+}
+
+/// Determine whether the position is inside a string literal or a comment
+bool positionInStringOrComment(string text, size_t line0, size_t char0)
+{
+    auto lines = text.splitLines();
+    bool inBlock = false;
+    bool inString = false;
+    char quote = '\0';
+
+    for (size_t ln = 0; ln <= line0 && ln < lines.length; ++ln)
+    {
+        auto line = lines[ln];
+        size_t limit = (ln == line0) ? char0 : line.length;
+        bool inLineComment = false;
+        for (size_t j = 0; j < limit && j < line.length; ++j)
+        {
+            char c = line[j];
+            char prev = (j > 0) ? line[j - 1] : '\0';
+            if (inString)
+            {
+                if (c == quote && prev != '\\')
+                {
+                    inString = false;
+                    quote = '\0';
+                }
+                continue;
+            }
+            if (inBlock)
+            {
+                if (c == '*' && j + 1 < line.length && line[j + 1] == '/')
+                {
+                    inBlock = false;
+                    ++j;
+                }
+                continue;
+            }
+            if (inLineComment)
+            {
+                continue;
+            }
+
+            if ((c == '"' || c == '\'') && prev != '\\')
+            {
+                inString = true;
+                quote = c;
+                continue;
+            }
+
+            if (c == '/' && j + 1 < line.length)
+            {
+                char n = line[j + 1];
+                if (n == '/')
+                {
+                    inLineComment = true;
+                    if (ln == line0 && limit > j)
+                    {
+                        return true;
+                    }
+                    break;
+                }
+                else if (n == '*')
+                {
+                    inBlock = true;
+                    ++j;
+                    continue;
+                }
+            }
+        }
+        if (ln == line0)
+        {
+            if (inString || inBlock || inLineComment)
+                return true;
+            return false;
+        }
+    }
+    return false;
+}
+
 string getHoverText(SymbolInfo info)
 {
     final switch (info.kind)
@@ -721,11 +832,18 @@ string getHoverText(SymbolInfo info)
     case SymbolKind.Type:
         return "**`" ~ info.name ~ "`** *(type)*\n\nBuilt-in type";
     case SymbolKind.Function:
+    {
+        string header = "";
+        if (info.doc.length > 0)
+        {
+            header = info.doc ~ "\n\n";
+        }
         if (info.context == "function definition")
         {
-            return "**`def " ~ info.name ~ "`** *(function)*\n\nFunction definition";
+            return header ~ "**`def " ~ info.name ~ "`** *(function)*\n\nFunction definition";
         }
-        return "**`" ~ info.name ~ "()`** *(function)*\n\nFunction call";
+        return header ~ "**`" ~ info.name ~ "()`** *(function)*\n\nFunction call";
+    }
     case SymbolKind.Variable:
         if (info.context == "parameter")
         {
@@ -784,6 +902,12 @@ void handleHover(LspRequest req)
     }
 
     string text = *it;
+    if (positionInStringOrComment(text, line0, char0))
+    {
+        JSONValue empty;
+        sendResponse(req.id, empty);
+        return;
+    }
     string word = extractWordAt(text, line0, char0);
     debugLog("hover: extracted word='", word, "'");
 

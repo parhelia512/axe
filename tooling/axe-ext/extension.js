@@ -66,14 +66,14 @@ function activate(context) {
     client.onDidChangeState((event) => {
         const stateNames = {
             1: 'Stopped',
-            2: 'Starting', 
+            2: 'Starting',
             3: 'Running'
         };
         const oldState = stateNames[event.oldState] || event.oldState;
         const newState = stateNames[event.newState] || event.newState;
         outputChannel.appendLine(`Client state changed: ${oldState} -> ${newState}`);
         console.log(`[axe-ext] Client state changed: ${oldState} -> ${newState}`);
-        
+
         if (event.newState === State.Running) {
             outputChannel.appendLine('✓ Language client is now running!');
             console.log('[axe-ext] Language client is now running');
@@ -126,7 +126,7 @@ function activate(context) {
     // Start the client - in newer versions, start() returns a promise
     // and the client is ready when start() resolves
     const startPromise = client.start();
-    
+
     startPromise.then(() => {
         outputChannel.appendLine('✓ Language client started and ready!');
         outputChannel.appendLine('✓ Hover and completion should now work.');
@@ -160,7 +160,7 @@ function activate(context) {
             3: 'Running'
         };
         const stateName = stateNames[state] || state;
-        
+
         const msg = `Axe LSP Debug Info
 ==================
 Server Path: ${serverPath}
@@ -170,7 +170,7 @@ Node Version: ${process.version}
 
 To see detailed LSP communication, check this output channel.
 To restart the server, run command: "Axe: Restart Language Server"`;
-        
+
         outputChannel.appendLine('\n' + msg);
         vscode.window.showInformationMessage('Axe LSP: Debug info written to output channel');
         outputChannel.show(true);
@@ -200,20 +200,20 @@ To restart the server, run command: "Axe: Restart Language Server"`;
             vscode.window.showErrorMessage('No active editor');
             return;
         }
-        
+
         outputChannel.appendLine('\n=== Testing Completion ===');
         outputChannel.appendLine(`Document URI: ${editor.document.uri.toString()}`);
         outputChannel.appendLine(`Document Language ID: ${editor.document.languageId}`);
         outputChannel.appendLine(`Position: line ${editor.selection.active.line}, char ${editor.selection.active.character}`);
         outputChannel.appendLine(`Client State: ${client ? client.state : 'no-client'}`);
         outputChannel.appendLine(`File extension: ${editor.document.fileName.split('.').pop()}`);
-        
+
         if (editor.document.languageId !== 'axe') {
             outputChannel.appendLine(`WARNING: Document language is "${editor.document.languageId}", not "axe"`);
             outputChannel.appendLine('Click the language indicator in the bottom-right and select "Axe"');
             vscode.window.showWarningMessage('This file is not recognized as Axe language. Click the language selector in the bottom-right corner.');
         }
-        
+
         try {
             const position = editor.selection.active;
             const completions = await vscode.commands.executeCommand(
@@ -221,7 +221,7 @@ To restart the server, run command: "Axe: Restart Language Server"`;
                 editor.document.uri,
                 position
             );
-            
+
             if (completions && completions.items) {
                 outputChannel.appendLine(`✓ Got ${completions.items.length} completion items`);
                 completions.items.slice(0, 10).forEach(item => {
@@ -233,23 +233,22 @@ To restart the server, run command: "Axe: Restart Language Server"`;
         } catch (err) {
             outputChannel.appendLine(`✗ Error: ${err}`);
         }
-        
+
         outputChannel.show(true);
     });
 
-    // Test hover
     const testHover = vscode.commands.registerCommand('axe.lsp.testHover', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
             vscode.window.showErrorMessage('No active editor');
             return;
         }
-        
+
         outputChannel.appendLine('\n=== Testing Hover ===');
         outputChannel.appendLine(`Document: ${editor.document.uri.toString()}`);
         outputChannel.appendLine(`Position: ${editor.selection.active.line}:${editor.selection.active.character}`);
         outputChannel.appendLine(`Client State: ${client ? client.state : 'no-client'}`);
-        
+
         try {
             const position = editor.selection.active;
             const hovers = await vscode.commands.executeCommand(
@@ -257,7 +256,7 @@ To restart the server, run command: "Axe: Restart Language Server"`;
                 editor.document.uri,
                 position
             );
-            
+
             if (hovers && hovers.length > 0) {
                 outputChannel.appendLine(`✓ Got ${hovers.length} hover result(s)`);
                 hovers.forEach((hover, i) => {
@@ -276,7 +275,7 @@ To restart the server, run command: "Axe: Restart Language Server"`;
         } catch (err) {
             outputChannel.appendLine(`✗ Error: ${err}`);
         }
-        
+
         outputChannel.show(true);
     });
 
