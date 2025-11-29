@@ -347,7 +347,9 @@ void handleInitialize(LspRequest req)
     try
     {
         string response = `{"jsonrpc":"2.0","id":` ~ req.id.toString() ~
-            `,"result":{"capabilities":{"textDocumentSync":1,"hoverProvider":true,"completionProvider":{"triggerCharacters":["."]}}}}`;
+            `,"result":{"capabilities":` ~
+            `{"textDocumentSync":1,"hoverProvider":true,"definitionProvider":true,` ~
+            `"completionProvider":{"triggerCharacters":["."]}}}}`;
         debugLog("Sending initialize response");
         debugLog("Response: ", response);
         writeMessage(response);
@@ -1048,6 +1050,204 @@ void handleCompletion(LspRequest req)
     sendResponse(req.id, result);
 }
 
+/// Search for a function definition for `word` inside a single file's text
+bool findDefinitionInText(string text, string word, out size_t foundLine, out size_t foundChar)
+{
+    auto lines = text.splitLines();
+    string pat1 = "def " ~ word;
+    string pat2 = "pub def " ~ word;
+    foreach (idx, ln; lines)
+    {
+        auto t = ln.strip();
+        if (t.startsWith(pat1) || t.startsWith(pat2))
+        {
+            auto pos = ln.indexOf("def");
+            if (pos < 0) pos = 0;
+            foundLine = idx;
+            foundChar = cast(size_t) pos;
+            return true;
+        }
+    }
+    return false;
+}
+
+/// Try to find definition across open documents and on-disk files (searching from file's directory)
+bool findDefinitionAcrossFiles(
+    string currentPath,
+    string word,
+    out string outUri,
+    out size_t outLine,
+    out size_t outChar
+)
+{
+    foreach (uri, txt; g_openDocs)
+    {
+        size_t ln, ch;
+        if (findDefinitionInText(txt, word, ln, ch))
+        {
+            outUri = uri;
+            outLine = ln;
+            outChar = ch;
+            return true;
+        }
+    }
+
+    string startDir = currentPath;
+    try
+    {
+        import std.path : dirName, buildPath, extension;
+        startDir = dirName(currentPath);
+    }
+    catch (Exception)
+    {
+        startDir = ".";
+    }
+
+    import std.file : dirEntries;
+    import std.file : SpanMode;
+    foreach (dirEntry; dirEntries(startDir, SpanMode.depth))
+    {
+        if (!dirEntry.isFile) continue;
+        auto ext = dirEntry.name.split('.');
+        if (ext.length == 0) continue;
+        auto fileExt = "." ~ ext[$ - 1];
+        if (fileExt != ".axe" && fileExt != ".axec") continue;
+
+        string fileText;
+        try
+        {
+            fileText = readText(dirEntry.name);
+        }
+        catch (Exception)
+        {
+            continue;
+        }
+
+        size_t ln, ch;
+        if (findDefinitionInText(fileText, word, ln, ch))
+        {
+            string fileUri = dirEntry.name;
+            if (!fileUri.startsWith("file://"))
+            {
+                fileUri = "file://" ~ fileUri;
+            }
+            outUri = fileUri;
+            outLine = ln;
+            outChar = ch;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void handleDefinition(LspRequest req)
+{
+    debugLog("Handling definition request");
+
+    auto params = req.params;
+    if (params.type != JSONType.object)
+    {
+        debugLog("definition: params not an object");
+        JSONValue empty;
+        sendResponse(req.id, empty);
+        return;
+    }
+
+    auto pObj = params.object;
+    if (!("textDocument" in pObj) || !("position" in pObj))
+    {
+        debugLog("definition: missing textDocument or position");
+        JSONValue empty;
+        sendResponse(req.id, empty);
+        return;
+    }
+
+    auto td = pObj["textDocument"].object;
+    string uri = td["uri"].str;
+
+    auto pos = pObj["position"].object;
+    size_t line0 = cast(size_t) pos["line"].integer;
+    size_t char0 = cast(size_t) pos["character"].integer;
+
+    auto it = uri in g_openDocs;
+    if (it is null)
+    {
+        debugLog("definition: document not found in g_openDocs");
+        JSONValue empty;
+        sendResponse(req.id, empty);
+        return;
+    }
+
+    string text = *it;
+
+    if (positionInStringOrComment(text, line0, char0))
+    {
+        JSONValue empty;
+        sendResponse(req.id, empty);
+        return;
+    }
+
+    string word = extractWordAt(text, line0, char0);
+    if (word.length == 0)
+    {
+        JSONValue empty;
+        sendResponse(req.id, empty);
+        return;
+    }
+
+    size_t defLine, defChar;
+    if (findDefinitionInText(text, word, defLine, defChar))
+    {
+        JSONValue loc;
+        loc["uri"] = uri;
+        JSONValue range;
+        JSONValue sPos;
+        JSONValue ePos;
+        sPos["line"] = cast(long) defLine;
+        sPos["character"] = cast(long) defChar;
+        ePos["line"] = cast(long) defLine;
+        ePos["character"] = cast(long) (defChar + word.length);
+        range["start"] = sPos;
+        range["end"] = ePos;
+        loc["range"] = range;
+
+        JSONValue[] arr;
+        arr ~= loc;
+        JSONValue result = JSONValue(arr);
+        sendResponse(req.id, result);
+        return;
+    }
+
+    string defUri;
+    size_t outLine, outChar;
+    string currPath = uriToPath(uri);
+    if (findDefinitionAcrossFiles(currPath, word, defUri, outLine, outChar))
+    {
+        JSONValue loc;
+        loc["uri"] = defUri;
+        JSONValue range;
+        JSONValue sPos;
+        JSONValue ePos;
+        sPos["line"] = cast(long) outLine;
+        sPos["character"] = cast(long) outChar;
+        ePos["line"] = cast(long) outLine;
+        ePos["character"] = cast(long) (outChar + word.length);
+        range["start"] = sPos;
+        range["end"] = ePos;
+        loc["range"] = range;
+
+        JSONValue[] arr;
+        arr ~= loc;
+        JSONValue result = JSONValue(arr);
+        sendResponse(req.id, result);
+        return;
+    }
+
+    JSONValue empty;
+    sendResponse(req.id, empty);
+}
+
 void dispatch(LspRequest req)
 {
     debugLog("Dispatching method: ", req.method);
@@ -1080,6 +1280,9 @@ void dispatch(LspRequest req)
         break;
     case "textDocument/hover":
         handleHover(req);
+        break;
+    case "textDocument/definition":
+        handleDefinition(req);
         break;
     case "textDocument/completion":
         handleCompletion(req);

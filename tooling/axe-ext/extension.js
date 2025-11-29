@@ -238,40 +238,68 @@ To restart the server, run command: "Axe: Restart Language Server"`;
     });
 
     const testHover = vscode.commands.registerCommand('axe.lsp.testHover', async () => {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
-            vscode.window.showErrorMessage('No active editor');
-            return;
-        }
+        const content = `/// This is a docstring\ndef some_function() { }\n\ndef main() {\n    some_function()\n    // a comment with some_function inside comment\n    var s = "some_function() inside string"\n}`;
+        const doc = await vscode.workspace.openTextDocument({ language: 'axe', content });
+        const editor = await vscode.window.showTextDocument(doc);
 
-        outputChannel.appendLine('\n=== Testing Hover ===');
+        outputChannel.appendLine('\n=== Testing Hover and Definition ===');
         outputChannel.appendLine(`Document: ${editor.document.uri.toString()}`);
-        outputChannel.appendLine(`Position: ${editor.selection.active.line}:${editor.selection.active.character}`);
         outputChannel.appendLine(`Client State: ${client ? client.state : 'no-client'}`);
 
+        const callPos = new vscode.Position(3, 6);
+        editor.selection = new vscode.Selection(callPos, callPos);
+
         try {
-            const position = editor.selection.active;
             const hovers = await vscode.commands.executeCommand(
                 'vscode.executeHoverProvider',
                 editor.document.uri,
-                position
+                callPos
             );
 
             if (hovers && hovers.length > 0) {
                 outputChannel.appendLine(`✓ Got ${hovers.length} hover result(s)`);
-                hovers.forEach((hover, i) => {
-                    outputChannel.appendLine(`  Hover ${i + 1}:`);
-                    hover.contents.forEach(content => {
-                        if (typeof content === 'string') {
-                            outputChannel.appendLine(`    ${content}`);
-                        } else if (content.value) {
-                            outputChannel.appendLine(`    ${content.value}`);
-                        }
-                    });
-                });
+                const containsDoc = hovers.some(h => h.contents && h.contents.some(c => (typeof c === 'string' && c.includes('This is a docstring')) || (c.value && c.value.includes && c.value.includes('This is a docstring'))));
+                if (containsDoc) outputChannel.appendLine('✓ Hover contains docstring');
+                else outputChannel.appendLine('✗ Hover does not contain expected docstring');
             } else {
-                outputChannel.appendLine('✗ No hover information returned');
+                outputChannel.appendLine('✗ No hover information returned for callsite');
             }
+
+            const defs = await vscode.commands.executeCommand(
+                'vscode.executeDefinitionProvider',
+                editor.document.uri,
+                callPos
+            );
+
+            if (defs && defs.length > 0) {
+                outputChannel.appendLine(`✓ Got ${defs.length} definition result(s)`);
+                const defFound = defs.some(d => {
+                    const range = d.range || d.location && d.location.range || null;
+                    const uri = d.uri || d.location && d.location.uri || '';
+                    return uri && uri.toString() === editor.document.uri.toString() && (range.start.line === 1 || range.start.line === 0 || range.start.line === 1);
+                });
+                if (defFound) outputChannel.appendLine('✓ Definition points to the expected function definition');
+                else outputChannel.appendLine('✗ Definition did not point to expected location');
+            } else {
+                outputChannel.appendLine('✗ No definition information returned for callsite');
+            }
+
+            const commentPos = new vscode.Position(4, 10);
+            const commentHovers = await vscode.commands.executeCommand('vscode.executeHoverProvider', editor.document.uri, commentPos);
+            if (commentHovers && commentHovers.length > 0) {
+                outputChannel.appendLine(`✗ Hover inside a comment returned ${commentHovers.length} result(s) (unexpected)`);
+            } else {
+                outputChannel.appendLine('✓ Hover inside a comment returned no results (expected)');
+            }
+
+            const stringPos = new vscode.Position(5, 10);
+            const stringHovers = await vscode.commands.executeCommand('vscode.executeHoverProvider', editor.document.uri, stringPos);
+            if (stringHovers && stringHovers.length > 0) {
+                outputChannel.appendLine(`✗ Hover inside a string returned ${stringHovers.length} result(s) (unexpected)`);
+            } else {
+                outputChannel.appendLine('✓ Hover inside a string returned no results (expected)');
+            }
+
         } catch (err) {
             outputChannel.appendLine(`✗ Error: ${err}`);
         }
