@@ -346,9 +346,8 @@ void handleInitialize(LspRequest req)
 
     try
     {
-        // Build response manually to ensure correct JSON
-        string response = `{"jsonrpc":"2.0","id":` ~ req.id.toString() ~ `,"result":{"capabilities":{"textDocumentSync":1,"hoverProvider":true,"completionProvider":{"triggerCharacters":["."]}}}}`;
-
+        string response = `{"jsonrpc":"2.0","id":` ~ req.id.toString() ~
+            `,"result":{"capabilities":{"textDocumentSync":1,"hoverProvider":true,"completionProvider":{"triggerCharacters":["."]}}}}`;
         debugLog("Sending initialize response");
         debugLog("Response: ", response);
         writeMessage(response);
