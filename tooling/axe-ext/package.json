@@ -7,7 +7,7 @@
   "author": {
     "name": "Navid M"
   },
-  "version": "0.0.13",
+  "version": "0.0.14",
   "repository": {
     "type": "git",
     "url": "https://github.com/axelang/axe.git"
@@ -19,10 +19,6 @@
     "Programming Languages"
   ],
   "main": "./extension.js",
-  "activationEvents": [
-    "onLanguage:axe",
-    "onCommand:axe.lsp.showDebugInfo"
-  ],
   "contributes": {
     "languages": [
       {
