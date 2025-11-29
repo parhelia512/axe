@@ -70,6 +70,7 @@ string extractWordAt(string text, size_t line0, size_t char0)
     {
         return "";
     }
+    
     auto line = lines[line0];
     if (char0 >= line.length)
     {
