@@ -3273,10 +3273,12 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             print ident_name;
 
             if !is_variable_declared(ident_name) {
-                mut err: string = str("ERROR: Undeclared variable: ");
-                err = concat(err, ident_name);
-                enforce_raw(false, err.data);
-                return node;
+                if !ctx.is_axec {
+                    mut err: string = str("ERROR: Undeclared variable: ");
+                    err = concat(err, ident_name);
+                    enforce_raw(false, err.data);
+                    return node;
+                }
             }
             if !is_variable_mutable(ident_name) {
                 mut err: string = str("ERROR: Cannot assign to immutable variable: ");
@@ -3358,10 +3360,12 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             skip_whitespace(ctx);
 
             if !is_variable_declared(ident_name) {
-                mut err: string = str("ERROR: Undeclared variable: ");
-                err = concat(err, ident_name);
-                enforce_raw(false, err.data);
-                return node;
+                if !ctx.is_axec {
+                    mut err: string = str("ERROR: Undeclared variable: ");
+                    err = concat(err, ident_name);
+                    enforce_raw(false, err.data);
+                    return node;
+                }
             }
             if !is_variable_mutable(ident_name) {
                 println "[DEBUG] Variable is not mutable:";
