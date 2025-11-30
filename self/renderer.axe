@@ -951,13 +951,9 @@ pub def generate_c(ast: ref ASTNode): string {
                     break;
                 }
                 val m_child: ref ASTNode = addr_of(children.data[i_models2]);
-                if equals_c(m_child.node_type, "Model") or equals_c(m_child.node_type, "Enum") {
+                if equals_c(m_child.node_type, "Model") {
                     mut name: string = str("");
-                    if equals_c(m_child.node_type, "Model") {
-                        name = m_child.data.model_node.name;
-                    } else {
-                        name = m_child.data.enum_node.name;
-                    }
+                    name = m_child.data.model_node.name;
                     if !StringBoolMap.contains(addr_of(g_generated_typedefs), name) {
                         result = concat(result, str("struct "));
                         result = concat(result, name);
@@ -973,13 +969,9 @@ pub def generate_c(ast: ref ASTNode): string {
                     break;
                 }
                 val m_child: ref ASTNode = addr_of(children.data[i_models3]);
-                if equals_c(m_child.node_type, "Model") or equals_c(m_child.node_type, "Enum") {
+                if equals_c(m_child.node_type, "Model") {
                     mut name2: string = str("");
-                    if equals_c(m_child.node_type, "Model") {
-                        name2 = m_child.data.model_node.name;
-                    } else {
-                        name2 = m_child.data.enum_node.name;
-                    }
+                    name2 = m_child.data.model_node.name;
                     if !StringBoolMap.contains(addr_of(g_generated_typedefs), name2) {
                         result = concat(result, str("typedef struct "));
                         result = concat(result, name2);
