@@ -23,6 +23,57 @@ use renderer;
 use std.io;
 use std.os;
 
+// Helper to detect if a name already has a module-style "__" prefix.
+def has_double_underscore(name: string): bool {
+    val nlen: i32 = str_len(name);
+    mut k: i32 = 0;
+    loop {
+        if k + 1 >= nlen {
+            break;
+        }
+        val c1: char = get_char(name, k);
+        val c2: char = get_char(name, k + 1);
+        if c1 == '_' and c2 == '_' {
+            return true;
+        }
+        k = k + 1;
+    }
+    return false;
+}
+
+// Prefix only root enums (those without an existing module-style prefix)
+// so that their C enums and members become unique symbols like
+//   tests__enums__State
+//   tests__enums__State_RUNNING
+def prefix_root_enums(node: ref ASTNode, mprefix: string) {
+    if node == nil {
+        return;
+    }
+
+    val nt: string = node.node_type;
+    if equals_c(nt, "Enum") {
+        val ename: string = node.data.enum_node.name;
+        if str_len(mprefix) > 0 and !has_double_underscore(ename) {
+            mut new_name: string = mprefix;
+            new_name = concat(new_name, str("__"));
+            new_name = concat(new_name, ename);
+            node.data.enum_node.name = new_name;
+        }
+    }
+
+    if node.children != nil {
+        val chs: ref list(ASTNode) = node.children;
+        mut ci: i32 = 0;
+        loop {
+            if ci >= len(deref(chs)) {
+                break;
+            }
+            prefix_root_enums(addr_of(chs.data[ci]), mprefix);
+            ci = ci + 1;
+        }
+    }
+}
+
 /// Compile an Axe source file to an executable
 def compile_file(filename: string, is_axec: bool): bool {
     println concat(str("Compiling: "), filename);
@@ -75,6 +126,78 @@ def compile_file(filename: string, is_axec: bool): bool {
     println "6 | Collect Models (TODO)";
     println "7 | Validate Calls (TODO)";
     println "8 | Lowering";
+
+    mut dir_name: string = str("");
+    mut file_stem: string = str("");
+    val flen: i32 = str_len(filename);
+    mut last_dot: i32 = -1;
+    mut i_ext: i32 = flen - 1;
+    loop {
+        if i_ext < 0 {
+            break;
+        }
+        val ch_ext: char = get_char(filename, i_ext);
+        if ch_ext == '.' {
+            last_dot = i_ext;
+            break;
+        }
+        i_ext = i_ext - 1;
+    }
+    if last_dot < 0 {
+        last_dot = flen;
+    }
+
+    mut last_sep: i32 = -1;
+    mut i_sep: i32 = flen - 1;
+    loop {
+        if i_sep < 0 {
+            break;
+        }
+        val ch_sep: char = get_char(filename, i_sep);
+        if ch_sep == '/' or ch_sep == '\\' {
+            last_sep = i_sep;
+            break;
+        }
+        i_sep = i_sep - 1;
+    }
+
+    if last_sep >= 0 {
+        file_stem = substring_se(filename, last_sep + 1, last_dot);
+    } else {
+        file_stem = substring_se(filename, 0, last_dot);
+    }
+
+    if last_sep > 0 {
+        mut dir_sep2: i32 = -1;
+        mut j: i32 = last_sep - 1;
+        loop {
+            if j < 0 {
+                break;
+            }
+            val ch2: char = get_char(filename, j);
+            if ch2 == '/' or ch2 == '\\' {
+                dir_sep2 = j;
+                break;
+            }
+            j = j - 1;
+        }
+        if dir_sep2 >= 0 {
+            dir_name = substring_se(filename, dir_sep2 + 1, last_sep);
+        } else {
+            dir_name = substring_se(filename, 0, last_sep);
+        }
+    }
+
+    mut module_prefix: string = str("");
+    if str_len(dir_name) > 0 {
+        module_prefix = dir_name;
+        module_prefix = concat(module_prefix, str("__"));
+        module_prefix = concat(module_prefix, file_stem);
+    } else {
+        module_prefix = file_stem;
+    }
+
+    prefix_root_enums(addr_of(ast), module_prefix);
 
     initialize_renderer();
     

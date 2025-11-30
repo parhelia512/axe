@@ -436,6 +436,65 @@ def c_prefix_end_index(s: string): i32 {
     return i;
 }
 
+def rewrite_enum_member_refs(s: string): string {
+    mut out: string = str("");
+    mut i: i32 = 0;
+    loop {
+        if i >= str_len(s) {
+            break;
+        }
+        val ch: char = get_char(s, i);
+        if is_ident_start(ch) {
+            mut start: i32 = i;
+            mut j: i32 = i;
+            loop {
+                if j >= str_len(s) {
+                    break;
+                }
+                val cj: char = get_char(s, j);
+                if !is_token_char(cj) {
+                    break;
+                }
+                j = j + 1;
+            }
+            val ident: string = substring_se(s, start, j);
+            if j + 1 < str_len(s) and get_char(s, j) == '.' and is_ident_start(get_char(s, j + 1)) {
+                mut mstart: i32 = j + 1;
+                mut m: i32 = mstart;
+                loop {
+                    if m >= str_len(s) {
+                        break;
+                    }
+                    val cm: char = get_char(s, m);
+                    if !is_token_char(cm) {
+                        break;
+                    }
+                    m = m + 1;
+                }
+                val member: string = substring_se(s, mstart, m);
+
+                val enum_c_name: string = canonical_model_c_name(ident);
+                if str_len(enum_c_name) > 0 and StringBoolMap.contains(addr_of(g_enum_names), enum_c_name) {
+                    mut repl: string = enum_c_name;
+                    repl = concat(repl, str("_"));
+                    repl = concat(repl, member);
+                    out = concat(out, repl);
+                    i = m;
+                    continue;
+                }
+            }
+
+            out = concat(out, ident);
+            i = j;
+            continue;
+        }
+
+        out = concat_chr(out, ch);
+        i = i + 1;
+    }
+    return out;
+}
+
 def process_expression(expr: string): string {
     mut trimmed: string = strip(expr);
     mut has_pointer_sugar: bool = false;
@@ -691,7 +750,9 @@ def process_expression(expr: string): string {
     val fixed: string = replace_all(first_pass, str("(->"), str("->"));
     println "\nFIXED:";
     println fixed;
-    return strip(fixed);
+
+    val enum_fixed: string = rewrite_enum_member_refs(fixed);
+    return strip(enum_fixed);
 }
 
 /// Generate a C function prototype from a Function AST node
