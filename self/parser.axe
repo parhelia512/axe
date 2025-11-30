@@ -3172,8 +3172,11 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                             value_expr = concat(value_expr, str("\""));
                             value_expr = concat(value_expr, t.value);
                             value_expr = concat(value_expr, str("\" "));
+                        } elif t.token_type == TokenType.CHAR {
+                            value_expr = concat(value_expr, str("'"));
+                            value_expr = concat(value_expr, t.value);
+                            value_expr = concat(value_expr, str("' "));
                         } elif t.token_type == TokenType.WHITESPACE or t.token_type == TokenType.NEWLINE {
-                            // Skip whitespace in value
                         } else {
                             value_expr = concat(value_expr, t.value);
                             value_expr = concat(value_expr, str(" "));
