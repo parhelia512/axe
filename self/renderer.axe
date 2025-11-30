@@ -782,6 +782,52 @@ pub def generate_c(ast: ref ASTNode): string {
         build_function_prefixes(ast);
 
         if ast.children != nil {
+            val children_for_models: ref list(ASTNode) = ast.children;
+            mut mi: i32 = 0;
+            loop {
+                if mi >= len(deref(children_for_models)) {
+                    break;
+                }
+                val mchild: ref ASTNode = addr_of(children_for_models.data[mi]);
+                if equals_c(mchild.node_type, "Model") or equals_c(mchild.node_type, "Enum") {
+                    mut cname: string = str("");
+                    if equals_c(mchild.node_type, "Model") {
+                        cname = mchild.data.model_node.name;
+                    } else {
+                        cname = mchild.data.enum_node.name;
+                    }
+
+                    mut base: string = cname;
+                    mut last_sep: i32 = -1;
+                    mut bi: i32 = 0;
+                    val nlen: i32 = str_len(cname);
+                    loop {
+                        if bi + 1 >= nlen {
+                            break;
+                        }
+                        val c1: char = get_char(cname, bi);
+                        val c2: char = get_char(cname, bi + 1);
+                        if c1 == '_' and c2 == '_' {
+                            last_sep = bi;
+                        }
+                        bi++;
+                    }
+                    if last_sep >= 0 and last_sep + 2 < nlen {
+                        base = substring_se(cname, last_sep + 2, nlen);
+                    }
+
+                    mut arena_local: Arena = Arena.create(256);
+
+                    if str_len(base) > 0 and !StringStringMap.contains(addr_of(g_model_names), base) {
+                        StringStringMap.set(addr_of(g_model_names), addr_of(arena_local), base, cname);
+                    }
+                    if !StringStringMap.contains(addr_of(g_model_names), cname) {
+                        StringStringMap.set(addr_of(g_model_names), addr_of(arena_local), cname, cname);
+                    }
+                }
+                mi++;
+            }
+
             val children: ref list(ASTNode) = ast.children;
 
             StringBoolMap.clear(addr_of(g_list_element_types));
@@ -792,7 +838,7 @@ pub def generate_c(ast: ref ASTNode): string {
                     break;
                 }
                 scan_for_list_types(addr_of(children.data[i_scan]));
-                i_scan = i_scan + 1;
+                i_scan++;
             }
 
             mut i_more: i32 = 0;

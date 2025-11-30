@@ -191,18 +191,88 @@ def append_child(program: ref ASTNode, child: ASTNode) {
 
 def prefix_function_node(node: ref ASTNode, module_prefix: string) {
     val name: string = node.data.function.name;
+
+    if find_char_from(name, '_', 0) >= 0 {
+        val len_name: i32 = str_len(name);
+        mut has_double_underscore: bool = false;
+        mut i: i32 = 0;
+        loop {
+            if i + 1 >= len_name {
+                break;
+            }
+            val c1: char = get_char(name, i);
+            val c2: char = get_char(name, i + 1);
+            if c1 == '_' and c2 == '_' {
+                has_double_underscore = true;
+                break;
+            }
+            i++;
+        }
+
+        if has_double_underscore {
+            // Already has a module-style prefix; leave as-is.
+            return;
+        }
+    }
+
     val pref: string = concat(concat(module_prefix, str("__")), name);
     node.data.function.name = pref;
 }
 
 def prefix_model_node(node: ref ASTNode, module_prefix: string) {
     val name: string = node.data.model_node.name;
+
+    if find_char_from(name, '_', 0) >= 0 {
+        val len_name: i32 = str_len(name);
+        mut has_double_underscore: bool = false;
+        mut i: i32 = 0;
+        loop {
+            if i + 1 >= len_name {
+                break;
+            }
+            val c1: char = get_char(name, i);
+            val c2: char = get_char(name, i + 1);
+            if c1 == '_' and c2 == '_' {
+                has_double_underscore = true;
+                break;
+            }
+            i++;
+        }
+
+        if has_double_underscore {
+            return;
+        }
+    }
+
     val pref: string = concat(concat(module_prefix, str("__")), name);
     node.data.model_node.name = pref;
 }
 
 def prefix_enum_node(node: ref ASTNode, module_prefix: string) {
     val name: string = node.data.enum_node.name;
+
+    if find_char_from(name, '_', 0) >= 0 {
+        val len_name: i32 = str_len(name);
+        mut has_double_underscore: bool = false;
+        mut i: i32 = 0;
+        loop {
+            if i + 1 >= len_name {
+                break;
+            }
+            val c1: char = get_char(name, i);
+            val c2: char = get_char(name, i + 1);
+            if c1 == '_' and c2 == '_' {
+                has_double_underscore = true;
+                break;
+            }
+            i++;
+        }
+
+        if has_double_underscore {
+            return;
+        }
+    }
+
     val pref: string = concat(concat(module_prefix, str("__")), name);
     node.data.enum_node.name = pref;
 }
@@ -228,7 +298,7 @@ def build_exported_name_map(imported: ref ASTNode): StringBoolMap {
         } elif equals_c(child.node_type, "Enum") {
             StringBoolMap.set(addr_of(m), addr_of(arena), child.data.enum_node.name, true);
         }
-        i = i + 1;
+        i++;
     }
 
     return m;
