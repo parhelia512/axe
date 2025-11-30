@@ -834,34 +834,70 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
     }
     
     if token_type == TokenType.ENUM {
-        ctx.pos++;  // Skip 'enum'
+        ctx.pos++;
         skip_whitespace(ctx);
-        
-        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.IDENTIFIER {
+
+        if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.IDENTIFIER {
+            enforce_raw(false, "ERROR: Expected enum name after 'enum'");
+            return;
+        }
+
+        val name_tok: Token = ctx.tokens.data[ctx.pos];
+        ctx.pos++;
+        val enum_name: string = name_tok.value;
+
+        skip_whitespace(ctx);
+        if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.LBRACE {
+            enforce_raw(false, "ERROR: Expected '{' after enum name");
+            return;
+        }
+
+        ctx.pos++;
+
+        mut values: list(string);
+        loop {
+            if ctx.pos >= len(ctx.tokens) {
+                break;
+            }
+
+            val t: Token = ctx.tokens.data[ctx.pos];
+
+            if t.token_type == TokenType.RBRACE {
+                ctx.pos++;
+                break;
+            }
+
+            if t.token_type == TokenType.IDENTIFIER {
+                append(values, t.value);
+                ctx.pos++;
+                continue;
+            }
+
+            if t.token_type == TokenType.COMMA or
+               t.token_type == TokenType.SEMICOLON or
+               t.token_type == TokenType.WHITESPACE or
+               t.token_type == TokenType.NEWLINE {
+                ctx.pos++;
+                continue;
+            }
+
             ctx.pos++;
         }
-        
-        skip_whitespace(ctx);
-        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
-            ctx.pos++;
-            mut depth: i32 = 1;
-            loop {
-                if ctx.pos >= len(ctx.tokens) {
-                    break;
-                }
-                if ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
-                    depth = depth + 1;
-                }
-                if ctx.tokens.data[ctx.pos].token_type == TokenType.RBRACE {
-                    depth = depth - 1;
-                    if depth == 0 {
-                        ctx.pos++;
-                        break;
-                    }
-                }
-                ctx.pos++;
+
+        mut enum_node: ASTNode;
+        enum_node.node_type = str("Enum");
+        enum_node.data.enum_node.name = enum_name;
+
+        unsafe {
+            val list_size: usize = C.sizeof(list(string));
+            mut heap_list: ref list(string) = cast[ref list(string)](C.malloc(list_size));
+            if heap_list != nil {
+                C.memcpy(heap_list, addr_of(values), list_size);
+                enum_node.data.enum_node.values = heap_list;
             }
         }
+
+        add_child_to_ast(ast, enum_node);
         return;
     }
     
