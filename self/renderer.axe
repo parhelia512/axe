@@ -193,6 +193,16 @@ def map_axe_type_to_c(axe_type: string): string {
         return concat(mapped_base, str("*"));
     }
     
+    val br_idx: i32 = find_char_from(result, '[', 0);
+    if br_idx >= 0 and find_char_from(result, ']', br_idx) >= 0 {
+        val base_raw: string = strip(substring_se(result, 0, br_idx));
+        val suffix: string = substring_se(result, br_idx, str_len(result));
+        if str_len(base_raw) > 0 {
+            val mapped_base2: string = map_axe_type_to_c(base_raw);
+            return concat(mapped_base2, suffix);
+        }
+    }
+    
     // Check type mappings
     if StringStringMap.contains(addr_of(g_type_mappings), result) {
         return StringStringMap.get(addr_of(g_type_mappings), result);
