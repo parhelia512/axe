@@ -1848,6 +1848,20 @@ pub def generate_c(ast: ref ASTNode): string {
                     }
                 }
             } else {
+                // If the initializer is a plain function call IDENT(...),
+                // rewrite IDENT using g_function_prefixes so that short names
+                // like `str` get expanded to their fully-prefixed C names
+                // (e.g., std__string__str) even inside methods/models.
+                val paren_pos: i32 = find_char_from(trimmed, '(', 0);
+                if paren_pos > 0 {
+                    val call_name_raw: string = strip(substring_se(trimmed, 0, paren_pos));
+                    if StringStringMap.contains(addr_of(g_function_prefixes), call_name_raw) {
+                        val full_name: string = StringStringMap.get(addr_of(g_function_prefixes), call_name_raw);
+                        val rest: string = substring_se(trimmed, paren_pos, str_len(trimmed));
+                        trimmed = concat(full_name, rest);
+                    }
+                }
+
                 val processed_init: string = process_expression(trimmed);
                 result = concat(result, str(" = "));
                 result = concat(result, processed_init);
