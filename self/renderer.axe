@@ -1835,7 +1835,7 @@ pub def generate_c(ast: ref ASTNode): string {
             return_type = str("void");
         }
         
-        val mapped_return_type: string = map_type(return_type);
+        val mapped_return_type: string = map_axe_type_to_c(return_type);
         
         result = concat(result, mapped_return_type);
         result = concat(result, str(" "));
