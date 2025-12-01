@@ -137,7 +137,7 @@ def str_equals(s1: string, s2: ref char, start: i32, len: i32, source_len: i32):
         if get_char(s1, start + i) != s2[i] {
             return false;
         }
-        i = i + 1;
+        i++;
     }
     return true;
 }
