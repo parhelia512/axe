@@ -1753,7 +1753,7 @@ def parse_function(ctx: ref ParserContext): ASTNode {
 
 /// Parse a single statement (helper for parsing function bodies, loops, etc.)
 ///
-/// Returns an ASTNode for the statement, or null node for whitespace/newlines
+/// Returns an ASTNode for the statement, or nil node for whitespace/newlines
 def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
     mut node: ASTNode;
     node.node_type = str("Empty");
