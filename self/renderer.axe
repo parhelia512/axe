@@ -556,6 +556,71 @@ def rewrite_enum_member_refs(s: string): string {
     return repl;
 }
 
+def rewrite_function_calls(expr: string): string {
+    mut out: string = str("");
+    mut i: i32 = 0;
+    mut in_string: bool = false;
+
+    loop {
+        if i >= str_len(expr) {
+            break;
+        }
+
+        val ch: char = get_char(expr, i);
+
+        if ch == '"' and (i == 0 or get_char(expr, i - 1) != '\\') {
+            in_string = !in_string;
+            out = concat_chr(out, ch);
+            i = i + 1;
+            continue;
+        }
+
+        if !in_string and is_ident_start(ch) {
+            mut ident: string = str("");
+            mut j: i32 = i;
+            loop {
+                if j >= str_len(expr) {
+                    break;
+                }
+                val cj: char = get_char(expr, j);
+                if !is_token_char(cj) {
+                    break;
+                }
+                ident = concat_chr(ident, cj);
+                j = j + 1;
+            }
+
+            mut k: i32 = j;
+            loop {
+                if k >= str_len(expr) {
+                    break;
+                }
+                val ws: char = get_char(expr, k);
+                if ws != ' ' and ws != '\t' and ws != '\n' {
+                    break;
+                }
+                k = k + 1;
+            }
+
+            mut replaced_ident: string = ident;
+            if k < str_len(expr) and get_char(expr, k) == '(' {
+                if StringStringMap.contains(addr_of(g_function_prefixes), ident) {
+                    replaced_ident = StringStringMap.get(addr_of(g_function_prefixes), ident);
+                }
+            }
+
+            out = concat(out, replaced_ident);
+            i = j;
+            continue;
+        }
+
+        out = concat_chr(out, ch);
+        i = i + 1;
+    }
+
+    return out;
+}
+
 def process_expression(expr: string): string {
     mut trimmed: string = strip(expr);
     mut has_pointer_sugar: bool = false;
@@ -681,7 +746,8 @@ def process_expression(expr: string): string {
         println "[DBG-EXPR] no-sugar final:";
         println norm_no_sugar;
 
-        val enum_fixed_no_sugar: string = rewrite_enum_member_refs(norm_no_sugar);
+        val calls_fixed_no_sugar: string = rewrite_function_calls(norm_no_sugar);
+        val enum_fixed_no_sugar: string = rewrite_enum_member_refs(calls_fixed_no_sugar);
         return strip(enum_fixed_no_sugar);
     }
 
@@ -816,7 +882,8 @@ def process_expression(expr: string): string {
     println "\nFIXED:";
     println fixed;
 
-    val enum_fixed: string = rewrite_enum_member_refs(fixed);
+    val calls_fixed: string = rewrite_function_calls(fixed);
+    val enum_fixed: string = rewrite_enum_member_refs(calls_fixed);
     return strip(enum_fixed);
 }
 
@@ -1668,9 +1735,22 @@ pub def generate_c(ast: ref ASTNode): string {
     
     if equals_c(node_type, "Return") {
         result = concat(result, str("return "));
-        val expr: string = ast.data.return_node.expression;
+        mut expr: string = ast.data.return_node.expression;
         println "\n[DEBUG] RENDERER raw return expr:";
         println expr;
+
+        mut trimmed_ret: string = strip(expr);
+        val paren_pos_ret: i32 = find_char_from(trimmed_ret, '(', 0);
+        if paren_pos_ret > 0 {
+            val call_name_ret: string = strip(substring_se(trimmed_ret, 0, paren_pos_ret));
+            if StringStringMap.contains(addr_of(g_function_prefixes), call_name_ret) {
+                val full_name_ret: string = StringStringMap.get(addr_of(g_function_prefixes), call_name_ret);
+                val rest_ret: string = substring_se(trimmed_ret, paren_pos_ret, str_len(trimmed_ret));
+                trimmed_ret = concat(full_name_ret, rest_ret);
+                expr = trimmed_ret;
+            }
+        }
+
         println "\n[DBG-CALL] process_expression from Return:";
         println expr;
         val processed: string = process_expression(expr);
