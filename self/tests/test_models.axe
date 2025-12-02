@@ -12,7 +12,7 @@ def yo(): i32 {
 }
 
 def main() {
-    mut md: SomeModel = new SomeModel();
+    mut md = SomeModel{};
     md.x = 1;
     md.y = 2;
     put "ASDASD";

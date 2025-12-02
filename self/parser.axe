@@ -2614,36 +2614,15 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     }
 
                     mut trimmed_init_val: string = strip(initializer);
-                    if str_len(type_name) == 0 and has_prefix(trimmed_init_val, str("new ")) {
-                        trimmed_init_val = substring_se(trimmed_init_val, 4, str_len(trimmed_init_val));
-                        trimmed_init_val = strip(trimmed_init_val);
 
-                        mut end_pos_val: i32 = -1;
-                        mut i_val: i32 = 0;
-                        loop {
-                            if i_val >= str_len(trimmed_init_val) {
-                                break;
+                    if str_len(type_name) == 0 {
+                        val brace_pos_val: i32 = find_char_from(trimmed_init_val, '{', 0);
+                        if brace_pos_val > 0 {
+                            val inferred_name_brace: string = strip(substring_se(trimmed_init_val, 0, brace_pos_val));
+                            if str_len(inferred_name_brace) > 0 {
+                                type_name = inferred_name_brace;
                             }
-                            val ch_val: char = get_char(trimmed_init_val, i_val);
-                            if ch_val == '(' or ch_val == ' ' or ch_val == '\t' {
-                                end_pos_val = i_val;
-                                break;
-                            }
-                            i_val = i_val + 1;
                         }
-                        if end_pos_val < 0 {
-                            end_pos_val = str_len(trimmed_init_val);
-                        }
-                        val inferred_name_val: string = strip(substring_se(trimmed_init_val, 0, end_pos_val));
-                        if str_len(inferred_name_val) > 0 {
-                            type_name = inferred_name_val;
-                        }
-                    } elif str_len(type_name) == 0 {
-                        mut err: string = str("ERROR: Type annotation required when initializing '");
-                        err = concat(err, var_name.value);
-                        err = concat(err, str("' without 'new Model(...)'"));
-                        enforce_raw(false, err.data);
-                        return node;
                     }
                 }
             } else {
@@ -2810,12 +2789,6 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                         if str_len(inferred_name_mut) > 0 {
                             type_name = inferred_name_mut;
                         }
-                    } elif str_len(type_name) == 0 {
-                        mut err2: string = str("ERROR: Type annotation required when initializing '");
-                        err2 = concat(err2, var_name.value);
-                        err2 = concat(err2, str("' without 'new Model(...)'"));
-                        enforce_raw(false, err2.data);
-                        return node;
                     }
                 }
             } else {
