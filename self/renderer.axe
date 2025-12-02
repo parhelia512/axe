@@ -1103,10 +1103,12 @@ def collapse_duplicate_segments_once(s: string): string {
                     }
 
                     if compare(seg1, seg2) == 0 {
-                        out = concat(out, str("__"));
-                        out = concat(out, seg1);
-                        i = k;
-                        continue;
+                        if (k < n and get_char(s, k) == '_' and (k + 1 >= n or get_char(s, k + 1) != '_')) {
+                            out = concat(out, str("__"));
+                            out = concat(out, seg1);
+                            i = k;
+                            continue;
+                        }
                     }
                 }
 
