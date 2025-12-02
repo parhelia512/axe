@@ -462,16 +462,15 @@ def prefix_types_in_node(node: ref ASTNode, module_prefix: string, exported: ref
                 if itf >= len(deref(target_funcs_ref)) {
                     break;
                 }
-                val target_name: string = target_funcs_ref.data[itf];
-                val fixed_name: string = replace_all(target_name, str("__"), str("_"));
 
-                if !has_prefix(fixed_name, concat(module_prefix, str("__"))) {
-                    target_funcs_ref.data[itf] = concat(concat(module_prefix, str("__")), fixed_name);
-                } else {
-                    target_funcs_ref.data[itf] = fixed_name;
-                }
+                val target_name: string = target_funcs_ref.data[itf];
+                val already_prefixed: bool = str_contains_c(target_name, "__");
                 
-                itf = itf + 1;
+                if !already_prefixed {
+                    target_funcs_ref.data[itf] = concat(concat(module_prefix, str("__")), target_name);
+                }
+
+                itf++;
             }
         }
     } elif equals_c(nt, "Opaque") {
