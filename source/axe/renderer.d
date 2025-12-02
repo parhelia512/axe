@@ -1797,7 +1797,30 @@ string generateC(ASTNode ast)
         }
         else
         {
-            baseType = "int";
+            import std.string : strip;
+
+            string init = declNode.initializer.strip();
+            if (init.length > 0)
+            {
+                auto bracePos = init.indexOf('{');
+                if (bracePos > 0)
+                {
+                    string maybeType = init[0 .. bracePos].strip();
+                    if (maybeType.length > 0)
+                    {
+                        dchar firstCh = maybeType[0];
+                        if (firstCh >= 'A' && firstCh <= 'Z')
+                        {
+                            baseType = cachedMapAxeTypeToC(maybeType);
+                        }
+                    }
+                }
+            }
+
+            if (baseType.length == 0)
+            {
+                baseType = "int";
+            }
         }
 
         if (isListOfType)
@@ -1862,6 +1885,32 @@ string generateC(ASTNode ast)
                         processedExpr = "(" ~ T ~ "*)" ~ var;
                     else
                         processedExpr = "*(" ~ T ~ "*)" ~ var;
+                }
+            }
+
+            {
+                import std.string : strip;
+                import std.regex : regex, replaceAll;
+
+                string trimmedInit = processedExpr.strip();
+                auto bracePos = trimmedInit.indexOf('{');
+                if (bracePos > 0)
+                {
+                    string maybeType = trimmedInit[0 .. bracePos].strip();
+                    string baseNoConst = type.startsWith("const ") ? type["const ".length .. $] : type;
+                    if (maybeType.length > 0 &&
+                        (maybeType == baseNoConst || maybeType == baseType))
+                    {
+                        auto lastBrace = trimmedInit.lastIndexOf('}');
+                        if (lastBrace > bracePos)
+                        {
+                            string inner = trimmedInit[bracePos + 1 .. lastBrace];
+                            auto fieldPattern = regex("(\\w+)\\s*:\\s*");
+                            string innerNormalized = inner.replaceAll(fieldPattern, ".$1 = ");
+
+                            processedExpr = "{" ~ innerNormalized ~ "}";
+                        }
+                    }
                 }
             }
 
@@ -5140,7 +5189,7 @@ unittest
     {
         auto tokens = lex(
             "model Cat { name: ref char, health: i32 } " ~
-                "def main() { val cat = new Cat(name: \"Garfield\", health: 100); }");
+                "def main() { val cat = Cat{name: \"Garfield\", health: 100}; }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -5177,7 +5226,7 @@ unittest
 
     {
         auto tokens = lex(
-            "model Cat { health: i32 } def main() { mut val cat = new Cat(health: 100); cat.health = 90; }");
+            "model Cat { health: i32 } def main() { mut val cat = Cat{health: 100}; cat.health = 90; }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -6092,7 +6141,7 @@ unittest
             msg: string;
 
             def create(msg: rchar): error {
-                return new error(msg: string.create(msg));
+                return error{msg: string.create(msg)};
             }
 
             def print_self(err: error) {
@@ -6110,7 +6159,7 @@ unittest
         }
 
         def __test_error(): error {
-            return new error(msg: string.create("Some bad thing happened"));
+            return error{msg: string.create("Some bad thing happened")};
         }
 
         test {
