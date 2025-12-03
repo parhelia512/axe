@@ -224,7 +224,7 @@ def compile_file(filename: string, is_axec: bool): bool {
 
     val c_filename: string = replace_extension(filename, str(".c"));
     write_file(c_filename, c_code);
-    println concat(str("Generated: "), c_filename);
+    println concat(str("\nGenerated: "), c_filename);
     
     println "\n16| Last compilation pass";
 
