@@ -41,6 +41,9 @@ mut g_field_types: StringStringMap;
 /// Variable types
 mut g_var_types: StringStringMap;
 
+/// Track list variable types for append operations (variable name -> element type)
+mut g_list_of_types: StringStringMap;
+
 /// Track discovered list element types used in generated code (for C list helpers)
 mut g_list_element_types: StringBoolMap;
 
@@ -72,6 +75,7 @@ pub def initialize_renderer() {
     g_generated_functions = deref(StringBoolMap.create(addr(arena), 128));
     g_field_types = deref(StringStringMap.create(addr(arena), 128));
     g_var_types = deref(StringStringMap.create(addr(arena), 128));
+    g_list_of_types = deref(StringStringMap.create(addr(arena), 128));
     g_list_element_types = deref(StringBoolMap.create(addr(arena), 128));
     g_list_elements = StringList.create(addr(arena), 64);
     g_global_external_headers = StringList.create(addr(arena), 32);
@@ -4047,6 +4051,35 @@ pub def generate_c(ast: ref ASTNode): string {
         if str_len(var_name) > 0 and str_len(type_name) > 0 {
             mut arena: Arena = Arena.create(256);
             StringStringMap.set(addr(g_var_types), addr(arena), var_name, type_name);
+
+            if has_prefix(type_name, str("list(")) {
+                mut paren_pos: i32 = 5;
+                mut depth: i32 = 1;
+                loop {
+                    if paren_pos >= str_len(type_name) {
+                        break;
+                    }
+                    val ch: char = get_char(type_name, paren_pos);
+                    if ch == '(' {
+                        depth = depth + 1;
+                    } elif ch == ')' {
+                        depth = depth - 1;
+                        if depth == 0 {
+                            break;
+                        }
+                    }
+                    paren_pos = paren_pos + 1;
+                }
+                val element_type: string = strip(substr(type_name, 5, paren_pos - 5));
+                mut list_arena: Arena = Arena.create(256);
+                StringStringMap.set(addr(g_list_of_types), addr(list_arena), var_name, element_type);
+                println concat(concat(concat(str("[DECL-LIST] Added (list(T)): "), var_name), str(" -> ")), element_type);
+            } elif has_suffix(type_name, str("[999]")) {
+                val element_type: string = strip(substring_se(type_name, 0, str_len(type_name) - 5));
+                mut list_arena: Arena = Arena.create(256);
+                StringStringMap.set(addr(g_list_of_types), addr(list_arena), var_name, element_type);
+                println concat(concat(concat(str("[DECL-LIST] Added ([999]): "), var_name), str(" -> ")), element_type);
+            }
         }
 
         val enum_model_name: string = canonical_model_c_name(type_name);
@@ -4570,6 +4603,125 @@ pub def generate_c(ast: ref ASTNode): string {
         debug_print_raw "\n[DBG-FUNCCALL] Looking up function:";
         debug_print_str func_name;
 
+        if equals_c(func_name, "append") {
+            val args: ref list(string) = ast.data.func_call.args;
+            mut var_name: string = str("");
+            mut value: string = str("");
+            mut args_extracted: bool = false;
+            
+            if args != nil and len(deref(args)) >= 1 {
+                val args_str: string = strip(args.data[0]);
+                mut comma_pos: i32 = -1;
+                mut paren_depth: i32 = 0;
+                mut bracket_depth: i32 = 0;
+                mut brace_depth: i32 = 0;
+                mut i: i32 = 0;
+                loop {
+                    if i >= str_len(args_str) {
+                        break;
+                    }
+                    val ch: char = get_char(args_str, i);
+                    if ch == '(' {
+                        paren_depth = paren_depth + 1;
+                    } elif ch == ')' {
+                        paren_depth = paren_depth - 1;
+                    } elif ch == '[' {
+                        bracket_depth = bracket_depth + 1;
+                    } elif ch == ']' {
+                        bracket_depth = bracket_depth - 1;
+                    } elif ch == '{' {
+                        brace_depth = brace_depth + 1;
+                    } elif ch == '}' {
+                        brace_depth = brace_depth - 1;
+                    } elif ch == ',' and paren_depth == 0 and bracket_depth == 0 and brace_depth == 0 {
+                        comma_pos = i;
+                        break;
+                    }
+                    i++;
+                }
+                
+                if comma_pos > 0 {
+                    var_name = strip(substring_se(args_str, 0, comma_pos));
+                    value = strip(substring_se(args_str, comma_pos + 1, str_len(args_str)));
+                    args_extracted = true;
+                }
+            }
+            
+            if args_extracted and str_len(var_name) > 0 and str_len(value) > 0 {
+                val contains_in_list_of_types: bool = StringStringMap.contains(addr(g_list_of_types), var_name);
+                
+                if contains_in_list_of_types {
+                    val element_type: string = StringStringMap.get(addr(g_list_of_types), var_name);
+                    
+                    debug_print_raw "\n[APPEND] Found in g_list_of_types: ";
+                    debug_print_str element_type;
+
+                    val c_element_type: string = map_axe_type_to_c(element_type);
+                    val sanitized_element: string = sanitize_list_element_name(c_element_type);
+                    val processed_value: string = process_expression(value);
+
+                    result = concat(result, str("__list_"));
+                    result = concat(result, sanitized_element);
+                    result = concat(result, str("_push(&"));
+                    result = concat(result, var_name);
+                    result = concat(result, str(", "));
+                    result = concat(result, processed_value);
+                    result = concat(result, str(");\n"));
+
+                    debug_print_raw "\n[DEBUG] Generated append code for '";
+                    debug_print_str var_name;
+                    debug_print_raw "'";
+                    return result;
+                }
+
+                elif StringStringMap.contains(addr(g_var_types), var_name) {
+                    val var_type: string = StringStringMap.get(addr(g_var_types), var_name);
+                    if has_prefix(var_type, str("list(")) or has_suffix(var_type, str("[999]")) {
+                        mut element_type: string = var_type;
+                        if has_prefix(element_type, str("list(")) {
+                            mut paren_pos: i32 = 5;
+                            mut depth: i32 = 1;
+                            loop {
+                                if paren_pos >= str_len(element_type) {
+                                    break;
+                                }
+                                val ch: char = get_char(element_type, paren_pos);
+                                if ch == '(' {
+                                    depth++;
+                                } elif ch == ')' {
+                                    depth--;
+                                    if depth == 0 {
+                                        break;
+                                    }
+                                }
+                                paren_pos = paren_pos + 1;
+                            }
+                            element_type = strip(substr(var_type, 5, paren_pos - 5));
+                        } elif has_suffix(element_type, str("[999]")) {
+                            element_type = strip(substring_se(var_type, 0, str_len(var_type) - 5));
+                        }
+
+                        val c_element_type: string = map_axe_type_to_c(element_type);
+                        val sanitized_element: string = sanitize_list_element_name(c_element_type);
+                        val processed_value: string = process_expression(value);
+
+                        result = concat(result, str("__list_"));
+                        result = concat(result, sanitized_element);
+                        result = concat(result, str("_push(&"));
+                        result = concat(result, var_name);
+                        result = concat(result, str(", "));
+                        result = concat(result, processed_value);
+                        result = concat(result, str(");\n"));
+
+                        debug_print_raw "\n[DEBUG] Generated append code for '";
+                        debug_print_str var_name;
+                        debug_print_raw "'";
+                        return result;
+                    }
+                }
+            }
+        }
+
         mut emitted_name: string = func_name;
         if StringStringMap.contains(addr(g_function_prefixes), func_name) {
             emitted_name = StringStringMap.get(addr(g_function_prefixes), func_name);
@@ -4581,7 +4733,7 @@ pub def generate_c(ast: ref ASTNode): string {
 
         result = concat(result, emitted_name);
         result = concat(result, str("("));
-        
+
         val args: ref list(string) = ast.data.func_call.args;
         if args != nil {
             mut arg_idx: i32 = 0;
@@ -4589,17 +4741,18 @@ pub def generate_c(ast: ref ASTNode): string {
                 if arg_idx >= len(deref(args)) {
                     break;
                 }
-                
+
                 if arg_idx > 0 {
                     result = concat(result, str(", "));
                 }
+
                 val raw_arg: string = args.data[arg_idx];
                 val processed_arg: string = process_expression(raw_arg);
                 result = concat(result, processed_arg);
                 arg_idx++;
             }
         }
-        
+
         result = concat(result, str(");\n"));
         return result;
     }
