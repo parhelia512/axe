@@ -46,7 +46,8 @@ mut g_list_element_types: StringBoolMap;
 /// Ordered list of discovered element type strings (for deterministic emission)
 mut g_list_elements: ref StringList;
 
-/// Initialize renderer globals
+/// Initialize renderer globals.
+///
 /// This must be called before using the renderer at all.
 pub def initialize_renderer() {
     mut arena: Arena = Arena.create(1024 * 1024 * 100);
