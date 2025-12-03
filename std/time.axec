@@ -18,13 +18,13 @@ model DateTime {
 /// Suspends the current thread for the specified number of milliseconds
 def wait(ms: i32) {
     platform posix {
-        raw {
-            sleep(ms / 1000);
+        unsafe {
+            C.sleep(ms / 1000);
         }
     }
     platform windows {
-        raw {
-            Sleep(ms);
+        unsafe {
+            C.Sleep(ms);
         }
     }
 }
