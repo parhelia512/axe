@@ -572,5 +572,5 @@ test {
 
     print ")\n";
 
-    println get_cwd();
+    println(get_cwd());
 }

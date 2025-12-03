@@ -3859,26 +3859,25 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
         consume(ctx);
         
-        mut depth: i32 = 1;
+        node.node_type = str("Platform");
+        node.data.platform_node.platform_name = platform_name;
+        
         loop {
             if ctx.pos >= len(ctx.tokens) {
                 break;
             }
+            skip_whitespace(ctx);
             val t: Token = peek(ctx);
-            if t.token_type == TokenType.LBRACE {
-                depth = depth + 1;
-            } elif t.token_type == TokenType.RBRACE {
-                depth = depth - 1;
-                if depth == 0 {
-                    consume(ctx);
-                    break;
-                }
+            if t.token_type == TokenType.RBRACE {
+                consume(ctx);
+                break;
             }
-            consume(ctx);
+            mut stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+            if str_len(stmt.node_type) > 0 {
+                add_child_to_ast(addr(node), stmt);
+            }
         }
         
-        node.node_type = str("Platform");
-        node.data.platform_node.platform_name = platform_name;
         return node;
     }
     
