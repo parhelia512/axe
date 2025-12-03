@@ -43,7 +43,6 @@ pub model StringBuilder {
         if needed <= sb*.cap {
             return;
         }
-        // Double capacity until we have enough
         mut new_cap: usize = sb*.cap;
         loop {
             if new_cap >= needed {
