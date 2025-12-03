@@ -71,11 +71,9 @@ pub def read_file(path: string): string {
         fread(buf, 1, size, f);
         buf[size] = 0;
         fclose(f);
-
-        out = std__string__string_create(buf);
     }
 
-    return out;
+    return string.create(buf);
 }
 
 /// Write a string to a file, replacing its contents.

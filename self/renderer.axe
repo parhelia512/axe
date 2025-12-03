@@ -3999,6 +3999,64 @@ pub def generate_c(ast: ref ASTNode): string {
         return result;
     }
     
+    if equals_c(node_type, "ForIn") {
+        // for item in collection { ... }
+        // Generate: for (int32_t _i_item = 0; _i_item < collection->len; _i_item++) {
+        //              typeof(collection->data[0]) item = collection->data[_i_item];
+        //              ... body ...
+        //          }
+        val var_name: string = ast.data.for_in.var_name;
+        val array_name_raw: string = ast.data.for_in.array_name;
+        
+        mut array_name: string = process_expression(array_name_raw);
+        array_name = rewrite_method_calls(array_name);
+        array_name = rewrite_function_prefixes(array_name);
+        
+        mut index_var: string = str("_i_");
+        index_var = concat(index_var, var_name);
+        
+        val accessor: string = str("->");
+        
+        result = concat(result, str("for (int32_t "));
+        result = concat(result, index_var);
+        result = concat(result, str(" = 0; "));
+        result = concat(result, index_var);
+        result = concat(result, str(" < "));
+        result = concat(result, array_name);
+        result = concat(result, accessor);
+        result = concat(result, str("len; "));
+        result = concat(result, index_var);
+        result = concat(result, str("++) {\n"));
+        
+        result = concat(result, str("typeof("));
+        result = concat(result, array_name);
+        result = concat(result, accessor);
+        result = concat(result, str("data[0]) "));
+        result = concat(result, var_name);
+        result = concat(result, str(" = "));
+        result = concat(result, array_name);
+        result = concat(result, accessor);
+        result = concat(result, str("data["));
+        result = concat(result, index_var);
+        result = concat(result, str("];\n"));
+        
+        if ast.children != nil {
+            val children: ref list(ASTNode) = ast.children;
+            mut i_for_in: i32 = 0;
+            loop {
+                if i_for_in >= len(deref(children)) {
+                    break;
+                }
+                val child_code: string = generate_c(addr(children.data[i_for_in]));
+                result = concat(result, child_code);
+                i_for_in = i_for_in + 1;
+            }
+        }
+        
+        result = concat(result, str("}\n"));
+        return result;
+    }
+    
     if equals_c(node_type, "If") {
         mut current_if: ref ASTNode = ast;
         mut is_first: bool = true;
