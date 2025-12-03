@@ -3179,7 +3179,7 @@ pub def generate_c(ast: ref ASTNode): string {
         result = concat(result, str("return "));
         mut expr: string = ast.data.return_node.expression;
         debug_print_raw "\n[DEBUG] RENDERER raw return expr:";
-        println expr;
+        debug_print_str expr;
 
         mut trimmed_ret: string = strip(expr);
 
@@ -3286,7 +3286,7 @@ pub def generate_c(ast: ref ASTNode): string {
 
         if str_len(processed) == 0 {
             debug_print_raw "\n[DBG-CALL] process_expression from Return:";
-            println expr;
+            debug_print_str expr;
             processed = process_expression(expr);
         }
         result = concat(result, processed);
@@ -3606,25 +3606,26 @@ pub def generate_c(ast: ref ASTNode): string {
         
         debug_print_raw "\n[DBG-ASSIGN] Assignment node";
         debug_print_raw "\n[DBG-ASSIGN]   raw variable:";
-        println variable;
+        debug_print_str variable;
         debug_print_raw "\n[DBG-ASSIGN]   raw expression:";
-        println expression;
+        debug_print_str expression;
 
         debug_print_raw "\n[DBG-CALL] process_expression from Assignment.variable:";
-        println variable;
+        debug_print_str variable;
         val processed_var: string = process_expression(variable);
         debug_print_raw "\n[DBG-CALL] process_expression from Assignment.expression:";
-        println expression;
+        debug_print_str expression;
         val processed_expr: string = process_expression(expression);
 
         debug_print_raw "\n[DBG-ASSIGN]   processed variable:";
-        println processed_var;
+        debug_print_str processed_var;
         debug_print_raw "\n[DBG-ASSIGN]   processed expression:";
-        println processed_expr;
+        debug_print_str processed_expr;
         
         val pv: string = processed_var;
         debug_print_raw "\n[DBG-ASSIGN]   pv before fix:";
-        println pv;
+        debug_print_str pv;
+        
         mut fixed_var: string = str("");
         mut idx_av: i32 = 0;
         loop {
