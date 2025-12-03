@@ -2182,6 +2182,13 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                                         functionArgs ~= " ";
                                     functionArgs ~= "\"" ~ tokens[pos].value ~ "\"";
                                 }
+                                else if (tokens[pos].type == TokenType.CHAR)
+                                {
+                                    // Wrap character literal back in single quotes
+                                    if (functionArgs.length > 0)
+                                        functionArgs ~= " ";
+                                    functionArgs ~= "'" ~ tokens[pos].value ~ "'";
+                                }
                                 else
                                 {
                                     if (functionArgs.length > 0)
@@ -2303,6 +2310,13 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                             else if (tokens[pos].type == TokenType.STR)
                             {
                                 functionArgs ~= "\"" ~ tokens[pos].value ~ "\"";
+                                lastWasRef = false;
+                                pos++;
+                            }
+                            else if (tokens[pos].type == TokenType.CHAR)
+                            {
+                                // Wrap character literal back in single quotes
+                                functionArgs ~= "'" ~ tokens[pos].value ~ "'";
                                 lastWasRef = false;
                                 pos++;
                             }
@@ -4004,6 +4018,13 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                             functionArgs ~= " ";
                         functionArgs ~= "\"" ~ tokens[pos].value ~ "\"";
                     }
+                    else if (tokens[pos].type == TokenType.CHAR)
+                    {
+                        // Wrap character literal back in single quotes
+                        if (functionArgs.length > 0)
+                            functionArgs ~= " ";
+                        functionArgs ~= "'" ~ tokens[pos].value ~ "'";
+                    }
                     else if (tokens[pos].type == TokenType.INTERPOLATED_STR)
                     {
                         if (functionArgs.length > 0)
@@ -4102,6 +4123,13 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                         string escaped = tokens[pos].value.replace("\n", "\\n")
                             .replace("\r", "\\r").replace("\t", "\\t");
                         currentArg ~= "\"" ~ escaped ~ "\"";
+                        lastWasRef = false;
+                        pos++;
+                    }
+                    else if (tokens[pos].type == TokenType.CHAR)
+                    {
+                        // Wrap character literal back in single quotes
+                        currentArg ~= "'" ~ tokens[pos].value ~ "'";
                         lastWasRef = false;
                         pos++;
                     }
@@ -4565,6 +4593,13 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                             "Use a regular string if no interpolation is needed.");
 
                     currentArg ~= "__INTERPOLATED__" ~ tokens[pos].value ~ "__INTERPOLATED__";
+                    lastWasRef = false;
+                    pos++;
+                }
+                else if (tokens[pos].type == TokenType.CHAR)
+                {
+                    // Wrap character literal back in single quotes
+                    currentArg ~= "'" ~ tokens[pos].value ~ "'";
                     lastWasRef = false;
                     pos++;
                 }

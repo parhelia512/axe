@@ -2378,17 +2378,15 @@ def process_expression(expr: string): string {
 
 /// Generate a C function prototype from a Function AST node
 def generate_function_prototype(ast: ref ASTNode): string {
-    mut result: string = str("");
-
     if ast == nil {
-        return result;
+        return str("");
     }
 
     val func_name_raw: string = ast.data.function.name;
 
     // Do not emit a prototype for main
     if equals_c(func_name_raw, "main") {
-        return result;
+        return str("");
     }
 
     mut func_name: string = func_name_raw;
@@ -2429,10 +2427,12 @@ def generate_function_prototype(ast: ref ASTNode): string {
         if !has_inner_sep {
             val canon_model: string = canonical_model_c_name(model_part);
             if str_len(canon_model) > 0 {
-                mut full: string = canon_model;
-                full = concat(full, str("__"));
-                full = concat(full, method_part);
-                func_name = full;
+                mut sb_name: StringBuilder = StringBuilder.init(256);
+                StringBuilder.append(addr(sb_name), canon_model);
+                StringBuilder.append_c(addr(sb_name), "__");
+                StringBuilder.append(addr(sb_name), method_part);
+                func_name = StringBuilder.to_string(addr(sb_name));
+                StringBuilder.destroy(addr(sb_name));
             }
         }
     }
@@ -2451,10 +2451,12 @@ def generate_function_prototype(ast: ref ASTNode): string {
 
     val mapped_return_type: string = map_axe_type_to_c(return_type);
 
-    result = concat(result, mapped_return_type);
-    result = concat(result, str(" "));
-    result = concat(result, func_name);
-    result = concat(result, str("("));
+    // Use StringBuilder for prototype generation
+    mut sb: StringBuilder = StringBuilder.init(512);
+    StringBuilder.append(addr(sb), mapped_return_type);
+    StringBuilder.append_char(addr(sb), ' ');
+    StringBuilder.append(addr(sb), func_name);
+    StringBuilder.append_char(addr(sb), '(');
 
     val params: ref list(string) = ast.data.function.params;
     if params != nil {
@@ -2465,7 +2467,7 @@ def generate_function_prototype(ast: ref ASTNode): string {
             }
 
             if param_idx > 0 {
-                result = concat(result, str(", "));
+                StringBuilder.append_c(addr(sb), ", ");
             }
 
             val param: string = params.data[param_idx];
@@ -2476,18 +2478,20 @@ def generate_function_prototype(ast: ref ASTNode): string {
                 val param_type: string = strip(substr(param, colon_pos + 1, str_len(param) - colon_pos - 1));
                 val processed_type: string = process_parameter_type(param_type);
 
-                result = concat(result, processed_type);
-                result = concat(result, str(" "));
-                result = concat(result, param_name);
+                StringBuilder.append(addr(sb), processed_type);
+                StringBuilder.append_char(addr(sb), ' ');
+                StringBuilder.append(addr(sb), param_name);
             } else {
-                result = concat(result, param);
+                StringBuilder.append(addr(sb), param);
             }
 
             param_idx = param_idx + 1;
         }
     }
 
-    result = concat(result, str(");\n"));
+    StringBuilder.append_c(addr(sb), ");\n");
+    val result: string = StringBuilder.to_string(addr(sb));
+    StringBuilder.destroy(addr(sb));
     return result;
 }
 
@@ -2575,11 +2579,14 @@ pub def generate_c(ast: ref ASTNode): string {
         StringList.clear(g_posix_external_headers);
         collect_external_imports(ast, str(""), addr(ext_arena));
         
-        // Batch standard headers into single concatenation
-        result = concat_c(result, "#define nil ((void*)0)\n#include <stdio.h>\n#include <stdbool.h>\n#include <stdlib.h>\n#include <string.h>\n#include <stdint.h>\n");
+        // Use StringBuilder for efficient string building
+        mut sb: StringBuilder = StringBuilder.init(1024 * 64);
+        
+        // Batch standard headers into single append
+        StringBuilder.append_c(addr(sb), "#define nil ((void*)0)\n#include <stdio.h>\n#include <stdbool.h>\n#include <stdlib.h>\n#include <string.h>\n#include <stdint.h>\n");
 
         platform windows {
-            result = concat_c(result, "#include <windows.h>\n#define NOMINMAX\n#define NOGDI\n#define WIN32_LEAN_AND_MEAN\n");
+            StringBuilder.append_c(addr(sb), "#include <windows.h>\n#define NOMINMAX\n#define NOGDI\n#define WIN32_LEAN_AND_MEAN\n");
         }
         
         mut ghi: i32 = 0;
@@ -2588,45 +2595,49 @@ pub def generate_c(ast: ref ASTNode): string {
                 break;
             }
             val gh: string = StringList.get(g_global_external_headers, ghi);
-            result = concat_c(result, "#include <");
-            result = concat(result, gh);
-            result = concat_c(result, ">\n");
+            StringBuilder.append_c(addr(sb), "#include <");
+            StringBuilder.append(addr(sb), gh);
+            StringBuilder.append_c(addr(sb), ">\n");
             ghi = ghi + 1;
         }
         
         if g_windows_external_headers*.len > 0 {
-            result = concat_c(result, "#ifdef _WIN32\n");
+            StringBuilder.append_c(addr(sb), "#ifdef _WIN32\n");
             mut whi: i32 = 0;
             loop {
                 if whi >= g_windows_external_headers*.len {
                     break;
                 }
                 val wh: string = StringList.get(g_windows_external_headers, whi);
-                result = concat_c(result, "#include <");
-                result = concat(result, wh);
-                result = concat_c(result, ">\n");
+                StringBuilder.append_c(addr(sb), "#include <");
+                StringBuilder.append(addr(sb), wh);
+                StringBuilder.append_c(addr(sb), ">\n");
                 whi = whi + 1;
             }
-            result = concat_c(result, "#endif\n");
+            StringBuilder.append_c(addr(sb), "#endif\n");
         }
         
         if g_posix_external_headers*.len > 0 {
-            result = concat_c(result, "#ifndef _WIN32\n");
+            StringBuilder.append_c(addr(sb), "#ifndef _WIN32\n");
             mut phi: i32 = 0;
             loop {
                 if phi >= g_posix_external_headers*.len {
                     break;
                 }
                 val ph: string = StringList.get(g_posix_external_headers, phi);
-                result = concat_c(result, "#include <");
-                result = concat(result, ph);
-                result = concat_c(result, ">\n");
+                StringBuilder.append_c(addr(sb), "#include <");
+                StringBuilder.append(addr(sb), ph);
+                StringBuilder.append_c(addr(sb), ">\n");
                 phi = phi + 1;
             }
-            result = concat_c(result, "#endif\n");
+            StringBuilder.append_c(addr(sb), "#endif\n");
         }
 
-        result = concat_c(result, "\nint __axe_argc = 0;\nchar** __axe_argv = NULL;\n\n");
+        StringBuilder.append_c(addr(sb), "\nint __axe_argc = 0;\nchar** __axe_argv = NULL;\n\n");
+        
+        // Convert StringBuilder to result string for the rest of the function
+        result = StringBuilder.to_string(addr(sb));
+        StringBuilder.destroy(addr(sb));
         
         build_function_prefixes(ast);
 
@@ -2738,6 +2749,9 @@ pub def generate_c(ast: ref ASTNode): string {
                 i_more++;
             }
 
+            // Use StringBuilder for forward declarations
+            mut sb_fwd: StringBuilder = StringBuilder.init(4096);
+            
             mut i_models2: i32 = 0;
             loop {
                 if i_models2 >= len(deref(children)) {
@@ -2748,9 +2762,9 @@ pub def generate_c(ast: ref ASTNode): string {
                     mut name: string = str("");
                     name = m_child.data.model_node.name;
                     if !StringBoolMap.contains(addr(g_generated_typedefs), name) {
-                        result = concat_c(result, "struct ");
-                        result = concat(result, name);
-                        result = concat_c(result, ";\n");
+                        StringBuilder.append_c(addr(sb_fwd), "struct ");
+                        StringBuilder.append(addr(sb_fwd), name);
+                        StringBuilder.append_c(addr(sb_fwd), ";\n");
                     }
                 }
                 i_models2++;
@@ -2766,17 +2780,21 @@ pub def generate_c(ast: ref ASTNode): string {
                     mut name2: string = str("");
                     name2 = m_child.data.model_node.name;
                     if !StringBoolMap.contains(addr(g_generated_typedefs), name2) {
-                        result = concat_c(result, "typedef struct ");
-                        result = concat(result, name2);
-                        result = concat_c(result, " ");
-                        result = concat(result, name2);
-                        result = concat_c(result, ";\n");
+                        StringBuilder.append_c(addr(sb_fwd), "typedef struct ");
+                        StringBuilder.append(addr(sb_fwd), name2);
+                        StringBuilder.append_char(addr(sb_fwd), ' ');
+                        StringBuilder.append(addr(sb_fwd), name2);
+                        StringBuilder.append_c(addr(sb_fwd), ";\n");
                     }
                 }
                 i_models3++;
             }
+            
+            result = concat(result, StringBuilder.to_string(addr(sb_fwd)));
+            StringBuilder.destroy(addr(sb_fwd));
 
             if g_list_elements != nil {
+                mut sb_list_fwd: StringBuilder = StringBuilder.init(2048);
                 val lst_ref: ref StringList = g_list_elements;
                 mut li: i32 = 0;
                 loop {
@@ -2785,13 +2803,15 @@ pub def generate_c(ast: ref ASTNode): string {
                     }
                     val elemTypeStr: string = StringList.get(lst_ref, li);
                     val san: string = sanitize_list_element_name(elemTypeStr);
-                    result = concat_c(result, "typedef struct __list_");
-                    result = concat(result, san);
-                    result = concat_c(result, "_t __list_");
-                    result = concat(result, san);
-                    result = concat_c(result, "_t;\n");
+                    StringBuilder.append_c(addr(sb_list_fwd), "typedef struct __list_");
+                    StringBuilder.append(addr(sb_list_fwd), san);
+                    StringBuilder.append_c(addr(sb_list_fwd), "_t __list_");
+                    StringBuilder.append(addr(sb_list_fwd), san);
+                    StringBuilder.append_c(addr(sb_list_fwd), "_t;\n");
                     li = li + 1;
                 }
+                result = concat(result, StringBuilder.to_string(addr(sb_list_fwd)));
+                StringBuilder.destroy(addr(sb_list_fwd));
             }
 
             mut i_opaque_plat: i32 = 0;
@@ -3089,6 +3109,7 @@ pub def generate_c(ast: ref ASTNode): string {
             }
 
             if g_list_elements != nil {
+                mut sb_list: StringBuilder = StringBuilder.init(8192);
                 val lst_ref2: ref StringList = g_list_elements;
                 mut jj: i32 = 0;
                 loop {
@@ -3098,32 +3119,38 @@ pub def generate_c(ast: ref ASTNode): string {
                     val elementType: string = StringList.get(lst_ref2, jj);
                     val elemSan: string = sanitize_list_element_name(elementType);
 
-                    result = concat_c(result, "typedef struct __list_");
-                    result = concat(concat(result, elemSan), concat_c(concat_c(concat_c(str("_t {\n    "), elementType.data), "* data;\n    int len;\n    int capacity;\n} __list_"), elemSan.data));
-                    result = concat_c(result, "_t;\n\n");
-                    result = concat_c(result, "static inline __list_");
-                    result = concat(result, elemSan);
-                    result = concat_c(result, "_t __list_");
-                    result = concat(result, elemSan);
-                    result = concat_c(result, "_init(void) {\n    __list_");
-                    result = concat(result, elemSan);
-                    result = concat_c(result, "_t list;\n    list.data = NULL;\n    list.len = 0;\n    list.capacity = 0;\n    return list;\n}\n\n");
-                    result = concat_c(result, "static inline void __list_");
-                    result = concat(result, elemSan);
-                    result = concat_c(result, "_push(__list_");
-                    result = concat(result, elemSan);
-                    result = concat_c(result, "_t* list, ");
-                    result = concat(result, elementType);
-                    result = concat_c(result, " item) {\n    if (list->len >= list->capacity) {\n        int new_capacity = list->capacity == 0 ? 8 : list->capacity * 2;\n        ");
-                    result = concat(result, elementType);
-                    result = concat_c(result, "* new_data = (");
-                    result = concat(result, elementType);
-                    result = concat_c(result, "*)realloc(list->data, new_capacity * sizeof(");
-                    result = concat(result, elementType);
-                    result = concat_c(result, "));\n        if (new_data == NULL) { fprintf(stderr, \"Out of memory\\n\"); exit(1); }\n        list->data = new_data;\n        list->capacity = new_capacity;\n    }\n    list->data[list->len++] = item;\n}\n\n");
+                    StringBuilder.append_c(addr(sb_list), "typedef struct __list_");
+                    StringBuilder.append(addr(sb_list), elemSan);
+                    StringBuilder.append_c(addr(sb_list), "_t {\n    ");
+                    StringBuilder.append(addr(sb_list), elementType);
+                    StringBuilder.append_c(addr(sb_list), "* data;\n    int len;\n    int capacity;\n} __list_");
+                    StringBuilder.append(addr(sb_list), elemSan);
+                    StringBuilder.append_c(addr(sb_list), "_t;\n\n");
+                    StringBuilder.append_c(addr(sb_list), "static inline __list_");
+                    StringBuilder.append(addr(sb_list), elemSan);
+                    StringBuilder.append_c(addr(sb_list), "_t __list_");
+                    StringBuilder.append(addr(sb_list), elemSan);
+                    StringBuilder.append_c(addr(sb_list), "_init(void) {\n    __list_");
+                    StringBuilder.append(addr(sb_list), elemSan);
+                    StringBuilder.append_c(addr(sb_list), "_t list;\n    list.data = NULL;\n    list.len = 0;\n    list.capacity = 0;\n    return list;\n}\n\n");
+                    StringBuilder.append_c(addr(sb_list), "static inline void __list_");
+                    StringBuilder.append(addr(sb_list), elemSan);
+                    StringBuilder.append_c(addr(sb_list), "_push(__list_");
+                    StringBuilder.append(addr(sb_list), elemSan);
+                    StringBuilder.append_c(addr(sb_list), "_t* list, ");
+                    StringBuilder.append(addr(sb_list), elementType);
+                    StringBuilder.append_c(addr(sb_list), " item) {\n    if (list->len >= list->capacity) {\n        int new_capacity = list->capacity == 0 ? 8 : list->capacity * 2;\n        ");
+                    StringBuilder.append(addr(sb_list), elementType);
+                    StringBuilder.append_c(addr(sb_list), "* new_data = (");
+                    StringBuilder.append(addr(sb_list), elementType);
+                    StringBuilder.append_c(addr(sb_list), "*)realloc(list->data, new_capacity * sizeof(");
+                    StringBuilder.append(addr(sb_list), elementType);
+                    StringBuilder.append_c(addr(sb_list), "));\n        if (new_data == NULL) { fprintf(stderr, \"Out of memory\\n\"); exit(1); }\n        list->data = new_data;\n        list->capacity = new_capacity;\n    }\n    list->data[list->len++] = item;\n}\n\n");
 
                     jj++;
                 }
+                result = concat(result, StringBuilder.to_string(addr(sb_list)));
+                StringBuilder.destroy(addr(sb_list));
             }
 
             mut i_globals: i32 = 0;
@@ -3762,10 +3789,12 @@ pub def generate_c(ast: ref ASTNode): string {
         
         val mapped_return_type: string = map_axe_type_to_c(return_type);
         
-        result = concat(result, mapped_return_type);
-        result = concat_c(result, " ");
-        result = concat(result, func_name);
-        result = concat_c(result, "(");
+        // Use StringBuilder for function generation
+        mut sb_func: StringBuilder = StringBuilder.init(4096);
+        StringBuilder.append(addr(sb_func), mapped_return_type);
+        StringBuilder.append_char(addr(sb_func), ' ');
+        StringBuilder.append(addr(sb_func), func_name);
+        StringBuilder.append_char(addr(sb_func), '(');
         
         val params: ref list(string) = ast.data.function.params;
         if params != nil {
@@ -3776,7 +3805,7 @@ pub def generate_c(ast: ref ASTNode): string {
                 }
                 
                 if param_idx > 0 {
-                    result = concat_c(result, ", ");
+                    StringBuilder.append_c(addr(sb_func), ", ");
                 }
                 
                 val param: string = params.data[param_idx];
@@ -3787,18 +3816,20 @@ pub def generate_c(ast: ref ASTNode): string {
                     val param_type: string = strip(substr(param, colon_pos + 1, str_len(param) - colon_pos - 1));
                     val processed_type: string = process_parameter_type(param_type);
                     
-                    result = concat(result, processed_type);
-                    result = concat_c(result, " ");
-                    result = concat(result, param_name);
+                    StringBuilder.append(addr(sb_func), processed_type);
+                    StringBuilder.append_char(addr(sb_func), ' ');
+                    StringBuilder.append(addr(sb_func), param_name);
                 } else {
-                    result = concat(result, param);
+                    StringBuilder.append(addr(sb_func), param);
                 }
                 
                 param_idx++;
             }
         }
         
-        result = concat_c(result, ") {\n");
+        StringBuilder.append_c(addr(sb_func), ") {\n");
+        result = StringBuilder.to_string(addr(sb_func));
+        StringBuilder.destroy(addr(sb_func));
         
         if ast.children != nil {
             val children: ref list(ASTNode) = ast.children;
@@ -5026,9 +5057,11 @@ pub def generate_c(ast: ref ASTNode): string {
         mut arena: Arena = Arena.create(1024);
         StringBoolMap.set(addr(g_generated_typedefs), addr(arena), model_name, true);
 
-        result = concat(result, str("typedef struct "));
-        result = concat(result, model_name);
-        result = concat(result, str(" {\n"));
+        // Use StringBuilder for Model generation
+        mut sb: StringBuilder = StringBuilder.init(4096);
+        StringBuilder.append_c(addr(sb), "typedef struct ");
+        StringBuilder.append(addr(sb), model_name);
+        StringBuilder.append_c(addr(sb), " {\n");
 
         if field_names != nil and field_types != nil {
             mut field_idx: i32 = 0;
@@ -5047,7 +5080,7 @@ pub def generate_c(ast: ref ASTNode): string {
                 StringStringMap.set(addr(g_field_types), addr(arena), field_key, field_type);
 
                 if str_len(field_type) == 5 and equals_c(field_type, "union") and union_parents != nil and union_names != nil and union_types != nil {
-                    result = concat(result, str("    union {\n"));
+                    StringBuilder.append_c(addr(sb), "    union {\n");
 
                     val up: list(string) = deref(union_parents);
                     val un: list(string) = deref(union_names);
@@ -5065,7 +5098,7 @@ pub def generate_c(ast: ref ASTNode): string {
                             val member_type_raw: string = ut.data[uidx];
 
                             if str_len(member_type_raw) == 5 and equals_c(member_type_raw, "model") {
-                                result = concat(result, str("        struct {\n"));
+                                StringBuilder.append_c(addr(sb), "        struct {\n");
 
                                 mut nidx: i32 = 0;
                                 loop {
@@ -5100,20 +5133,20 @@ pub def generate_c(ast: ref ASTNode): string {
                                             }
                                         }
 
-                                        result = concat(result, str("            "));
-                                        result = concat(result, mapped_nested_type);
-                                        result = concat(result, str(" "));
-                                        result = concat(result, nested_name);
-                                        result = concat(result, nested_array_part);
-                                        result = concat(result, str(";\n"));
+                                        StringBuilder.append_c(addr(sb), "            ");
+                                        StringBuilder.append(addr(sb), mapped_nested_type);
+                                        StringBuilder.append_char(addr(sb), ' ');
+                                        StringBuilder.append(addr(sb), nested_name);
+                                        StringBuilder.append(addr(sb), nested_array_part);
+                                        StringBuilder.append_c(addr(sb), ";\n");
                                     }
 
                                     nidx = nidx + 1;
                                 }
 
-                                result = concat(result, str("        } "));
-                                result = concat(result, member_name);
-                                result = concat(result, str(";\n"));
+                                StringBuilder.append_c(addr(sb), "        } ");
+                                StringBuilder.append(addr(sb), member_name);
+                                StringBuilder.append_c(addr(sb), ";\n");
                             } else {
                                 mut mapped_member_type: string = map_axe_type_to_c(member_type_raw);
                                 mut member_array_part: string = str("");
@@ -5137,21 +5170,21 @@ pub def generate_c(ast: ref ASTNode): string {
                                     }
                                 }
 
-                                result = concat(result, str("        "));
-                                result = concat(result, mapped_member_type);
-                                result = concat(result, str(" "));
-                                result = concat(result, member_name);
-                                result = concat(result, member_array_part);
-                                result = concat(result, str(";\n"));
+                                StringBuilder.append_c(addr(sb), "        ");
+                                StringBuilder.append(addr(sb), mapped_member_type);
+                                StringBuilder.append_char(addr(sb), ' ');
+                                StringBuilder.append(addr(sb), member_name);
+                                StringBuilder.append(addr(sb), member_array_part);
+                                StringBuilder.append_c(addr(sb), ";\n");
                             }
                         }
 
                         uidx = uidx + 1;
                     }
 
-                    result = concat(result, str("    } "));
-                    result = concat(result, field_name);
-                    result = concat(result, str(";\n"));
+                    StringBuilder.append_c(addr(sb), "    } ");
+                    StringBuilder.append(addr(sb), field_name);
+                    StringBuilder.append_c(addr(sb), ";\n");
                 } else {
                     mut mapped_type: string = map_axe_type_to_c(field_type);
                     mut array_part: string = str("");
@@ -5175,21 +5208,23 @@ pub def generate_c(ast: ref ASTNode): string {
                         }
                     }
 
-                    result = concat(result, str("    "));
-                    result = concat(result, mapped_type);
-                    result = concat(result, str(" "));
-                    result = concat(result, field_name);
-                    result = concat(result, array_part);
-                    result = concat(result, str(";\n"));
+                    StringBuilder.append_c(addr(sb), "    ");
+                    StringBuilder.append(addr(sb), mapped_type);
+                    StringBuilder.append_char(addr(sb), ' ');
+                    StringBuilder.append(addr(sb), field_name);
+                    StringBuilder.append(addr(sb), array_part);
+                    StringBuilder.append_c(addr(sb), ";\n");
                 }
 
                 field_idx++;
             }
         }
 
-        result = concat(result, str("} "));
-        result = concat(result, model_name);
-        result = concat(result, str(";\n\n"));
+        StringBuilder.append_c(addr(sb), "} ");
+        StringBuilder.append(addr(sb), model_name);
+        StringBuilder.append_c(addr(sb), ";\n\n");
+        result = StringBuilder.to_string(addr(sb));
+        StringBuilder.destroy(addr(sb));
         return result;
     }
 
@@ -5230,7 +5265,9 @@ pub def generate_c(ast: ref ASTNode): string {
             StringBoolMap.set(addr(g_enum_names), addr(arena), base_enum_name, true);
         }
         
-        result = concat(result, str("typedef enum {\n"));
+        // Use StringBuilder for Enum generation
+        mut sb_enum: StringBuilder = StringBuilder.init(1024);
+        StringBuilder.append_c(addr(sb_enum), "typedef enum {\n");
         
         if enum_values != nil {
             mut value_idx: i32 = 0;
@@ -5243,24 +5280,26 @@ pub def generate_c(ast: ref ASTNode): string {
                 
                 val enum_value: string = enum_values.data[value_idx];
                 
-                result = concat(result, str("    "));
-                result = concat(result, enum_name);
-                result = concat(result, str("_"));
-                result = concat(result, enum_value);
+                StringBuilder.append_c(addr(sb_enum), "    ");
+                StringBuilder.append(addr(sb_enum), enum_name);
+                StringBuilder.append_char(addr(sb_enum), '_');
+                StringBuilder.append(addr(sb_enum), enum_value);
                 
                 if value_idx < num_values - 1 {
-                    result = concat(result, str(","));
+                    StringBuilder.append_char(addr(sb_enum), ',');
                 }
-                result = concat(result, str("\n"));
+                StringBuilder.append_char(addr(sb_enum), '\n');
                 
                 value_idx++;
             }
         }
         
-        result = concat(result, str("} "));
-        result = concat(result, enum_name);
-        result = concat(result, str(";\n\n"));
+        StringBuilder.append_c(addr(sb_enum), "} ");
+        StringBuilder.append(addr(sb_enum), enum_name);
+        StringBuilder.append_c(addr(sb_enum), ";\n\n");
         
+        result = StringBuilder.to_string(addr(sb_enum));
+        StringBuilder.destroy(addr(sb_enum));
         return result;
     }
 

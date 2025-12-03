@@ -426,6 +426,8 @@ class FunctionCallNode : ASTNode
         int bracketDepth = 0;
         int braceDepth = 0;
         bool inInterpolated = false;
+        bool inString = false;
+        bool inChar = false;
 
         for (size_t i = 0; i < argsStr.length; i++)
         {
@@ -441,29 +443,49 @@ class FunctionCallNode : ASTNode
                 continue;
             }
 
-            if (c == '(')
-                parenDepth++;
-            else if (c == ')')
-                parenDepth--;
-            else if (c == '[')
-                bracketDepth++;
-            else if (c == ']')
-                bracketDepth--;
-            else if (c == '{')
-                braceDepth++;
-            else if (c == '}')
-                braceDepth--;
-            else if (c == ',' && parenDepth == 0 && bracketDepth == 0 &&
-                braceDepth == 0 && !inInterpolated)
+            // Track string literals (double quotes)
+            if (c == '"' && !inChar && (i == 0 || argsStr[i - 1] != '\\'))
             {
-                // This is an argument separator
-                result ~= current.strip();
-                current = "";
-
-                // Skip the space after comma if present
-                if (i + 1 < argsStr.length && argsStr[i + 1] == ' ')
-                    i++;
+                inString = !inString;
+                current ~= c;
                 continue;
+            }
+
+            // Track character literals (single quotes)
+            if (c == '\'' && !inString && (i == 0 || argsStr[i - 1] != '\\'))
+            {
+                inChar = !inChar;
+                current ~= c;
+                continue;
+            }
+
+            // Only process structural characters when not inside string/char literals
+            if (!inString && !inChar)
+            {
+                if (c == '(')
+                    parenDepth++;
+                else if (c == ')')
+                    parenDepth--;
+                else if (c == '[')
+                    bracketDepth++;
+                else if (c == ']')
+                    bracketDepth--;
+                else if (c == '{')
+                    braceDepth++;
+                else if (c == '}')
+                    braceDepth--;
+                else if (c == ',' && parenDepth == 0 && bracketDepth == 0 &&
+                    braceDepth == 0 && !inInterpolated)
+                {
+                    // This is an argument separator
+                    result ~= current.strip();
+                    current = "";
+
+                    // Skip the space after comma if present
+                    if (i + 1 < argsStr.length && argsStr[i + 1] == ' ')
+                        i++;
+                    continue;
+                }
             }
 
             current ~= c;
