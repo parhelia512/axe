@@ -642,6 +642,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
 
                             skip_whitespace(ctx);
                             mut member_base_type: string = parse_type(ctx);
+                            skip_whitespace(ctx);
 
                             // Anonymous model inside union: `member_name: model { ... }`
                             if str_len(member_base_type) == 5 and compare(member_base_type, str("model")) == 0 and ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
