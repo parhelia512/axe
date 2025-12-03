@@ -2148,11 +2148,15 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         //   if cond1 { ... }
         //   elif cond2 { ... }
         //   else { ... }
-        // into nested If nodes in the else-branch.
+        // into a chain of If nodes where each elif becomes the else-branch of the previous.
+        //
+        // NOTE: We use a list to collect elif nodes and then chain them linearly at the end.
 
-        mut else_children: list(ASTNode);
+        mut elif_nodes: list(ASTNode);
+        mut final_else_children: list(ASTNode);
 
         skip_whitespace(ctx);
+        
         loop {
             if ctx.pos >= len(ctx.tokens) {
                 break;
@@ -2196,6 +2200,14 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                            or t_el.token_type == TokenType.OR {
                         elif_condition = concat(elif_condition, str("||"));
                         elif_condition = concat(elif_condition, str(" "));
+                    } elif t_el.token_type == TokenType.STR {
+                        elif_condition = concat(elif_condition, str("\""));
+                        elif_condition = concat(elif_condition, t_el.value);
+                        elif_condition = concat(elif_condition, str("\" "));
+                    } elif t_el.token_type == TokenType.CHAR {
+                        elif_condition = concat(elif_condition, str("'"));
+                        elif_condition = concat(elif_condition, t_el.value);
+                        elif_condition = concat(elif_condition, str("' "));
                     } else {
                         elif_condition = concat(elif_condition, t_el.value);
                         elif_condition = concat(elif_condition, str(" "));
@@ -2233,14 +2245,12 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 }
             }
 
-            // Wrap this elif as an If node we can use as an else-branch.
             mut elif_node: ASTNode;
             elif_node.node_type = str("If");
             elif_node.data.if_node.condition = elif_condition;
 
             unsafe {
                 mut body_list_el: list(ASTNode);
-
                 mut i_el: i32 = 0;
                 loop {
                     if i_el >= len(elif_children) {
@@ -2258,45 +2268,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 }
             }
 
-            // If we already have an else branch accumulated, attach it as
-            // the else of this new elif-node (nesting).
-            if len(else_children) > 0 {
-                unsafe {
-                    mut nested_body: list(ASTNode);
-                    mut j_el: i32 = 0;
-                    loop {
-                        if j_el >= len_v(deref(elif_node.children)) {
-                            break;
-                        }
-                        append(nested_body, elif_node.children.data[j_el]);
-                        j_el = j_el + 1;
-                    }
-
-                    mut marker2: ASTNode;
-                    marker2.node_type = str("ElseMarker");
-                    append(nested_body, marker2);
-
-                    mut k_el: i32 = 0;
-                    loop {
-                        if k_el >= len(else_children) {
-                            break;
-                        }
-                        append(nested_body, else_children.data[k_el]);
-                        k_el = k_el + 1;
-                    }
-
-                    val sz_nested: usize = C.sizeof(list(ASTNode));
-                    val heap_nested: ref list(ASTNode) = cast[ref list(ASTNode)](C.malloc(sz_nested));
-                    if heap_nested != nil {
-                        C.memcpy(heap_nested, addr(nested_body), sz_nested);
-                        elif_node.children = heap_nested;
-                    }
-                }
-
-            }
-
-            append(else_children, elif_node);
-
+            append(elif_nodes, elif_node);
             skip_whitespace(ctx);
         }
 
@@ -2329,8 +2301,87 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
 
                 mut stmt2: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
                 if str_len(stmt2.node_type) > 0 {
-                    append(else_children, stmt2);
+                    append(final_else_children, stmt2);
                 }
+            }
+        }
+
+        mut i_chain: i32 = len(elif_nodes) - 1;
+        loop {
+            if i_chain < 0 {
+                break;
+            }
+            
+            mut else_body_for_this: list(ASTNode);
+            
+            if i_chain == len(elif_nodes) - 1 {
+                if len(final_else_children) > 0 {
+                    mut k_final: i32 = 0;
+                    loop {
+                        if k_final >= len(final_else_children) {
+                            break;
+                        }
+                        append(else_body_for_this, final_else_children.data[k_final]);
+                        k_final = k_final + 1;
+                    }
+                }
+            } else {
+                append(else_body_for_this, elif_nodes.data[i_chain + 1]);
+            }
+            
+            if len(else_body_for_this) > 0 {
+                unsafe {
+                    mut new_children: list(ASTNode);
+                    mut curr_elif_ptr: ref ASTNode = addr(elif_nodes.data[i_chain]);
+                    
+                    if curr_elif_ptr.children != nil {
+                        mut j_copy: i32 = 0;
+                        val curr_children: ref list(ASTNode) = curr_elif_ptr.children;
+                        loop {
+                            if j_copy >= len(deref(curr_children)) {
+                                break;
+                            }
+                            append(new_children, curr_children.data[j_copy]);
+                            j_copy = j_copy + 1;
+                        }
+                    }
+                    
+                    mut marker: ASTNode;
+                    marker.node_type = str("ElseMarker");
+                    append(new_children, marker);
+                    
+                    mut k_else: i32 = 0;
+                    loop {
+                        if k_else >= len(else_body_for_this) {
+                            break;
+                        }
+                        append(new_children, else_body_for_this.data[k_else]);
+                        k_else = k_else + 1;
+                    }
+                    
+                    val sz_new: usize = C.sizeof(list(ASTNode));
+                    val heap_new: ref list(ASTNode) = cast[ref list(ASTNode)](C.malloc(sz_new));
+                    if heap_new != nil {
+                        C.memcpy(heap_new, addr(new_children), sz_new);
+                        curr_elif_ptr.children = heap_new;
+                    }
+                }
+            }
+            
+            i_chain = i_chain - 1;
+        }
+
+        mut else_children: list(ASTNode);
+        if len(elif_nodes) > 0 {
+            append(else_children, elif_nodes.data[0]);
+        } else {
+            mut k_else_final: i32 = 0;
+            loop {
+                if k_else_final >= len(final_else_children) {
+                    break;
+                }
+                append(else_children, final_else_children.data[k_else_final]);
+                k_else_final = k_else_final + 1;
             }
         }
 

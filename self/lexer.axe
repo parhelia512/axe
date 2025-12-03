@@ -305,13 +305,17 @@ pub def lex(source: string): list(Token) {
             }
             append(tokens, create_token(TokenType.STR, substring_scse(source, pos + 1, ending)));
             pos = ending + 1;
-        } elif ch == '\'' {
+        } elif cast[i32](ch) == 39 {
             mut cend: i32 = pos + 1;
             loop {
-                if cend >= source_len or get_char(source, cend) == '\'' {
+                if cend >= source_len or cast[i32](get_char(source, cend)) == 39 {
                     break;
                 }
-                cend = cend + 1;
+                if cast[i32](get_char(source, cend)) == 92 and cend + 1 < source_len {
+                    cend = cend + 2;
+                } else {
+                    cend = cend + 1;
+                }
             }
             append(tokens, create_token(TokenType.CHAR, substring_scse(source, pos + 1, cend)));
             pos = cend + 1;
