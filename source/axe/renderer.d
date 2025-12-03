@@ -69,7 +69,8 @@ private static immutable auto refCastPattern = regex(r"\(\s*ref\s*(\w+)\s*\)");
 private static immutable auto dimPattern = regex(r"\[([^\]]+)\]");
 private static immutable auto globalMatchRegex = regex(r":\s*:\s*([A-Za-z_][A-Za-z0-9_]*)");
 private static immutable auto cPrefixRegex = regex(r"\bC\s*\.\s*");
-private static immutable auto castPattern = regex(r"\bcast\s*\[\s*([^\]]+)\s*\]\s*\(\s*([^)]+)\s*\)");
+private static immutable auto castPattern = regex(
+    r"\bcast\s*\[\s*([^\]]+)\s*\]\s*\(\s*([^)]+)\s*\)");
 private static immutable auto lenPattern = regex(r"\blen\s*\(\s*([^)]+)\s*\)");
 
 void setCurrentModuleName(string moduleName)
@@ -459,9 +460,9 @@ string generateC(ASTNode ast)
         __typeMapCache[t] = r;
         return r;
     }
-    
+
     import std.array : Appender;
-    
+
     Appender!string cCode;
     cCode.reserve(32 * 1024);
 
@@ -495,6 +496,7 @@ string generateC(ASTNode ast)
         collectExternalImports(ast, globalExternalHeaders, platformExternalHeaders);
 
         import std.array : appender;
+
         auto headerApp = appender!string();
 
         bool[string] overloadNames;
@@ -1901,7 +1903,8 @@ string generateC(ASTNode ast)
                 if (bracePos > 0)
                 {
                     string maybeType = trimmedInit[0 .. bracePos].strip();
-                    string baseNoConst = type.startsWith("const ") ? type["const ".length .. $] : type;
+                    string baseNoConst = type.startsWith("const ") ? type["const ".length .. $]
+                        : type;
                     if (maybeType.length > 0 &&
                         (maybeType == baseNoConst || maybeType == baseType))
                     {
@@ -3453,12 +3456,12 @@ string processExpression(string expr, string context = "")
     import std.string : replace;
     import std.algorithm : canFind;
     import std.regex : replaceAll, regex, matchAll;
-    
+
     expr = expr.strip();
-    
+
     if (expr.length == 0)
         return expr;
-    
+
     if (expr.length > 0 && expr[0] >= '0' && expr[0] <= '9')
     {
         bool isSimpleNumber = true;
@@ -3473,7 +3476,7 @@ string processExpression(string expr, string context = "")
         if (isSimpleNumber)
             return expr;
     }
-    
+
     if (expr.length >= 2 && expr[0] == '"' && expr[$ - 1] == '"')
     {
         bool isSimple = true;
@@ -3488,15 +3491,15 @@ string processExpression(string expr, string context = "")
         if (isSimple)
             return expr;
     }
-    
-    if (expr.length > 0 && (expr[0] == '_' || (expr[0] >= 'a' && expr[0] <= 'z') || 
-        (expr[0] >= 'A' && expr[0] <= 'Z')))
+
+    if (expr.length > 0 && (expr[0] == '_' || (expr[0] >= 'a' && expr[0] <= 'z') ||
+            (expr[0] >= 'A' && expr[0] <= 'Z')))
     {
         bool isSimpleIdent = true;
         foreach (c; expr)
         {
-            if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || 
-                  (c >= '0' && c <= '9') || c == '_'))
+            if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                    (c >= '0' && c <= '9') || c == '_'))
             {
                 isSimpleIdent = false;
                 break;
@@ -4014,7 +4017,6 @@ string processExpression(string expr, string context = "")
         }
         expr = result;
     }
-
 
     {
         import std.regex : matchAll;
@@ -4805,19 +4807,19 @@ string processExpression(string expr, string context = "")
 string applyFunctionPrefixes(string expr)
 {
     import std.algorithm : canFind;
-    
+
     if (!expr.canFind("("))
         return expr;
-    
+
     import std.regex : regex, replaceAll, Regex;
-    
+
     static Regex!char[string] regexCache;
-    
+
     foreach (funcName, prefixedName; g_functionPrefixes)
     {
         if (!expr.canFind(funcName))
             continue;
-            
+
         Regex!char pattern;
         if (auto p = funcName in regexCache)
         {
@@ -4837,10 +4839,10 @@ string applyFunctionPrefixes(string expr)
         {
             if (!expr.canFind(funcName))
                 continue;
-                
+
             string prefixedName = g_currentModuleName ~ "__" ~ funcName;
             string cacheKey = g_currentModuleName ~ "__local__" ~ funcName;
-            
+
             Regex!char pattern;
             if (auto p = cacheKey in regexCache)
             {
