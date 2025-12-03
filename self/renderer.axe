@@ -3455,7 +3455,8 @@ pub def generate_c(ast: ref ASTNode): string {
                 mut line_fixed2: string = line;
 
                 val trimmed: string = strip(line);
-                if has_suffix(trimmed, str(");")) {
+
+                if has_suffix(trimmed, str(");")) and !has_prefix(trimmed, str("return ")) {
                     mut eq_pos2: i32 = -1;
                     mut in_string_eq2: bool = false;
                     mut ei2: i32 = 0;
