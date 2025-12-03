@@ -3,6 +3,7 @@
 // 
 // Handles the rendering process.
 
+use gstate;
 use structs     (ASTNode);
 use std.lists   (StringList, IntList);
 use std.string;
@@ -2432,9 +2433,12 @@ def generate_function_prototype(ast: ref ASTNode): string {
         }
     }
 
-    if StringStringMap.contains(addr(g_function_prefixes), func_name) {
-        func_name = StringStringMap.get(addr(g_function_prefixes), func_name);
+    if sep >= 0 {
+        if StringStringMap.contains(addr(g_function_prefixes), func_name) {
+            func_name = StringStringMap.get(addr(g_function_prefixes), func_name);
+        }
     }
+    
     mut return_type: string = ast.data.function.return_type;
 
     if str_len(return_type) == 0 {

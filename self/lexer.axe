@@ -95,10 +95,6 @@ def create_token(token_type: i32, value: ref char): Token {
     return t;
 }
 
-def is_digit(ch: char): bool {
-    return ch >= '0' and ch <= '9';
-}
-
 def is_hex_digit(ch: char): bool {
     return (ch >= '0' and ch <= '9') or (ch >= 'a' and ch <= 'f') or (ch >= 'A' and ch <= 'F');
 }
