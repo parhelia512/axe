@@ -667,7 +667,7 @@ def lookup_field_type(model_name: string, field_name: string): string {
             return str("ref void");
         }
     }
-    
+
     return str("");
 }
 
@@ -3864,18 +3864,23 @@ pub def generate_c(ast: ref ASTNode): string {
                         if eq_pos >= 0 {
                             mut open_p: i32 = 0;
                             mut close_p: i32 = 0;
+                            mut in_string_p: bool = false;
                             mut pi: i32 = eq_pos + 1;
                             loop {
                                 if pi >= str_len(last_line) {
                                     break;
                                 }
                                 val c: char = get_char(last_line, pi);
-                                if c == '(' {
-                                    open_p = open_p + 1;
-                                } elif c == ')' {
-                                    close_p = close_p + 1;
-                                } elif c == ';' {
-                                    break;
+                                if c == '"' and (pi == 0 or get_char(last_line, pi - 1) != '\\') {
+                                    in_string_p = !in_string_p;
+                                } elif !in_string_p {
+                                    if c == '(' {
+                                        open_p = open_p + 1;
+                                    } elif c == ')' {
+                                        close_p = close_p + 1;
+                                    } elif c == ';' {
+                                        break;
+                                    }
                                 }
                                 pi = pi + 1;
                             }
@@ -3953,18 +3958,23 @@ pub def generate_c(ast: ref ASTNode): string {
                     if eq_pos2 >= 0 {
                         mut open_p2: i32 = 0;
                         mut close_p2: i32 = 0;
+                        mut in_string_p2: bool = false;
                         mut pi2: i32 = eq_pos2 + 1;
                         loop {
                             if pi2 >= str_len(line) {
                                 break;
                             }
                             val c2: char = get_char(line, pi2);
-                            if c2 == '(' {
-                                open_p2 = open_p2 + 1;
-                            } elif c2 == ')' {
-                                close_p2 = close_p2 + 1;
-                            } elif c2 == ';' {
-                                break;
+                            if c2 == '"' and (pi2 == 0 or get_char(line, pi2 - 1) != '\\') {
+                                in_string_p2 = !in_string_p2;
+                            } elif !in_string_p2 {
+                                if c2 == '(' {
+                                    open_p2 = open_p2 + 1;
+                                } elif c2 == ')' {
+                                    close_p2 = close_p2 + 1;
+                                } elif c2 == ';' {
+                                    break;
+                                }
                             }
                             pi2 = pi2 + 1;
                         }
