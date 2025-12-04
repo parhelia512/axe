@@ -38,6 +38,9 @@ mut g_generated_functions: StringBoolMap;
 /// Field types for models
 mut g_field_types: StringStringMap;
 
+/// Pointer fields - tracks which model.field entries are pointer types
+mut g_pointer_fields: StringBoolMap;
+
 /// Variable types
 mut g_var_types: StringStringMap;
 
@@ -77,6 +80,7 @@ pub def initialize_renderer() {
     g_generated_typedefs = deref(StringBoolMap.create(addr(arena), 128));
     g_generated_functions = deref(StringBoolMap.create(addr(arena), 128));
     g_field_types = deref(StringStringMap.create(addr(arena), 128));
+    g_pointer_fields = deref(StringBoolMap.create(addr(arena), 128));
     g_var_types = deref(StringStringMap.create(addr(arena), 128));
     g_list_of_types = deref(StringStringMap.create(addr(arena), 128));
     g_list_element_types = deref(StringBoolMap.create(addr(arena), 128));
@@ -605,87 +609,310 @@ def collapse_duplicate_segments(s: string): string {
     }
 }
 
+/// Check if a type string indicates a pointer/reference type
+def is_pointer_type(type_str: string): bool {
+    mut t: string = strip(type_str);
+    if has_prefix(t, str("mut ")) {
+        t = strip(substr(t, 4, str_len(t) - 4));
+    }
+    if has_prefix(t, str("ref ")) or has_suffix(t, str("*")) {
+        return true;
+    }
+    return false;
+}
+
+/// Extract the base model/struct name from a type string.
+/// For example: "ref ParserContext" -> "ParserContext", "list(Token)*" -> "list(Token)"
+def extract_base_model_name(type_str: string): string {
+    mut t: string = strip(type_str);
+    if has_prefix(t, str("mut ")) {
+        t = strip(substr(t, 4, str_len(t) - 4));
+    }
+    if has_prefix(t, str("ref ")) {
+        t = strip(substr(t, 4, str_len(t) - 4));
+    }
+    loop {
+        if str_len(t) == 0 {
+            break;
+        }
+        if get_char(t, str_len(t) - 1) != '*' {
+            break;
+        }
+        t = strip(substr(t, 0, str_len(t) - 1));
+    }
+    return t;
+}
+
+/// Look up a field's type from g_field_types by trying various model prefixes.
+/// Returns the field type if found, or empty string if not found.
+def lookup_field_type(model_name: string, field_name: string): string {
+    mut field_key: string = concat(model_name, str("."));
+    field_key = concat(field_key, field_name);
+
+    if StringStringMap.contains(addr(g_field_types), field_key) {
+        return StringStringMap.get(addr(g_field_types), field_key);
+    }
+    
+    if StringStringMap.contains(addr(g_model_names), model_name) {
+        val canonical_name: string = StringStringMap.get(addr(g_model_names), model_name);
+        mut canon_key: string = concat(canonical_name, str("."));
+        canon_key = concat(canon_key, field_name);
+        if StringStringMap.contains(addr(g_field_types), canon_key) {
+            return StringStringMap.get(addr(g_field_types), canon_key);
+        }
+    }
+    
+    if has_prefix(model_name, str("list(")) or has_prefix(model_name, str("__list_")) {
+        if equals_c(field_name, "data") {
+            return str("ref void");
+        }
+    }
+    
+    return str("");
+}
+
+/// Check if a field is a pointer type by looking it up in g_pointer_fields
+def is_pointer_field(model_name: string, field_name: string): bool {
+    mut field_key: string = concat(model_name, str("."));
+    field_key = concat(field_key, field_name);
+    if StringBoolMap.contains(addr(g_pointer_fields), field_key) {
+        return true;
+    }
+    
+    if StringStringMap.contains(addr(g_model_names), model_name) {
+        val canonical_name: string = StringStringMap.get(addr(g_model_names), model_name);
+        mut canon_key: string = concat(canonical_name, str("."));
+        canon_key = concat(canon_key, field_name);
+        if StringBoolMap.contains(addr(g_pointer_fields), canon_key) {
+            return true;
+        }
+    }
+    
+    if has_prefix(model_name, str("list(")) or has_prefix(model_name, str("__list_")) {
+        if equals_c(field_name, "data") {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// Parse an identifier from expr starting at position pos.
+/// Updates pos to point past the identifier.
+def parse_ident_at(expr: string, pos: ref i32): string {
+    val expr_len: i32 = cast[i32](str_len(expr));
+    if deref(pos) >= expr_len {
+        return str("");
+    }
+    val ch: char = get_char(expr, deref(pos));
+    if !is_ident_start(ch) {
+        return str("");
+    }
+    val start: i32 = deref(pos);
+    loop {
+        if deref(pos) >= expr_len {
+            break;
+        }
+        val c: char = get_char(expr, deref(pos));
+        if !is_token_char(c) {
+            break;
+        }
+        deref(pos) = deref(pos) + 1;
+    }
+    return substring_se(expr, start, deref(pos));
+}
+
+/// Skip whitespace in expr starting at position pos.
+def skip_ws_at(expr: string, pos: ref i32) {
+    val expr_len: i32 = cast[i32](str_len(expr));
+    loop {
+        if deref(pos) >= expr_len {
+            break;
+        }
+        val c: char = get_char(expr, deref(pos));
+        if c != ' ' and c != '\t' and c != '\n' {
+            break;
+        }
+        deref(pos) = deref(pos) + 1;
+    }
+}
+
 /// Rewrite member access operators from `.` to `->` when the base identifier
 /// is known to be a pointer type (ref or pointer) according to g_var_types.
-/// For example, if `lst` has type `ref IntList`, then `lst.len` becomes `lst->len`.
+/// Also handles nested member accesses by tracking types through the chain.
+/// For example, if `ctx` has type `ref ParserContext` and `tokens` field has type `ref list(Token)`,
+/// then `ctx.tokens.data` becomes `ctx->tokens->data`.
 def rewrite_ref_member_access(expr: string): string {
     mut sb: StringBuilder = StringBuilder.init(str_len(expr) + 64);
-    mut i: i32 = 0;
+    mut pos: i32 = 0;
     mut in_string: bool = false;
     val expr_len: i32 = cast[i32](str_len(expr));
 
     loop {
-        if i >= expr_len {
+        if pos >= expr_len {
             break;
         }
 
-        val ch: char = get_char(expr, i);
+        val ch: char = get_char(expr, pos);
 
-        if ch == '"' and (i == 0 or get_char(expr, i - 1) != '\\') {
+        if ch == '"' and (pos == 0 or get_char(expr, pos - 1) != '\\') {
             in_string = !in_string;
             StringBuilder.append_char(addr(sb), ch);
-            i++;
+            pos = pos + 1;
             continue;
         }
 
-        if !in_string and is_ident_start(ch) {
-            val ident_start: i32 = i;
-            mut j: i32 = i;
-            loop {
-                if j >= expr_len {
-                    break;
+        if in_string {
+            StringBuilder.append_char(addr(sb), ch);
+            pos = pos + 1;
+            continue;
+        }
+
+        if is_ident_start(ch) {
+            val start_pos: i32 = pos;
+            val ident: string = parse_ident_at(expr, addr(pos));
+            
+            mut lookahead: i32 = pos;
+            skip_ws_at(expr, addr(lookahead));
+            
+            mut is_member_chain: bool = false;
+            mut starts_with_arrow: bool = false;
+            if lookahead < expr_len and get_char(expr, lookahead) == '.' {
+                if lookahead + 1 < expr_len and get_char(expr, lookahead + 1) != '>' {
+                    is_member_chain = true;
                 }
-                val cj: char = get_char(expr, j);
-                if !is_token_char(cj) {
-                    break;
-                }
-                j++;
+            } elif lookahead + 1 < expr_len and get_char(expr, lookahead) == '-' and get_char(expr, lookahead + 1) == '>' {
+                is_member_chain = true;
+                starts_with_arrow = true;
             }
-            val ident: string = substring_se(expr, ident_start, j);
-
-            mut k: i32 = j;
-            loop {
-                if k >= expr_len {
-                    break;
+            
+            if is_member_chain {
+                mut chain: string = ident;
+                mut is_pointer: bool = false;
+                mut current_type: string = str("");
+                
+                if StringStringMap.contains(addr(g_var_types), ident) {
+                    current_type = StringStringMap.get(addr(g_var_types), ident);
+                    if is_pointer_type(current_type) {
+                        is_pointer = true;
+                    }
                 }
-                val ws: char = get_char(expr, k);
-                if ws != ' ' and ws != '\t' and ws != '\n' {
-                    break;
-                }
-                k++;
-            }
-
-            if k < expr_len and get_char(expr, k) == '.' {
-                mut is_arrow: bool = false;
-                if k + 1 < expr_len and get_char(expr, k + 1) == '>' {
-                    is_arrow = true;
-                }
-
-                if !is_arrow {
-                    mut is_ptr_type: bool = false;
-                    if StringStringMap.contains(addr(g_var_types), ident) {
-                        val var_type: string = StringStringMap.get(addr(g_var_types), ident);
-                        if has_prefix(var_type, str("ref ")) or has_suffix(var_type, str("*")) {
-                            is_ptr_type = true;
+                
+                mut base_model_name: string = extract_base_model_name(current_type);
+                
+                pos = lookahead;
+                loop {
+                    if pos >= expr_len {
+                        break;
+                    }
+                    
+                    skip_ws_at(expr, addr(pos));
+                    
+                    if pos >= expr_len {
+                        break;
+                    }
+                    
+                    mut has_dot: bool = false;
+                    mut has_arrow: bool = false;
+                    if get_char(expr, pos) == '.' {
+                        if pos + 1 < expr_len and get_char(expr, pos + 1) == '>' {
+                            break;
                         }
+                        has_dot = true;
+                    } elif pos + 1 < expr_len and get_char(expr, pos) == '-' and get_char(expr, pos + 1) == '>' {
+                        has_arrow = true;
                     }
-
-                    if is_ptr_type {
-                        StringBuilder.append(addr(sb), ident);
-                        StringBuilder.append_c(addr(sb), "->");
-                        i = k + 1;
-                        continue;
+                    
+                    if !has_dot and !has_arrow {
+                        break;
+                    }
+                    
+                    if has_arrow {
+                        pos = pos + 2;
+                    } else {
+                        pos = pos + 1;
+                    }
+                    
+                    skip_ws_at(expr, addr(pos));
+                    
+                    val field_name: string = parse_ident_at(expr, addr(pos));
+                    if str_len(field_name) == 0 {
+                        if has_arrow {
+                            chain = concat(chain, str("->"));
+                        } else {
+                            if is_pointer {
+                                chain = concat(chain, str("->"));
+                            } else {
+                                chain = concat(chain, str("."));
+                            }
+                        }
+                        break;
+                    }
+                    
+                    mut array_suffix: string = str("");
+                    skip_ws_at(expr, addr(pos));
+                    if pos < expr_len and get_char(expr, pos) == '[' {
+                        val bracket_start: i32 = pos;
+                        pos = pos + 1;
+                        mut depth: i32 = 1;
+                        loop {
+                            if pos >= expr_len or depth == 0 {
+                                break;
+                            }
+                            val bc: char = get_char(expr, pos);
+                            if bc == '[' {
+                                depth = depth + 1;
+                            } elif bc == ']' {
+                                depth = depth - 1;
+                            }
+                            pos = pos + 1;
+                        }
+                        val bracket_content: string = substring_se(expr, bracket_start + 1, pos - 1);
+                        val processed_bracket: string = rewrite_ref_member_access(bracket_content);
+                        array_suffix = concat(str("["), processed_bracket);
+                        array_suffix = concat(array_suffix, str("]"));
+                    }
+                    
+                    mut op: string = str(".");
+                    if has_arrow {
+                        op = str("->");
+                    } elif is_pointer {
+                        op = str("->");
+                    }
+                    
+                    chain = concat(chain, op);
+                    chain = concat(chain, field_name);
+                    chain = concat(chain, array_suffix);
+                    
+                    if str_len(base_model_name) > 0 {
+                        if is_pointer_field(base_model_name, field_name) {
+                            is_pointer = true;
+                        } else {
+                            is_pointer = false;
+                        }
+                        val field_type: string = lookup_field_type(base_model_name, field_name);
+                        if str_len(field_type) > 0 {
+                            base_model_name = extract_base_model_name(field_type);
+                        } else {
+                            base_model_name = str("");
+                        }
+                    } else {
+                        // We don't know the type, so we can't determine pointer status
+                        // Default to keeping the original operator
+                        is_pointer = false;
                     }
                 }
+                
+                StringBuilder.append(addr(sb), chain);
+                continue;
             }
-
+            
+            // Not a member access chain, just output the identifier
             StringBuilder.append(addr(sb), ident);
-            i = j;
             continue;
         }
 
         StringBuilder.append_char(addr(sb), ch);
-        i++;
+        pos = pos + 1;
     }
 
     val result: string = StringBuilder.to_string(addr(sb));
@@ -5357,6 +5584,18 @@ pub def generate_c(ast: ref ASTNode): string {
                 field_key = concat(field_key, field_name);
 
                 StringStringMap.set(addr(g_field_types), addr(arena), field_key, field_type);
+                
+                // Mark pointer fields in g_pointer_fields (similar to D compiler)
+                if has_prefix(field_type, str("ref ")) {
+                    StringBoolMap.set(addr(g_pointer_fields), addr(arena), field_key, true);
+                } elif has_suffix(field_type, str("*")) {
+                    StringBoolMap.set(addr(g_pointer_fields), addr(arena), field_key, true);
+                } elif has_suffix(field_type, str("[999]")) {
+                    StringBoolMap.set(addr(g_pointer_fields), addr(arena), field_key, true);
+                } elif compare(field_type, model_name) == 0 {
+                    // Self-referential field is a pointer
+                    StringBoolMap.set(addr(g_pointer_fields), addr(arena), field_key, true);
+                }
 
                 if str_len(field_type) == 5 and equals_c(field_type, "union") and union_parents != nil and union_names != nil and union_types != nil {
                     StringBuilder.append_c(addr(sb), "    union {\n");
