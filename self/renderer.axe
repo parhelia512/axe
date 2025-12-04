@@ -306,9 +306,10 @@ def rewrite_pointer_member_accesses(expr: string): string {
                 }
                 j++;
             }
-            val base: string = substring_se(expr, base_start, j);
 
+            val base: string = substring_se(expr, base_start, j);
             mut k: i32 = j;
+
             loop {
                 if k >= expr_len {
                     break;
