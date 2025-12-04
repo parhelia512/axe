@@ -115,7 +115,6 @@ def collect_external_imports(node: ref ASTNode, current_platform: string, arena:
         val header: string = node.data.external_import.header_file;
         
         if equals_c(current_platform, "") {
-            // Global header
             if !StringList.contains(g_global_external_headers, header) {
                 StringList.push(g_global_external_headers, arena, header);
             }
