@@ -3043,7 +3043,7 @@ def generate_stack_trace_headers(): string {
         code = concat_c(code, "\n");
         code = concat_c(code, "    void* stack[64];\n");
         code = concat_c(code, "    USHORT frames = CaptureStackBackTrace(0, 64, stack, NULL);\n");
-        code = concat_c(code, "    fprintf(stderr, \"Backtrace (%u frames):\\\\n\", (unsigned)frames);\n");
+        code = concat_c(code, "    fprintf(stderr, \"Backtrace (%u frames):\\n\", (unsigned)frames);\n");
         code = concat_c(code, "\n");
         code = concat_c(code, "    SYMBOL_INFO* symbol = (SYMBOL_INFO*)malloc(sizeof(SYMBOL_INFO) + 256);\n");
         code = concat_c(code, "    if (!symbol) return;\n");
@@ -3054,9 +3054,9 @@ def generate_stack_trace_headers(): string {
         code = concat_c(code, "    for (USHORT i = 0; i < frames; i++) {\n");
         code = concat_c(code, "        DWORD64 address = (DWORD64)(stack[i]);\n");
         code = concat_c(code, "        if (SymFromAddr(process, address, 0, symbol)) {\n");
-        code = concat_c(code, "            fprintf(stderr, \"  #%02u 0x%llx %s\\\\n\", (unsigned)i, (unsigned long long)address, symbol->Name);\n");
+        code = concat_c(code, "            fprintf(stderr, \"  #%02u 0x%llx %s\\n\", (unsigned)i, (unsigned long long)address, symbol->Name);\n");
         code = concat_c(code, "        } else {\n");
-        code = concat_c(code, "            fprintf(stderr, \"  #%02u 0x%llx <unknown>\\\\n\", (unsigned)i, (unsigned long long)address);\n");
+        code = concat_c(code, "            fprintf(stderr, \"  #%02u 0x%llx <unknown>\\n\", (unsigned)i, (unsigned long long)address);\n");
         code = concat_c(code, "        }\n");
         code = concat_c(code, "    }\n");
         code = concat_c(code, "    free(symbol);\n");
@@ -3064,7 +3064,7 @@ def generate_stack_trace_headers(): string {
         code = concat_c(code, "\n");
         code = concat_c(code, "static LONG WINAPI axe_unhandled_exception_filter(EXCEPTION_POINTERS* info) {\n");
         code = concat_c(code, "    (void)info;\n");
-        code = concat_c(code, "    fprintf(stderr, \"Fatal: Unhandled exception.\\\\n\");\n");
+        code = concat_c(code, "    fprintf(stderr, \"Fatal: Unhandled exception.\\n\");\n");
         code = concat_c(code, "    axe_win_print_backtrace();\n");
         code = concat_c(code, "    fflush(stderr);\n");
         code = concat_c(code, "    ExitProcess(1);\n");
@@ -3075,11 +3075,11 @@ def generate_stack_trace_headers(): string {
     platform posix {
         code = concat_c(code, "static void axe_segv_handler(int sig) {\n");
         code = concat_c(code, "    const char* name = (sig == SIGSEGV ? \"SIGSEGV\" : (sig == SIGABRT ? \"SIGABRT\" : \"SIGNAL\"));\n");
-        code = concat_c(code, "    fprintf(stderr, \"Fatal: %s received.\\\\n\", name);\n");
+        code = concat_c(code, "    fprintf(stderr, \"Fatal: %s received.\\n\", name);\n");
         code = concat_c(code, "    void* frames[64];\n");
         code = concat_c(code, "    int n = backtrace(frames, 64);\n");
         code = concat_c(code, "    if (n > 0) {\n");
-        code = concat_c(code, "        fprintf(stderr, \"Backtrace (%d frames):\\\\n\", n);\n");
+        code = concat_c(code, "        fprintf(stderr, \"Backtrace (%d frames):\\n\", n);\n");
         code = concat_c(code, "        backtrace_symbols_fd(frames, n, fileno(stderr));\n");
         code = concat_c(code, "    }\n");
         code = concat_c(code, "    fflush(stderr);\n");
