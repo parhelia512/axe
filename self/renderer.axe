@@ -2413,6 +2413,181 @@ def rewrite_dereference(expr: string): string {
     return result;
 }
 
+/// Rewrite len(expr) calls to len_ptr(expr) or len_v(expr) based on whether
+/// the argument is a pointer type. This enables proper list length access.
+def rewrite_len_calls(expr: string): string {
+    mut result: string = expr;
+    
+    loop {
+        mut start_idx: i32 = -1;
+        mut paren_pos: i32 = -1;
+        mut search_pos: i32 = 0;
+        val result_len: i32 = cast[i32](str_len(result));
+        
+        loop {
+            if search_pos >= result_len - 3 {
+                break;
+            }
+            
+            mut found: bool = false;
+            mut i: i32 = search_pos;
+            loop {
+                if i > result_len - 3 {
+                    break;
+                }
+                if get_char(result, i) == 'l' and get_char(result, i + 1) == 'e' and 
+                   get_char(result, i + 2) == 'n' {
+                    mut is_standalone: bool = true;
+                    if i > 0 {
+                        val prev: char = get_char(result, i - 1);
+                        if is_token_char(prev) {
+                            is_standalone = false;
+                        }
+                    }
+                    if is_standalone and i + 3 < result_len {
+                        val after: char = get_char(result, i + 3);
+                        if is_token_char(after) {
+                            is_standalone = false;
+                        }
+                    }
+                    
+                    if is_standalone {
+                        mut k: i32 = i + 3;
+                        loop {
+                            if k >= result_len {
+                                break;
+                            }
+                            val ws: char = get_char(result, k);
+                            if ws != ' ' and ws != '\t' and ws != '\n' {
+                                break;
+                            }
+                            k = k + 1;
+                        }
+                        
+                        if k < result_len and get_char(result, k) == '(' {
+                            found = true;
+                            paren_pos = k;
+                            break;
+                        }
+                    }
+                }
+                i = i + 1;
+            }
+            
+            if !found {
+                break;
+            }
+            
+            start_idx = i;
+            break;
+        }
+        
+        if start_idx < 0 {
+            break;
+        }
+        
+        val paren_start: i32 = paren_pos + 1;
+        mut depth: i32 = 1;
+        mut paren_end: i32 = paren_start;
+        
+        loop {
+            if paren_end >= str_len(result) or depth == 0 {
+                break;
+            }
+            val ch: char = get_char(result, paren_end);
+            if ch == '(' {
+                depth = depth + 1;
+            } elif ch == ')' {
+                depth = depth - 1;
+            }
+            if depth > 0 {
+                paren_end = paren_end + 1;
+            }
+        }
+        
+        if depth != 0 {
+            break;
+        }
+        
+        val len_arg: string = strip(substring_se(result, paren_start, paren_end));
+        mut is_pointer: bool = false;
+        
+        if find_substr(len_arg, str("->")) >= 0 {
+            is_pointer = true;
+        } elif find_char_from(len_arg, '.', 0) >= 0 {
+            val len_arg_len: i32 = cast[i32](str_len(len_arg));
+            mut last_dot: i32 = -1;
+            mut di: i32 = 0;
+            loop {
+                if di >= len_arg_len {
+                    break;
+                }
+                if get_char(len_arg, di) == '.' {
+                    last_dot = di;
+                }
+                di = di + 1;
+            }
+            
+            if last_dot >= 0 {
+                mut field_name: string = strip(substring_se(len_arg, last_dot + 1, len_arg_len));
+                val bracket_pos: i32 = find_char_from(field_name, '[', 0);
+                if bracket_pos >= 0 {
+                    field_name = strip(substring_se(field_name, 0, bracket_pos));
+                }
+                
+                val first_dot: i32 = find_char_from(len_arg, '.', 0);
+                if first_dot >= 0 {
+                    val base_var: string = strip(substring_se(len_arg, 0, first_dot));
+                    
+                    if StringStringMap.contains(addr(g_var_types), base_var) {
+                        val base_type: string = StringStringMap.get(addr(g_var_types), base_var);
+                        val model_name: string = extract_base_model_name(base_type);
+                        val field_type: string = lookup_field_type(model_name, field_name);
+                        
+                        if str_len(field_type) > 0 {
+                            if is_pointer_type(field_type) {
+                                is_pointer = true;
+                            }
+                        }
+                        
+                        if is_pointer_field(model_name, field_name) {
+                            is_pointer = true;
+                        }
+                    }
+                }
+            }
+        } else {
+            mut base_var: string = len_arg;
+            val bracket_pos: i32 = find_char_from(base_var, '[', 0);
+            if bracket_pos >= 0 {
+                base_var = strip(substring_se(base_var, 0, bracket_pos));
+            }
+            
+            if StringStringMap.contains(addr(g_var_types), base_var) {
+                val var_type: string = StringStringMap.get(addr(g_var_types), base_var);
+                if is_pointer_type(var_type) {
+                    is_pointer = true;
+                }
+            }
+        }
+        
+        mut replacement: string = str("");
+        if is_pointer {
+            replacement = concat(str("len_ptr("), len_arg);
+        } else {
+            replacement = concat(str("len_v("), len_arg);
+        }
+        replacement = concat_c(replacement, ")");
+        
+        val before: string = substring_se(result, 0, start_idx);
+        val after: string = substring_se(result, paren_end + 1, str_len(result));
+        result = concat(before, replacement);
+        result = concat(result, after);
+    }
+    
+    return result;
+}
+
 def rewrite_function_calls(expr: string): string {
     mut sb: StringBuilder = StringBuilder.init(str_len(expr) + 64);
     mut i: i32 = 0;
@@ -2582,7 +2757,8 @@ def process_expression(expr: string): string {
             val addr_fixed_chars: string = rewrite_adr(trimmed);
             val deref_fixed_chars: string = rewrite_dereference(addr_fixed_chars);
             val calls_fixed_chars: string = rewrite_function_calls(deref_fixed_chars);
-            val enum_fixed_chars: string = rewrite_enum_member_refs(calls_fixed_chars);
+            val len_fixed_chars: string = rewrite_len_calls(calls_fixed_chars);
+            val enum_fixed_chars: string = rewrite_enum_member_refs(len_fixed_chars);
             return strip(enum_fixed_chars);
         }
 
@@ -2676,7 +2852,8 @@ def process_expression(expr: string): string {
         val methods_fixed: string = rewrite_method_calls(ptr_fixed);
         val sizeof_fixed: string = rewrite_sizeof_types(methods_fixed);
         val calls_fixed_no_sugar: string = rewrite_function_calls(sizeof_fixed);
-        val enum_fixed_no_sugar: string = rewrite_enum_member_refs(calls_fixed_no_sugar);
+        val len_fixed_no_sugar: string = rewrite_len_calls(calls_fixed_no_sugar);
+        val enum_fixed_no_sugar: string = rewrite_enum_member_refs(len_fixed_no_sugar);
         val and_fixed_no_sugar: string = replace_keyword_outside_strings(enum_fixed_no_sugar, str("and"), str("&&"));
         val or_fixed_no_sugar: string = replace_keyword_outside_strings(and_fixed_no_sugar, str("or"), str("||"));
         
@@ -2825,7 +3002,8 @@ def process_expression(expr: string): string {
     val methods_fixed2: string = rewrite_method_calls(ptr_fixed2);
     val sizeof_fixed2: string = rewrite_sizeof_types(methods_fixed2);
     val calls_fixed: string = rewrite_function_calls(sizeof_fixed2);
-    val enum_fixed: string = rewrite_enum_member_refs(calls_fixed);
+    val len_fixed: string = rewrite_len_calls(calls_fixed);
+    val enum_fixed: string = rewrite_enum_member_refs(len_fixed);
     val and_fixed: string = replace_keyword_outside_strings(enum_fixed, str("and"), str("&&"));
     val or_fixed: string = replace_keyword_outside_strings(and_fixed, str("or"), str("||"));
 
@@ -3126,8 +3304,10 @@ pub def generate_c(ast: ref ASTNode): string {
         // Use StringBuilder for efficient string building
         mut sb: StringBuilder = StringBuilder.init(1024 * 64);
         
-        // Batch standard headers into single append
         StringBuilder.append_c(addr(sb), "#define nil ((void*)0)\n#include <stdio.h>\n#include <stdbool.h>\n#include <stdlib.h>\n#include <string.h>\n#include <stdint.h>\n");
+        StringBuilder.append_c(addr(sb), "#define len_ptr(x) ((x)->len)\n");
+        StringBuilder.append_c(addr(sb), "#define len_v(x) ((&(x))->len)\n");
+        StringBuilder.append_c(addr(sb), "#define len(x) len_v(x)\n");
 
         platform windows {
             StringBuilder.append_c(addr(sb), "#include <windows.h>\n#define NOMINMAX\n#define NOGDI\n#define WIN32_LEAN_AND_MEAN\n");
