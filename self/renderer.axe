@@ -700,9 +700,6 @@ def is_pointer_type(type_str: string): bool {
     if has_prefix(t, str("mut ")) {
         t = strip(substr(t, 4, str_len(t) - 4));
     }
-    if equals_c(t, "string") or equals_c(t, "std__string__string") {
-        return false;
-    }
     if has_prefix(t, str("ref ")) or has_suffix(t, str("*")) {
         return true;
     }
