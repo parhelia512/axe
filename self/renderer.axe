@@ -2463,7 +2463,7 @@ def rewrite_len_calls(expr: string): string {
                             if ws != ' ' and ws != '\t' and ws != '\n' {
                                 break;
                             }
-                            k = k + 1;
+                            k++;
                         }
                         
                         if k < result_len and get_char(result, k) == '(' {
@@ -2473,7 +2473,7 @@ def rewrite_len_calls(expr: string): string {
                         }
                     }
                 }
-                i = i + 1;
+                i++;
             }
             
             if !found {
@@ -2527,7 +2527,7 @@ def rewrite_len_calls(expr: string): string {
                 if get_char(len_arg, di) == '.' {
                     last_dot = di;
                 }
-                di = di + 1;
+                di++;
             }
             
             if last_dot >= 0 {
