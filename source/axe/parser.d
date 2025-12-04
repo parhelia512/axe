@@ -4782,6 +4782,20 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
             string returnExpr;
             while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
             {
+                if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE)
+                {
+                    pos++;
+                    continue;
+                }
+                
+                if (returnExpr.length > 0 && tokens[pos].type != TokenType.LPAREN &&
+                    tokens[pos].type != TokenType.RPAREN && tokens[pos].type != TokenType.COMMA &&
+                    tokens[pos].type != TokenType.LBRACKET && tokens[pos].type != TokenType.RBRACKET &&
+                    tokens[pos].type != TokenType.LBRACE && tokens[pos].type != TokenType.RBRACE)
+                {
+                    returnExpr ~= " ";
+                }
+                
                 if (tokens[pos].type == TokenType.STR)
                     returnExpr ~= "\"" ~ tokens[pos].value ~ "\"";
                 else if (tokens[pos].type == TokenType.CHAR)

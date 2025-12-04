@@ -3430,19 +3430,7 @@ private string replaceKeywordOutsideStrings(string input, string keyword, string
                 bool afterOk = (i + keyword.length >= input.length ||
                         (!isAlphaNum(input[i + keyword.length]) && input[i + keyword.length] != '_'));
 
-                // Special case: For logical operators (and/or/xor/not), if preceded by
-                // a character that clearly ends an expression (like ', ), ], digit, operator),
-                // allow the match even if followed by alphanumeric. This handles cases like
-                // '0'andch where the parser squashed operators without spaces.
-                bool isLogicalOp = (keyword == "and" || keyword == "or" ||
-                        keyword == "xor" || keyword == "not");
-                bool afterOperatorOrLiteral = (i > 0 && (input[i - 1] == '\'' ||
-                        input[i - 1] == ')' ||
-                        input[i - 1] == ']' ||
-                        isDigit(input[i - 1])));
-
-                // Match if: (beforeOk AND afterOk) OR (logical operator after expression)
-                if ((beforeOk && afterOk) || (isLogicalOp && beforeOk && afterOperatorOrLiteral))
+                if (beforeOk && afterOk)
                 {
                     if (i > 0 && input[i - 1] != ' ')
                         result ~= " ";
@@ -3909,6 +3897,7 @@ string processExpression(string expr, string context = "")
     import std.string : indexOf, lastIndexOf;
 
     ptrdiff_t funcNameEnd = expr.indexOf("(");
+    
     if (funcNameEnd > 0)
     {
         string funcName = expr[0 .. funcNameEnd].strip();
@@ -4711,10 +4700,9 @@ string processExpression(string expr, string context = "")
         return expr;
     }
 
-    // Check for operators, but try very hard not to split on dots (member access) or operators inside strings
-    // Note: Longer operators must come first to avoid incorrect matching (e.g., >> before >)
+    // Check for operators, but try very hard not to split on dots (member access) or operators inside strings.
     foreach (op; [
-            "<<", ">>", "==", "!=", "<=", ">=", "&&", "||", "+", "-", "*", "/",
+            "||", "&&", "<<", ">>", "==", "!=", "<=", ">=", "+", "-", "*", "/",
             "%", "<", ">"
         ])
     {

@@ -3061,6 +3061,57 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             
             skip_whitespace(ctx);
             
+            mut is_assignment: bool = false;
+            if ctx.pos < len(ctx.tokens) {
+                val look_tok: Token = peek(ctx);
+                if look_tok.token_type == TokenType.OPERATOR and equals_c(look_tok.value, "=") {
+                    is_assignment = true;
+                }
+            }
+            
+            if is_assignment {
+                consume(ctx); // Skip '='
+                skip_whitespace(ctx);
+                
+                mut value_str: string = str("");
+                loop {
+                    if ctx.pos >= len(ctx.tokens) {
+                        break;
+                    }
+                    val vt: Token = peek(ctx);
+                    if vt.token_type == TokenType.SEMICOLON {
+                        break;
+                    }
+                    if vt.token_type == TokenType.STR {
+                        value_str = concat(value_str, str("\""));
+                        value_str = concat(value_str, vt.value);
+                        value_str = concat(value_str, str("\""));
+                    } elif vt.token_type == TokenType.CHAR {
+                        value_str = concat(value_str, str("'"));
+                        value_str = concat(value_str, vt.value);
+                        value_str = concat(value_str, str("'"));
+                    } elif vt.token_type == TokenType.WHITESPACE or vt.token_type == TokenType.NEWLINE {
+                        value_str = concat(value_str, str(" "));
+                    } else {
+                        value_str = concat(value_str, vt.value);
+                    }
+                    consume(ctx);
+                }
+                
+                if expect(ctx, TokenType.SEMICOLON) {
+                    consume(ctx);
+                }
+                
+                mut left_side: string = concat(ident_name, str("("));
+                left_side = concat(left_side, strip(args_str));
+                left_side = concat(left_side, str(")"));
+                
+                node.node_type = str("Assignment");
+                node.data.assignment.variable = left_side;
+                node.data.assignment.expression = strip(value_str);
+                return node;
+            }
+            
             if expect(ctx, TokenType.SEMICOLON) {
                 consume(ctx);
             }

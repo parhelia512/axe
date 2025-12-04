@@ -331,22 +331,40 @@ def replace_keyword_outside_strings(expr: string, keyword: string, replacement: 
             
             if i > 0 {
                 val prev: char = get_char(expr, i - 1);
-                if (prev >= 'a' and prev <= 'z') or (prev >= 'A' and prev <= 'Z') or 
-                   (prev >= '0' and prev <= '9') or prev == '_' {
+                val prev_is_alpha_lower: bool = prev >= 'a' and prev <= 'z';
+                val prev_is_alpha_upper: bool = prev >= 'A' and prev <= 'Z';
+                val prev_is_digit: bool = prev >= '0' and prev <= '9';
+                val prev_is_underscore: bool = prev == '_';
+                if prev_is_alpha_lower or prev_is_alpha_upper or prev_is_digit or prev_is_underscore {
                     is_word = false;
                 }
             }
             
             if is_word and i + kw_len < expr_len {
                 val next: char = get_char(expr, i + kw_len);
-                if (next >= 'a' and next <= 'z') or (next >= 'A' and next <= 'Z') or 
-                   (next >= '0' and next <= '9') or next == '_' {
+                val next_is_alpha_lower: bool = next >= 'a' and next <= 'z';
+                val next_is_alpha_upper: bool = next >= 'A' and next <= 'Z';
+                val next_is_digit: bool = next >= '0' and next <= '9';
+                val next_is_underscore: bool = next == '_';
+                if next_is_alpha_lower or next_is_alpha_upper or next_is_digit or next_is_underscore {
                     is_word = false;
                 }
             }
             
             if is_word {
+                if i > 0 {
+                    val prev_ch: char = get_char(expr, i - 1);
+                    if prev_ch != ' ' {
+                        StringBuilder.append_char(addr(sb), ' ');
+                    }
+                }
                 StringBuilder.append(addr(sb), replacement);
+                if i + kw_len < expr_len {
+                    val next_ch: char = get_char(expr, i + kw_len);
+                    if next_ch != ' ' {
+                        StringBuilder.append_char(addr(sb), ' ');
+                    }
+                }
                 i = i + kw_len;
                 continue;
             }
@@ -2803,7 +2821,10 @@ def process_expression(expr: string): string {
             val calls_fixed_chars: string = rewrite_function_calls(deref_fixed_chars);
             val len_fixed_chars: string = rewrite_len_calls(calls_fixed_chars);
             val enum_fixed_chars: string = rewrite_enum_member_refs(len_fixed_chars);
-            return strip(enum_fixed_chars);
+            val mod_fixed_chars: string = replace_keyword_outside_strings(enum_fixed_chars, str("mod"), str("%"));
+            val and_fixed_chars: string = replace_keyword_outside_strings(mod_fixed_chars, str("and"), str("&&"));
+            val or_fixed_chars: string = replace_keyword_outside_strings(and_fixed_chars, str("or"), str("||"));
+            return strip(or_fixed_chars);
         }
 
         // Even when there is no pointer sugar or C. prefix, we still need to
@@ -2869,8 +2890,10 @@ def process_expression(expr: string): string {
                         // ok.
                     } elif (prev == '+' and next == '=') or (prev == '-' and next == '=') {
                         // Merge `+ =` or `- =` into `+=` / `-=` to avoid split operators in generated C.
+                    } elif is_ident_start(prev) and !is_ident_start(next) {
+                        StringBuilder.append_char(addr(sb_norm), ' ');
                     } elif !is_ident_start(next) {
-                        // Merge other token fragments such as `reduce _angle`.
+                        // Merge other token fragments.
                     } else {
                         StringBuilder.append_char(addr(sb_norm), ' ');
                     }
@@ -2898,7 +2921,8 @@ def process_expression(expr: string): string {
         val calls_fixed_no_sugar: string = rewrite_function_calls(sizeof_fixed);
         val len_fixed_no_sugar: string = rewrite_len_calls(calls_fixed_no_sugar);
         val enum_fixed_no_sugar: string = rewrite_enum_member_refs(len_fixed_no_sugar);
-        val and_fixed_no_sugar: string = replace_keyword_outside_strings(enum_fixed_no_sugar, str("and"), str("&&"));
+        val mod_fixed_no_sugar: string = replace_keyword_outside_strings(enum_fixed_no_sugar, str("mod"), str("%"));
+        val and_fixed_no_sugar: string = replace_keyword_outside_strings(mod_fixed_no_sugar, str("and"), str("&&"));
         val or_fixed_no_sugar: string = replace_keyword_outside_strings(and_fixed_no_sugar, str("or"), str("||"));
         
         return strip(or_fixed_no_sugar);
@@ -3048,7 +3072,8 @@ def process_expression(expr: string): string {
     val calls_fixed: string = rewrite_function_calls(sizeof_fixed2);
     val len_fixed: string = rewrite_len_calls(calls_fixed);
     val enum_fixed: string = rewrite_enum_member_refs(len_fixed);
-    val and_fixed: string = replace_keyword_outside_strings(enum_fixed, str("and"), str("&&"));
+    val mod_fixed: string = replace_keyword_outside_strings(enum_fixed, str("mod"), str("%"));
+    val and_fixed: string = replace_keyword_outside_strings(mod_fixed, str("and"), str("&&"));
     val or_fixed: string = replace_keyword_outside_strings(and_fixed, str("or"), str("||"));
 
     return strip(or_fixed);
