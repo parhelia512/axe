@@ -2414,7 +2414,9 @@ def rewrite_dereference(expr: string): string {
 }
 
 /// Rewrite len(expr) calls to len_ptr(expr) or len_v(expr) based on whether
-/// the argument is a pointer type. This enables proper list length access.
+/// the argument is a pointer type. 
+/// 
+/// This enables proper list length access.
 def rewrite_len_calls(expr: string): string {
     mut result: string = expr;
     
