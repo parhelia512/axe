@@ -700,6 +700,9 @@ def is_pointer_type(type_str: string): bool {
     if has_prefix(t, str("mut ")) {
         t = strip(substr(t, 4, str_len(t) - 4));
     }
+    if equals_c(t, "string") or equals_c(t, "std__string__string") {
+        return false;
+    }
     if has_prefix(t, str("ref ")) or has_suffix(t, str("*")) {
         return true;
     }
@@ -3459,11 +3462,15 @@ pub def generate_c(ast: ref ASTNode): string {
                 if equals_c(collect_child.node_type, "Model") {
                     val mname: string = collect_child.data.model_node.name;
                     mut cname: string = canonical_model_c_name(mname);
+
                     if str_len(cname) == 0 {
                         cname = mname;
                     }
-                    StringList.push(model_names_list, addr(model_arena), cname);
-                    StringIntMap.set(addr(model_indices), addr(model_arena), cname, model_names_list.len - 1);
+
+                    if !StringIntMap.contains(addr(model_indices), cname) {
+                        StringList.push(model_names_list, addr(model_arena), cname);
+                        StringIntMap.set(addr(model_indices), addr(model_arena), cname, model_names_list.len - 1);
+                    }
                 }
                 collect_idx = collect_idx + 1;
             }
@@ -3506,8 +3513,13 @@ pub def generate_c(ast: ref ASTNode): string {
 
                             val ftype: string = ftypes.data[ft_idx];
                             val base_type: string = get_base_type_from_field(ftype);
-                            val mapped_type: string = map_axe_type_to_c(base_type);
-                            
+                            mut mapped_type: string = map_axe_type_to_c(base_type);
+
+                            if !StringIntMap.contains(addr(model_indices), mapped_type) {
+                                if StringIntMap.contains(addr(model_indices), base_type) {
+                                    mapped_type = base_type;
+                                }
+                            }
                             if StringIntMap.contains(addr(model_indices), mapped_type) {
                                 if compare(mapped_type, this_model_name) != 0 {
                                     val dep_idx: i32 = StringIntMap.get(addr(model_indices), mapped_type);
@@ -3534,8 +3546,14 @@ pub def generate_c(ast: ref ASTNode): string {
                             }
                             val utype: string = union_types.data[ut_idx];
                             val ubase_type: string = get_base_type_from_field(utype);
-                            val umapped_type: string = map_axe_type_to_c(ubase_type);
-                            
+                            mut umapped_type: string = map_axe_type_to_c(ubase_type);
+
+                            if !StringIntMap.contains(addr(model_indices), umapped_type) {
+                                if StringIntMap.contains(addr(model_indices), ubase_type) {
+                                    umapped_type = ubase_type;
+                                }
+                            }
+
                             if StringIntMap.contains(addr(model_indices), umapped_type) {
                                 if compare(umapped_type, this_model_name) != 0 {
                                     val current_deps: string = StringList.get(deps_lists, this_model_idx);
