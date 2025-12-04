@@ -2679,6 +2679,7 @@ def process_expression(expr: string): string {
         val enum_fixed_no_sugar: string = rewrite_enum_member_refs(calls_fixed_no_sugar);
         val and_fixed_no_sugar: string = replace_keyword_outside_strings(enum_fixed_no_sugar, str("and"), str("&&"));
         val or_fixed_no_sugar: string = replace_keyword_outside_strings(and_fixed_no_sugar, str("or"), str("||"));
+        
         return strip(or_fixed_no_sugar);
     }
 
@@ -4151,7 +4152,6 @@ pub def generate_c(ast: ref ASTNode): string {
         result = rewrite_method_calls(result);
         result = rewrite_function_prefixes(result);
         result = rewrite_sizeof_types(result);
-        result = rewrite_pointer_member_accesses(result);
         result = normalize_numeric_dots(result);
     }
 
@@ -5124,8 +5124,10 @@ pub def generate_c(ast: ref ASTNode): string {
                     t = strip(substr(t, 4, str_len(t) - 4));
                 }
 
-                if has_prefix(t, str("ref ")) or has_suffix(t, str("*")) {
-                    is_pointer = true;
+                if !equals_c(t, "string") {
+                    if has_prefix(t, str("ref ")) or has_suffix(t, str("*")) {
+                        is_pointer = true;
+                    }
                 }
             }
         }
