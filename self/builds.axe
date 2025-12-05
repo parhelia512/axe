@@ -22,8 +22,59 @@ use imports (
 use gstate;
 use renderer;
 use std.io;
-use std.os;
+use std.os (ExecResult, exec_capture, exec, delete_file);
+use std.string;
 use std.lists (StringList);
+
+/// Filter and print C compiler errors, showing only the error line
+/// (not the generated code context)
+def filter_and_print_errors(output: string) {
+    if str_len(output) == 0 {
+        return;
+    }
+    
+    mut i: i32 = 0;
+    mut line_start: i32 = 0;
+    val olen: i32 = str_len(output);
+    
+    loop {
+        if i >= olen {
+            break;
+        }
+        
+        val ch: char = get_char(output, i);
+        if ch == '\n' {
+            val line: string = substring_se(output, line_start, i);
+            
+            if str_len(line) > 0 {
+                val first_char: char = get_char(line, 0);
+                if first_char != ' ' and first_char != '\t' {
+                    val has_pipe: i32 = find_substr(line, str(" | "));
+                    if has_pipe < 0 {
+                        println line;
+                    }
+                }
+            }
+            
+            line_start = i + 1;
+        }
+        
+        i++;
+    }
+    
+    if line_start < olen {
+        val line: string = substring_se(output, line_start, olen);
+        if str_len(line) > 0 {
+            val first_char: char = get_char(line, 0);
+            if first_char != ' ' and first_char != '\t' {
+                val has_pipe: i32 = find_substr(line, str(" | "));
+                if has_pipe < 0 {
+                    println line;
+                }
+            }
+        }
+    }
+}
 
 /// Detect if a name already has a module-style "__" prefix.
 def has_double_underscore(name: string): bool {
@@ -323,11 +374,11 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
     compile_cmd = concat(compile_cmd, str(" -Wno-everything -O0 -o "));
     compile_cmd = concat(compile_cmd, exe_filename);
     
-    val exit_code: i32 = exec(compile_cmd.data);
-    
+    val result: ExecResult = exec_capture(compile_cmd);
+    val exit_code: i32 = result.exit_code;
 
     if exit_code != 0 {
-        println "Error: Compilation failed";
+        filter_and_print_errors(result.output);
         return false;
     }
 
