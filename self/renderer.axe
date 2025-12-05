@@ -3935,9 +3935,10 @@ pub def generate_c(ast: ref ASTNode): string {
             StringBuilder.append_c(addr(sb), "#endif\n");
         }
 
-        // Add stack trace headers for segfault handling
-        val stack_headers: string = generate_stack_trace_headers();
-        StringBuilder.append(addr(sb), stack_headers);
+        if !::is_release_build {
+            val stack_headers: string = generate_stack_trace_headers();
+            StringBuilder.append(addr(sb), stack_headers);
+        }
 
         StringBuilder.append_c(addr(sb), "\nint __axe_argc = 0;\nchar** __axe_argv = NULL;\n\n");
         
@@ -4963,7 +4964,9 @@ pub def generate_c(ast: ref ASTNode): string {
 
     if equals_c(node_type, "Test") {
         result = concat_c(result, "int main(int argc, char** argv) {\n__axe_argc = argc;\n__axe_argv = argv;\n");
-        result = concat(result, generate_stack_trace_setup());
+        if !::is_release_build {
+            result = concat(result, generate_stack_trace_setup());
+        }
         result = concat_c(result, "    int passed = 0;\n    int failed = 0;\n\n");
 
         if ast.children != nil {
@@ -5174,7 +5177,9 @@ pub def generate_c(ast: ref ASTNode): string {
         
         if equals_c(func_name, "main") {
             result = concat_c(result, "int main(int argc, char** argv) {\n__axe_argc = argc;\n__axe_argv = argv;\n");
-            result = concat(result, generate_stack_trace_setup());
+            if !::is_release_build {
+                result = concat(result, generate_stack_trace_setup());
+            }
             
             if ast.children != nil {
                 val children: ref list(ASTNode) = ast.children;
