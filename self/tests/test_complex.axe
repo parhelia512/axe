@@ -1,0 +1,15 @@
+use std.string;
+
+model SomeComplexModel {
+    hi: i32;
+    data: string;
+}
+
+def main() {
+    mut md: SomeComplexModel;
+    md.hi = 42;
+    md.data = str("The answer to life, the universe, and everything.");
+    
+    println $"Model hi: {md.hi}";
+    println $"Model data: {md.data.data}";
+}
