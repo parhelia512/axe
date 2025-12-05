@@ -1,7 +1,13 @@
 use std.io;
+use std.lists (StringList);
 
 pub mut loud_logger: bool = false;
 pub mut is_release_build: bool = false;
+pub mut keep_emitted_file: bool = false;
+pub mut run_after_compile: bool = false;
+pub mut print_tokens: bool = false;
+pub mut print_ast: bool = false;
+pub mut include_paths: ref StringList = nil;
 
 /// Print a debug message
 overload debug_print(x: generic) {
@@ -18,6 +24,36 @@ pub def set_loud_logger(v: bool) {
 /// Set release build mode
 pub def set_release_build(v: bool) {
     is_release_build = v;
+}
+
+/// Set keep emitted file flag
+pub def set_keep_emitted_file(v: bool) {
+    keep_emitted_file = v;
+}
+
+/// Set run after compile flag  
+pub def set_run_after_compile(v: bool) {
+    run_after_compile = v;
+}
+
+/// Set print tokens flag
+pub def set_print_tokens(v: bool) {
+    print_tokens = v;
+}
+
+/// Set print AST flag
+pub def set_print_ast(v: bool) {
+    print_ast = v;
+}
+
+/// Set include paths list
+pub def set_include_paths(paths: ref StringList) {
+    include_paths = paths;
+}
+
+/// Get include paths list
+pub def get_include_paths(): ref StringList {
+    return include_paths;
 }
 
 /// Ditto.

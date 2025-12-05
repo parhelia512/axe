@@ -38,6 +38,9 @@ def main() {
         other_arg = strip(StringList.get(args, 2));
     }
     
+    val inc_paths: ref StringList = StringList.create(addr(arena), 16);
+    set_include_paths(inc_paths);
+    
     mut i: i32 = 2;
 
     loop {
@@ -47,7 +50,12 @@ def main() {
         val arg: string = StringList.get(args, i);
         if equals_c(arg, "-o") and i + 1 < args.len {
             output_filename = StringList.get(args, i + 1);
-            break;
+            i = i + 2;
+            continue;
+        }
+        if has_prefix(arg, str("-I")) and str_len(arg) > 2 {
+            val inc_path: string = substring_se(arg, 2, str_len(arg));
+            StringList.push(inc_paths, addr(arena), inc_path);
         }
         i = i + 1;
     }
@@ -58,12 +66,28 @@ def main() {
         quit(0);
     }
 
-    if has_suffix(other_arg, str("-l")) or has_suffix(other_arg, str("--loud")) {
+    if strlst_contains_c(deref(args), "-l") or strlst_contains_c(deref(args), "--loud") {
         set_loud_logger(true);
     }
 
     if strlst_contains_c(deref(args), "--release") {
         set_release_build(true);
+    }
+    
+    if strlst_contains_c(deref(args), "-e") {
+        set_keep_emitted_file(true);
+    }
+    
+    if strlst_contains_c(deref(args), "-r") {
+        set_run_after_compile(true);
+    }
+    
+    if strlst_contains_c(deref(args), "-tokens") {
+        set_print_tokens(true);
+    }
+    
+    if strlst_contains_c(deref(args), "-ast") {
+        set_print_ast(true);
     }
 
     if !has_suffix(source_file, str(".axe")) and !has_suffix(source_file, str(".axec")) {
