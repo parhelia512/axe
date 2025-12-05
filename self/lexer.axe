@@ -57,6 +57,7 @@ enum TokenType {
     RAW,
     PLATFORM,
     PARALLEL,
+    LOCAL,
     SINGLE,
     WINDOWS,
     POSIX,
@@ -535,6 +536,9 @@ pub def lex(source: string): list(Token) {
             if str_equals(source, "loop", pos, 4, source_len) and check_boundary(source, pos + 4, source_len) {
                 append(tokens, create_token(TokenType.LOOP, "loop"));
                 pos = pos + 4;
+            } elif str_equals(source, "local", pos, 5, source_len) and check_boundary(source, pos + 5, source_len) {
+                append(tokens, create_token(TokenType.LOCAL, "local"));
+                pos = pos + 5;
             } else {
                 mut start: i32 = pos;
                 loop {

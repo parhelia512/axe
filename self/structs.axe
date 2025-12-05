@@ -239,7 +239,13 @@ pub model ASTNode {
             initialization: string;
             condition: string;
             increment: string;
-            reduction_clauses: list(string);
+            reduction_clauses: ref list(string);
+        };
+        
+        parallel_local: model {
+            private_vars: ref list(string);
+            private_types: ref list(string);
+            is_mutable: ref list(bool);
         };
         
         /// Simple nodes with no additional data (Loop, Break, Continue, Test, Program, Parallel, Single)

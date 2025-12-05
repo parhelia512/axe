@@ -6385,6 +6385,59 @@ pub def generate_c(ast: ref ASTNode): string {
         return StringBuilder.to_string(addr(sb_par));
     }
     
+    if equals_c(node_type, "ParallelLocal") {
+        mut sb_ploc: StringBuilder = StringBuilder.init(512);
+        
+        val private_vars: ref list(string) = ast.data.parallel_local.private_vars;
+        val private_types: ref list(string) = ast.data.parallel_local.private_types;
+        
+        mut vi: i32 = 0;
+        loop {
+            if vi >= len(deref(private_vars)) {
+                break;
+            }
+            val var_name: string = private_vars.data[vi];
+            val type_name: string = private_types.data[vi];
+            val c_type: string = map_axe_type_to_c(type_name);
+            
+            StringBuilder.append(addr(sb_ploc), c_type);
+            StringBuilder.append_c(addr(sb_ploc), " ");
+            StringBuilder.append(addr(sb_ploc), var_name);
+            StringBuilder.append_c(addr(sb_ploc), ";\n");
+            vi = vi + 1;
+        }
+        
+        StringBuilder.append_c(addr(sb_ploc), "#pragma omp parallel private(");
+        mut pi: i32 = 0;
+        loop {
+            if pi >= len(deref(private_vars)) {
+                break;
+            }
+            if pi > 0 {
+                StringBuilder.append_c(addr(sb_ploc), ", ");
+            }
+            StringBuilder.append(addr(sb_ploc), private_vars.data[pi]);
+            pi = pi + 1;
+        }
+        StringBuilder.append_c(addr(sb_ploc), ")\n{\n");
+        
+        if ast.children != nil {
+            val children: ref list(ASTNode) = ast.children;
+            mut i_ploc: i32 = 0;
+            loop {
+                if i_ploc >= len(deref(children)) {
+                    break;
+                }
+                val child_code: string = generate_c(addr(children.data[i_ploc]));
+                StringBuilder.append(addr(sb_ploc), child_code);
+                i_ploc = i_ploc + 1;
+            }
+        }
+        
+        StringBuilder.append_c(addr(sb_ploc), "}\n");
+        return StringBuilder.to_string(addr(sb_ploc));
+    }
+    
     if equals_c(node_type, "ForIn") {
         // for item in collection { ... }
         // Generate: for (int32_t _i_item = 0; _i_item < collection->len; _i_item++) {
