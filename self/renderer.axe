@@ -614,6 +614,10 @@ def collect_function_prefixes(node: ref ASTNode) {
         register_function_prefix(node.data.function.name);
     }
     
+    if equals_c(node.node_type, "Overload") {
+        register_function_prefix(node.data.overload_node.name);
+    }
+    
     if node.children != nil {
         val children: ref list(ASTNode) = node.children;
         mut i: i32 = 0;

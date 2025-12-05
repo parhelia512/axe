@@ -470,6 +470,12 @@ def prefix_types_in_node(node: ref ASTNode, module_prefix: string, exported: ref
             }
         }
     } elif equals_c(nt, "Overload") {
+        val ovl_name: string = node.data.overload_node.name;
+        val ovl_already_prefixed: bool = str_contains_c(ovl_name, "__");
+        if !ovl_already_prefixed {
+            node.data.overload_node.name = concat(concat(module_prefix, str("__")), ovl_name);
+        }
+        
         mut type_names_ref: ref list(string) = node.data.overload_node.type_names;
         if type_names_ref != nil {
             mut iov: i32 = 0;
