@@ -666,6 +666,63 @@ pub def get_cwd(): string {
     return out;
 }
 
+/// Get the path to the currently running executable
+pub def get_executable_path(): string {
+    mut out: string = str("");
+    mut buffer: char[2048];
+    
+    platform windows {
+        unsafe {
+            extern def GetModuleFileNameA(hModule: ref void, lpFilename: ref char, nSize: u32): u32;
+            val len: u32 = GetModuleFileNameA(nil, buffer, 2048);
+            if len > 0 {
+                out = str(buffer);
+            }
+        }
+    }
+    
+    platform posix {
+        unsafe {
+            extern def readlink(pathname: ref char, buf: ref char, bufsiz: usize): i64;
+            val len: i64 = readlink("/proc/self/exe", buffer, 2047);
+            if len > 0 {
+                buffer[len] = '\0';
+                out = str(buffer);
+            }
+        }
+    }
+    
+    return out;
+}
+
+/// Get the directory containing the currently running executable
+pub def get_executable_dir(): string {
+    val exe_path: string = get_executable_path();
+    if str_len(exe_path) == 0 {
+        return str("");
+    }
+    
+    mut last_sep: i32 = -1;
+    mut i: i32 = 0;
+    val n: i32 = str_len(exe_path);
+    loop {
+        if i >= n {
+            break;
+        }
+        val ch: char = get_char(exe_path, i);
+        if ch == '/' or ch == '\\' {
+            last_sep = i;
+        }
+        i = i + 1;
+    }
+    
+    if last_sep < 0 {
+        return str(".");
+    }
+    
+    return substring_se(exe_path, 0, last_sep);
+}
+
 test {
     assert(exec("echo test") == 0, "exec should run successfully");
     assert(write_file(string.create("testfile.txt"), string.create("hello")), "write_file should succeed");

@@ -134,6 +134,7 @@ def make_module_path(base_dir: string, use_module: string): string {
         }
 
         val rel: string = concat(path_rest, str(".axec"));
+        
         val std_base: string = join_path(base_dir, str("std"));
         val local_path: string = join_path(std_base, rel);
         if file_exists(local_path) {
@@ -146,6 +147,15 @@ def make_module_path(base_dir: string, use_module: string): string {
         val proj_path: string = join_path(proj_std, rel);
         if file_exists(proj_path) {
             return proj_path;
+        }
+
+        val exe_dir: string = get_executable_dir();
+        if str_len(exe_dir) > 0 {
+            val exe_std: string = join_path(exe_dir, str("std"));
+            val exe_path: string = join_path(exe_std, rel);
+            if file_exists(exe_path) {
+                return exe_path;
+            }
         }
 
         val home: string = get_user_home_dir();
