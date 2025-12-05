@@ -30,6 +30,8 @@ enum TokenType {
     OPERATOR,
     INCREMENT,
     DECREMENT,
+    PLUS_ASSIGN,
+    MINUS_ASSIGN,
     AND,
     OR,
     NOT,
@@ -199,6 +201,9 @@ pub def lex(source: string): list(Token) {
             if pos + 1 < source_len and get_char(source, pos + 1) == '-' {
                 append(tokens, create_token(TokenType.DECREMENT, "--"));
                 pos = pos + 2;
+            } elif pos + 1 < source_len and get_char(source, pos + 1) == '=' {
+                append(tokens, create_token(TokenType.MINUS_ASSIGN, "-="));
+                pos = pos + 2;
             } else {
                 append(tokens, create_token(TokenType.MINUS, "-"));
                 pos = pos + 1;
@@ -206,6 +211,9 @@ pub def lex(source: string): list(Token) {
         } elif ch == '+' {
             if pos + 1 < source_len and get_char(source, pos + 1) == '+' {
                 append(tokens, create_token(TokenType.INCREMENT, "++"));
+                pos = pos + 2;
+            } elif pos + 1 < source_len and get_char(source, pos + 1) == '=' {
+                append(tokens, create_token(TokenType.PLUS_ASSIGN, "+="));
                 pos = pos + 2;
             } else {
                 append(tokens, create_token(TokenType.PLUS, "+"));

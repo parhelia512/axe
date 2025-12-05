@@ -115,6 +115,7 @@ pub model ASTNode {
         assignment: model {
             variable: string;
             expression: string;
+            operator: string;  // "=", "+=", "-="
         };
         
         func_call: model {
@@ -287,6 +288,7 @@ def create_assignment_node(variable: string, expression: string): ASTNode {
     node.node_type = str("Assignment");
     node.data.assignment.variable = variable;
     node.data.assignment.expression = expression;
+    node.data.assignment.operator = str("=");
     return node;
 }
 

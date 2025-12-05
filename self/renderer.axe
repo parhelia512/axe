@@ -5901,7 +5901,16 @@ pub def generate_c(ast: ref ASTNode): string {
         }
 
         result = concat(result, out_lhs);
-        result = concat_c(result, " = ");
+        
+        val op: string = ast.data.assignment.operator;
+        if str_len(op) > 0 {
+            result = concat_c(result, " ");
+            result = concat(result, op);
+            result = concat_c(result, " ");
+        } else {
+            result = concat_c(result, " = ");
+        }
+        
         result = concat(result, out_rhs);
         result = concat_c(result, ";\n");
         return result;

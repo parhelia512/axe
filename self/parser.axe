@@ -3109,6 +3109,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 node.node_type = str("Assignment");
                 node.data.assignment.variable = left_side;
                 node.data.assignment.expression = strip(value_str);
+                node.data.assignment.operator = str("=");
                 return node;
             }
             
@@ -3858,6 +3859,67 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             return node;
         }
         
+        if next_token.token_type == TokenType.PLUS_ASSIGN or next_token.token_type == TokenType.MINUS_ASSIGN {
+            val compound_op: string = next_token.value;
+            debug_print_raw "\n[DEBUG] parse_statement_helper: entering compound Assignment branch";
+            debug_print_raw "\n[DEBUG]   ident_name:";
+            debug_print_str ident_name;
+            debug_print_raw "\n[DEBUG]   operator:";
+            debug_print_str compound_op;
+
+            if !is_variable_declared(ident_name) {
+                if !ctx.is_axec {
+                    mut err: string = str("ERROR: Undeclared variable: ");
+                    err = concat(err, ident_name);
+                    enforce_raw(false, err.data);
+                    return node;
+                }
+            }
+            if !is_variable_mutable(ident_name) {
+                mut err: string = str("ERROR: Cannot assign to immutable variable: ");
+                err = concat(err, ident_name);
+                enforce_raw(false, err.data);
+                return node;
+            }
+
+            consume(ctx);
+            skip_whitespace(ctx);
+
+            mut expr: string = str("");
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+                val t: Token = peek(ctx);
+                if t.token_type == TokenType.SEMICOLON {
+                    consume(ctx);
+                    break;
+                }
+
+                if t.token_type == TokenType.STR {
+                    expr = concat(expr, str("\""));
+                    expr = concat(expr, t.value);
+                    expr = concat(expr, str("\" "));
+                } elif t.token_type == TokenType.CHAR {
+                    expr = concat(expr, str("'"));
+                    expr = concat(expr, t.value);
+                    expr = concat(expr, str("' "));
+                } elif t.token_type == TokenType.WHITESPACE or t.token_type == TokenType.NEWLINE {
+                    // skip
+                } else {
+                    expr = concat(expr, t.value);
+                    expr = concat(expr, str(" "));
+                }
+                consume(ctx);
+            }
+
+            node.node_type = str("Assignment");
+            node.data.assignment.variable = ident_name;
+            node.data.assignment.expression = strip(expr);
+            node.data.assignment.operator = compound_op;
+            return node;
+        }
+        
         if next_token.token_type == TokenType.OPERATOR and equals_c(next_token.value, "=") {
             debug_print_raw "\n[DEBUG] parse_statement_helper: entering Assignment branch";
             debug_print_raw "\n[DEBUG]   ident_name:";
@@ -3941,6 +4003,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             node.node_type = str("Assignment");
             node.data.assignment.variable = ident_name;
             node.data.assignment.expression = expr;
+            node.data.assignment.operator = str("=");
             return node;
         }
         
