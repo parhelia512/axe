@@ -123,10 +123,10 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
     val module_name: string = str("");
     ast = process_imports(addr(ast), base_dir, is_axec, filename, true, module_name);
 
-    println "5 | Collect Decls (TODO)";
-    println "6 | Collect Models (TODO)";
-    println "7 | Validate Calls (TODO)";
-    println "8 | Lowering";
+    // println "5 | Collect Decls (TODO)";
+    // println "6 | Collect Models (TODO)";
+    // println "7 | Validate Calls (TODO)";
+    println "5 | Lowering";
 
     mut dir_name: string = str("");
     mut file_stem: string = str("");
@@ -134,7 +134,7 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
     mut last_dot: i32 = -1;
     mut i_ext: i32 = flen - 1;
 
-    println "9 | PFCCG I";
+    println "6 | PFCCG I";
 
     loop {
         if i_ext < 0 {
@@ -151,7 +151,7 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
         last_dot = flen;
     }
 
-    println "10| PFCCG II";
+    println "7 | PFCCG II";
 
     mut last_sep: i32 = -1;
     mut i_sep: i32 = flen - 1;
@@ -173,7 +173,7 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
         file_stem = substring_se(filename, 0, last_dot);
     }
 
-    println "11| PFCCG III";
+    println "8 | PFCCG III";
     if last_sep > 0 {
         mut dir_sep2: i32 = -1;
         mut j: i32 = last_sep - 1;
@@ -194,7 +194,7 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
             dir_name = substring_se(filename, 0, last_sep);
         }
     }
-    println "12| PFCCG IV";
+    println "9 | PFCCG IV";
 
     mut module_prefix: string = str("");
     if str_len(dir_name) > 0 {
@@ -205,15 +205,13 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
         module_prefix = file_stem;
     }
 
-    println "13| PFCCG V";
+    println "10| PFCCG V";
 
     prefix_root_enums(addr(ast), module_prefix);
-    
-    println "14| PFCCG VI (Renderer INIT)";
-    
+      
     initialize_renderer();
 
-    println "15| GEN";
+    println "11| GEN";
 
     val c_code: string = generate_c(addr(ast));
 
@@ -224,9 +222,9 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
 
     val c_filename: string = replace_extension(filename, str(".c"));
     write_file(c_filename, c_code);
-    println(concat(str("\nGenerated: "), c_filename));
+    // println(concat(str("\nGenerated: "), c_filename));
     
-    println "\n16| Last compilation pass";
+    println "\n12| Last compilation pass";
 
     val exe_filename: string = get_output_filename(output_filename, filename);
     val needs_omp: bool = should_link_openmp(addr(ast), filename);
