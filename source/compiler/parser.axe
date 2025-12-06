@@ -3387,7 +3387,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 mut full_name: string = ident_name;
 
                 if equals_c(ident_name, "C") {
-                    full_name = member_name;
+                    full_name = concat(str("C."), member_name);
                 } else {
                     full_name = concat(full_name, str("__"));
                     full_name = concat(full_name, member_name);

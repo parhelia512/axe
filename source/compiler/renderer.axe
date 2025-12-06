@@ -277,7 +277,7 @@ def is_c_constant(name: string): bool {
         or has_prefix(name, str("INT_")) or has_prefix(name, str("UINT_")) or has_prefix(name, str("SIZE_"))
         or has_prefix(name, str("PATH_")) or has_prefix(name, str("NAME_"))
         or has_prefix(name, str("S_IS")) or has_prefix(name, str("_S_IF")) or has_prefix(name, str("_A_"))
-        or has_prefix(name, str("WEXITSTATUS"));
+        or has_prefix(name, str("WEXITSTATUS")) or equals_c(name, "RAND_MAX");
 }
 
 /// Check if a function name is a built-in function or C stdlib function
@@ -291,7 +291,8 @@ def is_builtin_function(name: string): bool {
         or equals_c(name, "printf") or equals_c(name, "sprintf") or equals_c(name, "fprintf")
         or equals_c(name, "fopen") or equals_c(name, "fclose") or equals_c(name, "fread") or equals_c(name, "fwrite")
         or equals_c(name, "exit") or equals_c(name, "abort") or equals_c(name, "atexit")
-        or (name.len >= 2 and name.data[0] == 'C' and name.data[1] == '.');
+        or (name.len >= 2 and name.data[0] == 'C' and name.data[1] == '.')
+        or equals_c(name, "srand") or equals_c(name, "rand") or equals_c(name, "time");
 }
 
 /// Check if a symbol is valid (either builtin, imported, or a known model/enum)

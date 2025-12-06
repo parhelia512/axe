@@ -1,3 +1,5 @@
+use std.io;
+
 /// Obtain random seed.
 pub def randomize(): void {
     unsafe {
@@ -13,7 +15,7 @@ pub def random(a: i32, b: i32): i32 {
 }
 
 /// Get random value between two f32s.
-pub def random_float(a: f32, b: f32): f32 {
+pub def random_float(a: f64, b: f64): f64 {
     unsafe {
         return (C.rand() / cast[float](C.RAND_MAX)) * (b - a) + a;
     }
@@ -27,5 +29,5 @@ test {
     assert(random_float(1.0, 10.0) >= 1.0, "Random float should be between 1.0 and 10.0");
     assert(random_float(1.0, 10.0) <= 10.0, "Random float should be between 1.0 and 10.0");
 
-    print_f32(random_float(1.0, 10.0));
+    print_f64(random_float(1.0, 10.0));
 }
