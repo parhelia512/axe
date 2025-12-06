@@ -23,6 +23,7 @@ use std.lists;
 use std.maps;
 use std.os;
 
+/// Global map tracking processed module paths
 mut g_processed_modules: StringBoolMap;
 
 /// Global map tracking model short names to their prefixed C names
