@@ -71,7 +71,7 @@ def main() {
         set_loud_logger(true);
     }
 
-    if strlst_contains_c(deref(args), "--quiet") {
+    if strlst_contains_c(deref(args), "-q") or strlst_contains_c(deref(args), "--quiet") {
         set_quiet_mode(true);
     }
 
