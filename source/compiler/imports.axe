@@ -33,6 +33,7 @@ mut g_import_model_names: StringStringMap;
 /// Global arena for model name storage
 mut g_model_names_arena: Arena;
 
+/// Resets the processed modules and model name mappings
 pub def reset_processed_modules() {
     mut arena: Arena = Arena.create(1024 * 16);
     g_processed_modules = deref(StringBoolMap.create(addr(arena), 128));
