@@ -84,6 +84,9 @@ mut g_function_return_types: StringStringMap;
 /// Current source file name for #line directives
 mut g_current_source_file: string;
 
+/// Current source line number
+mut g_current_line: i32;
+
 /// Whether to emit #line directives
 mut g_emit_line_directives: bool;
 
@@ -535,7 +538,10 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
     val expected_types_str: string = StringStringMap.get(addr(g_function_param_types), lookup_name);
     if str_len(expected_types_str) == 0 {
         if len(arg_list) > 0 {
-             print "error: function '";
+             print g_current_source_file;
+             print ":";
+             print(i32_to_string(g_current_line));
+             print ": error: function '";
              print func_name;
              print "' expects 0 argument(s), but ";
              print(i32_to_string(len(arg_list)));
@@ -573,7 +579,10 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
     }
     
     if len(arg_list) != len(expected_types) {
-        print "error: function '";
+        print g_current_source_file;
+        print ":";
+        print(i32_to_string(g_current_line));
+        print ": error: function '";
         print func_name;
         print "' expects ";
         print(i32_to_string(len(expected_types)));
@@ -599,7 +608,10 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
         val mapped_expected: string = map_axe_type_to_c(expected_type);
         
         if str_len(inferred_type) > 0 and compare(mapped_inferred, mapped_expected) != 0 {
-            print "error: type mismatch in call to '";
+            print g_current_source_file;
+            print ":";
+            print(i32_to_string(g_current_line));
+            print ": error: type mismatch in call to '";
             print func_name;
             print "': argument ";
             print(i32_to_string(arg_idx + 1));
@@ -3618,7 +3630,10 @@ def check_variable_declared(name: string) {
     if StringBoolMap.contains(addr(g_opaque_types), name) { if equals_c(name, "y") { println "DEBUG: y found in g_opaque_types"; } return; }
     if is_symbol_imported(name) { if equals_c(name, "y") { println "DEBUG: y is imported"; } return; }
     
-    print "error: undefined symbol: ";
+    print g_current_source_file;
+    print ":";
+    print(i32_to_string(g_current_line));
+    print ": error: undefined symbol: ";
     print name;
     println "";
 
@@ -4392,6 +4407,10 @@ def generate_global_decl(ast: ref ASTNode): string {
 
 /// Generate C from AST.
 pub def generate_c(ast: ref ASTNode): string {
+    if ast != nil {
+        g_current_line = ast.line;
+    }
+
     mut sb_top_level: StringBuilder = StringBuilder.init(1024 * 128);
     mut result: string = str("");
 
