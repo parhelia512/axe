@@ -30,6 +30,9 @@ mut g_model_names: StringStringMap;
 /// Enum names
 mut g_enum_names: StringBoolMap;
 
+/// Opaque types (external C types that don't need import checking)
+mut g_opaque_types: StringBoolMap;
+
 /// Generated typedefs to avoid duplicates
 mut g_generated_typedefs: StringBoolMap;
 
@@ -125,6 +128,7 @@ pub def initialize_renderer() {
     g_function_prefixes = deref(StringStringMap.create(addr(arena), 128));
     g_model_names = deref(StringStringMap.create(addr(arena), 128));
     g_enum_names = deref(StringBoolMap.create(addr(arena), 128));
+    g_opaque_types = deref(StringBoolMap.create(addr(arena), 128));
     g_generated_typedefs = deref(StringBoolMap.create(addr(arena), 128));
     g_generated_functions = deref(StringBoolMap.create(addr(arena), 128));
     g_field_types = deref(StringStringMap.create(addr(arena), 128));
@@ -194,12 +198,22 @@ def is_builtin_type(type_name: string): bool {
 def extract_base_type(type_name: string): string {
     mut result: string = strip(type_name);
     
-    if has_prefix(result, str("mut ")) {
-        result = strip(substr(result, 4, str_len(result) - 4));
-    }
-    
-    if has_prefix(result, str("ref ")) {
-        result = strip(substr(result, 4, str_len(result) - 4));
+    loop {
+        mut changed: bool = false;
+        
+        if has_prefix(result, str("mut ")) {
+            result = strip(substr(result, 4, str_len(result) - 4));
+            changed = true;
+        }
+        
+        if has_prefix(result, str("ref ")) {
+            result = strip(substr(result, 4, str_len(result) - 4));
+            changed = true;
+        }
+        
+        if !changed {
+            break;
+        }
     }
     
     if has_prefix(result, str("list(")) {
@@ -215,8 +229,12 @@ def extract_base_type(type_name: string): string {
         result = strip(substring_se(result, 0, br_idx));
     }
     
-    if has_suffix(result, str("*")) {
-        result = strip(substring_se(result, 0, str_len(result) - 1));
+    loop {
+        if has_suffix(result, str("*")) {
+            result = strip(substring_se(result, 0, str_len(result) - 1));
+        } else {
+            break;
+        }
     }
     
     return result;
@@ -244,6 +262,10 @@ def is_valid_symbol(symbol_name: string): bool {
     }
     
     if is_language_keyword(symbol_name) {
+        return true;
+    }
+    
+    if StringBoolMap.contains(addr(g_opaque_types), symbol_name) {
         return true;
     }
     
@@ -7159,6 +7181,7 @@ pub def generate_c(ast: ref ASTNode): string {
     if equals_c(node_type, "Opaque") {
         mut onames: ref list(string) = ast.data.opaque_node.type_names;
         if onames != nil {
+            mut arena_opaque: Arena = Arena.create(2560);
             mut sb_opaque: StringBuilder = StringBuilder.init(512);
             mut oi: i32 = 0;
             loop {
@@ -7166,6 +7189,7 @@ pub def generate_c(ast: ref ASTNode): string {
                     break;
                 }
                 val type_name: string = onames.data[oi];
+                StringBoolMap.set(addr(g_opaque_types), addr(arena_opaque), type_name, true);
                 StringBuilder.append_c(addr(sb_opaque), "typedef struct ");
                 StringBuilder.append(addr(sb_opaque), type_name);
                 StringBuilder.append_char(addr(sb_opaque), ' ');
