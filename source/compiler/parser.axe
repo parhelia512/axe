@@ -39,6 +39,7 @@ pub def initialize_all() {
     g_macro_defs.len = 0;
 }
 
+/// Register a macro definition
 def macros_add(name: string, defn: MacroDef) {
     mut i: i32 = 0;
     loop {
@@ -56,6 +57,7 @@ def macros_add(name: string, defn: MacroDef) {
     append(g_macro_defs, defn);
 }
 
+/// Check if a macro with the given name exists
 def macros_contains(name: string): bool {
     mut i: i32 = 0;
     loop {
@@ -70,6 +72,7 @@ def macros_contains(name: string): bool {
     return false;
 }
 
+/// Get a macro definition by name
 def macros_get(name: string): MacroDef {
     mut i: i32 = 0;
     loop {
@@ -149,6 +152,19 @@ def is_variable_mutable(var_name: string): bool {
         debug_print_raw "\n[DEBUG]   mutable: false";
     }
     return mut_val;
+}
+
+/// Check if an identifier is NULL and report an error.
+def check_null_usage(ctx: ref ParserContext, ident: string) {
+    if equals_c(ident, "NULL") {
+        print ctx.filename;
+        print ":";
+        print(i32_to_string(current_line(ctx)));
+        println ": error: usage of raw NULL is prohibited, use 'nil' instead.";
+        unsafe {
+            C.exit(1);
+        }
+    }
 }
 
 /// Add a child AST node to a parent AST node
@@ -248,6 +264,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
     if token_type == TokenType.IDENTIFIER {
         val ident_tok: Token = ctx.tokens.data[ctx.pos];
         val ident_name: string = ident_tok.value;
+        check_null_usage(ctx, ident_name);
 
         if macros_contains(ident_name) {
             ctx.pos = ctx.pos + 1; // skip macro name
@@ -1514,6 +1531,7 @@ def parse_type(ctx: ref ParserContext): string {
     
     if current_token.token_type == TokenType.IDENTIFIER {
         type_name = current_token.value;
+        check_null_usage(ctx, type_name);
         consume(ctx);
         
         // Handle list(ElementType) syntax
@@ -2890,6 +2908,9 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     } elif t.token_type == TokenType.WHITESPACE or t.token_type == TokenType.NEWLINE {
                         // skip it
                     } else {
+                        if t.token_type == TokenType.IDENTIFIER {
+                            check_null_usage(ctx, t.value);
+                        }
                         initializer = concat(initializer, t.value);
                         initializer = concat(initializer, str(" "));
                     }
@@ -3057,6 +3078,9 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     } elif t.token_type == TokenType.WHITESPACE or t.token_type == TokenType.NEWLINE {
                         // skip adding explicit whitespace
                     } else {
+                        if t.token_type == TokenType.IDENTIFIER {
+                            check_null_usage(ctx, t.value);
+                        }
                         initializer = concat(initializer, t.value);
                         initializer = concat(initializer, str(" "));
                     }
@@ -3210,6 +3234,9 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     // normalize to single space
                     args_str = concat(args_str, str(" "));
                 } else {
+                    if t.token_type == TokenType.IDENTIFIER {
+                        check_null_usage(ctx, t.value);
+                    }
                     args_str = concat(args_str, t.value);
                 }
                 consume(ctx);
@@ -3249,6 +3276,9 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     } elif vt.token_type == TokenType.WHITESPACE or vt.token_type == TokenType.NEWLINE {
                         value_str = concat(value_str, str(" "));
                     } else {
+                        if vt.token_type == TokenType.IDENTIFIER {
+                            check_null_usage(ctx, vt.value);
+                        }
                         value_str = concat(value_str, vt.value);
                     }
                     consume(ctx);
