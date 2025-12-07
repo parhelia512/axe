@@ -7257,7 +7257,7 @@ pub def generate_c(ast: ref ASTNode): string {
                 }
                 val child_code: string = generate_c(addr(children.data[i_par]));
                 StringBuilder.append(addr(sb_par), child_code);
-                i_par = i_par + 1;
+                i_par++;
             }
         }
         
