@@ -5902,6 +5902,22 @@ pub def generate_c(ast: ref ASTNode): string {
         mut sb_func: StringBuilder = StringBuilder.init(4096);
         
         StringBuilder.append(addr(sb_func), emit_line_directive(ast.line));
+        
+        val func_tags: ref list(string) = ast.data.function.tags;
+        if func_tags != nil {
+            mut tag_idx: i32 = 0;
+            loop {
+                if tag_idx >= len(deref(func_tags)) {
+                    break;
+                }
+                val tag: string = func_tags.data[tag_idx];
+                if equals_c(tag, "inline") {
+                    StringBuilder.append_c(addr(sb_func), "inline ");
+                }
+                tag_idx = tag_idx + 1;
+            }
+        }
+        
         StringBuilder.append(addr(sb_func), mapped_return_type);
         StringBuilder.append_char(addr(sb_func), ' ');
         StringBuilder.append(addr(sb_func), func_name);

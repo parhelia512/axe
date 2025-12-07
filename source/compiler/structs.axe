@@ -89,6 +89,7 @@ pub model ASTNode {
             params: list(string);
             return_type: string;
             is_public: bool;
+            tags: ref list(string);
         };
         
         macro_node: model {

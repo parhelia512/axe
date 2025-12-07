@@ -455,6 +455,42 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         return;
     }
     
+    // Handle function tags like [inline]
+    if token_type == TokenType.LBRACKET {
+        mut tags: list(string);
+        ctx.pos++;
+        skip_whitespace(ctx);
+        
+        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.IDENTIFIER {
+            val tag_name: string = ctx.tokens.data[ctx.pos].value;
+            append(tags, tag_name);
+            ctx.pos++;
+            skip_whitespace(ctx);
+        }
+        
+        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.RBRACKET {
+            ctx.pos++;
+            skip_whitespace(ctx);
+        }
+        
+        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.DEF {
+            ctx.pos++;
+            mut func_node: ASTNode = parse_function(ctx);
+            if str_len(func_node.node_type) > 0 {
+                unsafe {
+                    val tags_size: usize = C.sizeof(list(string));
+                    val heap_tags: ref list(string) = cast[ref list(string)](C.malloc(tags_size));
+                    if heap_tags != nil {
+                        C.memcpy(heap_tags, addr(tags), tags_size);
+                        func_node.data.function.tags = heap_tags;
+                    }
+                }
+                add_child_to_ast(ast, func_node);
+            }
+        }
+        return;
+    }
+    
     if token_type == TokenType.DEF {
         ctx.pos++; // Skip 'def'
         mut func_node: ASTNode = parse_function(ctx);
