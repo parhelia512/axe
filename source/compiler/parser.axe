@@ -324,7 +324,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
             skip_whitespace(ctx);
 
             if !expect(ctx, TokenType.SEMICOLON) {
-                enforce_raw(false, "ERROR: Expected ';' after macro invocation");
+                enforce_raw(false, "Expected ';' after macro invocation");
                 return;
             }
             consume(ctx);
@@ -519,7 +519,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
 
         skip_whitespace(ctx);
         if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.LBRACE {
-            enforce_raw(false, "ERROR: Expected '{' after model name");
+            enforce_raw(false, "Expected '{' after model name");
             return;
         }
         ctx.pos++; // Skip '{'
@@ -848,7 +848,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         skip_whitespace(ctx);
 
         if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.IDENTIFIER {
-            enforce_raw(false, "ERROR: Expected enum name after 'enum'");
+            enforce_raw(false, "Expected enum name after 'enum'");
             return;
         }
 
@@ -858,7 +858,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
 
         skip_whitespace(ctx);
         if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.LBRACE {
-            enforce_raw(false, "ERROR: Expected '{' after enum name");
+            enforce_raw(false, "Expected '{' after enum name");
             return;
         }
 
@@ -972,21 +972,21 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.IDENTIFIER) {
-            enforce_raw(false, "ERROR: Expected overload name after 'overload'");
+            enforce_raw(false, "Expected overload name after 'overload'");
             return;
         }
         val overload_name: Token = consume(ctx);
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.LPAREN) {
-            enforce_raw(false, "ERROR: Expected '(' after overload name");
+            enforce_raw(false, "Expected '(' after overload name");
             return;
         }
         consume(ctx);
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.IDENTIFIER) {
-            enforce_raw(false, "ERROR: Expected parameter name in overload");
+            enforce_raw(false, "Expected parameter name in overload");
             return;
         }
         val param_name_token: Token = consume(ctx);
@@ -1003,14 +1003,14 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         }
         
         if !expect(ctx, TokenType.RPAREN) {
-            enforce_raw(false, "ERROR: Expected ')' after overload parameter");
+            enforce_raw(false, "Expected ')' after overload parameter");
             return;
         }
         consume(ctx);
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.LBRACE) {
-            enforce_raw(false, "ERROR: Expected '{' after overload header");
+            enforce_raw(false, "Expected '{' after overload header");
             return;
         }
         consume(ctx);
@@ -1029,7 +1029,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
             }
             
             if !expect(ctx, TokenType.IDENTIFIER) {
-                enforce_raw(false, "ERROR: Expected type name in overload mapping");
+                enforce_raw(false, "Expected type name in overload mapping");
                 return;
             }
             val type_token: Token = consume(ctx);
@@ -1046,18 +1046,18 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
             
             // Expect '=>'
             if !expect(ctx, TokenType.OPERATOR) {
-                enforce_raw(false, "ERROR: Expected '=>' in overload mapping");
+                enforce_raw(false, "Expected '=>' in overload mapping");
                 return;
             }
             val op_token: Token = consume(ctx);
             if !equals_c(op_token.value, "=>") {
-                enforce_raw(false, "ERROR: Expected '=>' in overload mapping");
+                enforce_raw(false, "Expected '=>' in overload mapping");
                 return;
             }
             skip_whitespace(ctx);
             
             if !expect(ctx, TokenType.IDENTIFIER) {
-                enforce_raw(false, "ERROR: Expected target function name in overload mapping");
+                enforce_raw(false, "Expected target function name in overload mapping");
                 return;
             }
             val first_target_token: Token = consume(ctx);
@@ -1093,7 +1093,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         }
         
         if !expect(ctx, TokenType.RBRACE) {
-            enforce_raw(false, "ERROR: Expected '}' after overload mappings");
+            enforce_raw(false, "Expected '}' after overload mappings");
             return;
         }
         consume(ctx);
@@ -1101,7 +1101,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         
         // Parse call expression: (expr)
         if !expect(ctx, TokenType.LPAREN) {
-            enforce_raw(false, "ERROR: Expected '(' with call expression after overload block");
+            enforce_raw(false, "Expected '(' with call expression after overload block");
             return;
         }
         consume(ctx);
@@ -1130,14 +1130,14 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         }
         
         if !expect(ctx, TokenType.RPAREN) {
-            enforce_raw(false, "ERROR: Expected ')' after overload call expression");
+            enforce_raw(false, "Expected ')' after overload call expression");
             return;
         }
         consume(ctx);
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.SEMICOLON) {
-            enforce_raw(false, "ERROR: Expected ';' after overload definition");
+            enforce_raw(false, "Expected ';' after overload definition");
             return;
         }
         consume(ctx);
@@ -1180,7 +1180,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         skip_whitespace(ctx);
 
         if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.IDENTIFIER {
-            enforce_raw(false, "ERROR: Expected macro name after 'macro'");
+            enforce_raw(false, "Expected macro name after 'macro'");
             return;
         }
 
@@ -1210,7 +1210,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
             }
 
             if !expect(ctx, TokenType.IDENTIFIER) {
-                enforce_raw(false, "ERROR: Expected parameter name in macro definition");
+                enforce_raw(false, "Expected parameter name in macro definition");
                 return;
             }
 
@@ -1220,7 +1220,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
             skip_whitespace(ctx);
 
             if !expect(ctx, TokenType.COLON) {
-                enforce_raw(false, "ERROR: Expected ':' after macro parameter name");
+                enforce_raw(false, "Expected ':' after macro parameter name");
                 return;
             }
             consume(ctx);
@@ -1228,7 +1228,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
             skip_whitespace(ctx);
 
             if !expect(ctx, TokenType.IDENTIFIER) {
-                enforce_raw(false, "ERROR: Expected type after ':' in macro parameter");
+                enforce_raw(false, "Expected type after ':' in macro parameter");
                 return;
             }
 
@@ -1249,7 +1249,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         skip_whitespace(ctx);
 
         if !expect(ctx, TokenType.LBRACE) {
-            enforce_raw(false, "ERROR: Expected '{' after macro header");
+            enforce_raw(false, "Expected '{' after macro header");
             return;
         }
         consume(ctx); // '{'
@@ -1287,7 +1287,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         }
 
         if brace_depth != 0 {
-            enforce_raw(false, "ERROR: Expected '}' after macro body");
+            enforce_raw(false, "Expected '}' after macro body");
             return;
         }
 
@@ -1443,7 +1443,7 @@ def parse_type(ctx: ref ParserContext): string {
             skip_whitespace(ctx);
             
             if !expect(ctx, TokenType.LPAREN) {
-                enforce_raw(false, "ERROR: Expected '(' after 'list'");
+                enforce_raw(false, "Expected '(' after 'list'");
                 return str("");
             }
             consume(ctx);
@@ -1454,7 +1454,7 @@ def parse_type(ctx: ref ParserContext): string {
             
             skip_whitespace(ctx);
             if !expect(ctx, TokenType.RPAREN) {
-                enforce_raw(false, "ERROR: Expected ')' after list element type");
+                enforce_raw(false, "Expected ')' after list element type");
                 return str("");
             }
             consume(ctx);
@@ -1495,7 +1495,7 @@ def parse_type(ctx: ref ParserContext): string {
             }
         }
     } else {
-        enforce_raw(false, "ERROR: Invalid type specification");
+        enforce_raw(false, "Invalid type specification");
         return str("");
     }
     
@@ -1537,7 +1537,7 @@ def parse_function(ctx: ref ParserContext): ASTNode {
     
     skip_whitespace(ctx);
     if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.IDENTIFIER {
-        enforce_raw(false, "ERROR: Expected function name after 'def'");
+        enforce_raw(false, "Expected function name after 'def'");
         return func;
     }
     
@@ -1789,7 +1789,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.SEMICOLON) {
-            enforce_raw(false, "ERROR: Expected ';' after break");
+            enforce_raw(false, "Expected ';' after break");
             return node;
         }
         consume(ctx);
@@ -1805,7 +1805,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.SEMICOLON) {
-            enforce_raw(false, "ERROR: Expected ';' after continue");
+            enforce_raw(false, "Expected ';' after continue");
             return node;
         }
         consume(ctx);
@@ -1867,14 +1867,14 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
         
         if !expect(ctx, TokenType.COMMA) {
-            enforce_raw(false, "ERROR: Expected ',' after assert condition");
+            enforce_raw(false, "Expected ',' after assert condition");
             return node;
         }
         consume(ctx);
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.STR) {
-            enforce_raw(false, "ERROR: Expected string message after comma in assert");
+            enforce_raw(false, "Expected string message after comma in assert");
             return node;
         }
         val message_token: Token = consume(ctx);
@@ -1883,7 +1883,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         
         if has_parens {
             if !expect(ctx, TokenType.RPAREN) {
-                enforce_raw(false, "ERROR: Expected ')' after assert message");
+                enforce_raw(false, "Expected ')' after assert message");
                 return node;
             }
             consume(ctx);
@@ -1891,7 +1891,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
         
         if !expect(ctx, TokenType.SEMICOLON) {
-            enforce_raw(false, "ERROR: Expected ';' after assert statement");
+            enforce_raw(false, "Expected ';' after assert statement");
             return node;
         }
         consume(ctx);
@@ -1949,7 +1949,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
         
         if !expect(ctx, TokenType.SEMICOLON) {
-            enforce_raw(false, "ERROR: Expected ';' after return");
+            enforce_raw(false, "Expected ';' after return");
             return node;
         }
         consume(ctx);
@@ -1969,7 +1969,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         skip_whitespace(ctx);
 
         if !expect(ctx, TokenType.LBRACE) {
-            enforce_raw(false, "ERROR: Expected '{' after loop");
+            enforce_raw(false, "Expected '{' after loop");
             return node;
         }
         consume(ctx); // skip '{'
@@ -2034,7 +2034,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
         
         if !expect(ctx, TokenType.LBRACE) {
-            enforce_raw(false, "ERROR: Expected '{' after switch expression");
+            enforce_raw(false, "Expected '{' after switch expression");
             return node;
         }
         consume(ctx);
@@ -2123,7 +2123,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
 
         if !expect(ctx, TokenType.LBRACE) {
-            enforce_raw(false, "ERROR: Expected '{' after if condition");
+            enforce_raw(false, "Expected '{' after if condition");
             return node;
         }
         consume(ctx); // skip '{'
@@ -2225,7 +2225,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             }
 
             if !expect(ctx, TokenType.LBRACE) {
-                enforce_raw(false, "ERROR: Expected '{' after elif condition");
+                enforce_raw(false, "Expected '{' after elif condition");
                 return node;
             }
             consume(ctx); // skip '{'
@@ -2286,7 +2286,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             skip_whitespace(ctx);
 
             if !expect(ctx, TokenType.LBRACE) {
-                enforce_raw(false, "ERROR: Expected '{' after else");
+                enforce_raw(false, "Expected '{' after else");
                 return node;
             }
             consume(ctx); // skip '{'
@@ -2474,7 +2474,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         
         if is_for_in {
             if !expect(ctx, TokenType.IDENTIFIER) {
-                enforce_raw(false, "ERROR: Expected variable name in for-in loop");
+                enforce_raw(false, "Expected variable name in for-in loop");
                 return node;
             }
             val item_var_token: Token = consume(ctx);
@@ -2482,7 +2482,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             skip_whitespace(ctx);
             
             if !expect(ctx, TokenType.IN) {
-                enforce_raw(false, "ERROR: Expected 'in' in for-in loop");
+                enforce_raw(false, "Expected 'in' in for-in loop");
                 return node;
             }
             consume(ctx); // skip 'in'
@@ -2507,7 +2507,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             collection = strip(collection);
             
             if !expect(ctx, TokenType.LBRACE) {
-                enforce_raw(false, "ERROR: Expected '{' after for-in header");
+                enforce_raw(false, "Expected '{' after for-in header");
                 return node;
             }
             consume(ctx); // skip '{'
@@ -2565,7 +2565,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
 
         if !expect(ctx, TokenType.LBRACE) {
-            enforce_raw(false, "ERROR: Expected '{' after for header");
+            enforce_raw(false, "Expected '{' after for header");
             return node;
         }
         consume(ctx); // skip '{'
@@ -2712,7 +2712,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.IDENTIFIER) {
-            enforce_raw(false, "ERROR: Expected identifier after 'val'");
+            enforce_raw(false, "Expected identifier after 'val'");
             return node;
         }
         val var_name: Token = consume(ctx);
@@ -2791,7 +2791,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 }
                 
                 if !found_semicolon {
-                    enforce_raw(false, "ERROR: Expected ';' after val declaration");
+                    enforce_raw(false, "Expected ';' after val declaration");
                     return node;
                 }
 
@@ -2876,7 +2876,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
         
         if !expect(ctx, TokenType.IDENTIFIER) {
-            enforce_raw(false, "ERROR: Expected identifier after 'mut'");
+            enforce_raw(false, "Expected identifier after 'mut'");
             return node;
         }
         val var_name: Token = consume(ctx);
@@ -2955,7 +2955,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 }
                 
                 if !found_semicolon_mut {
-                    enforce_raw(false, "ERROR: Expected ';' after mut declaration");
+                    enforce_raw(false, "Expected ';' after mut declaration");
                     return node;
                 }
 
@@ -3144,7 +3144,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 }
                 
                 if !expect(ctx, TokenType.SEMICOLON) {
-                    enforce_raw(false, "ERROR: Expected ';' after function call assignment");
+                    enforce_raw(false, "Expected ';' after function call assignment");
                     return node;
                 }
                 consume(ctx);
@@ -3161,7 +3161,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             }
             
             if !expect(ctx, TokenType.SEMICOLON) {
-                enforce_raw(false, "ERROR: Expected ';' after function call");
+                enforce_raw(false, "Expected ';' after function call");
                 return node;
             }
             consume(ctx);
@@ -3216,7 +3216,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             }
             
             if !expect(ctx, TokenType.RBRACKET) {
-                enforce_raw(false, "ERROR: Expected ']' after array index");
+                enforce_raw(false, "Expected ']' after array index");
                 return node;
             }
             consume(ctx);
@@ -3252,7 +3252,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 }
                 
                 if !expect(ctx, TokenType.RBRACKET) {
-                    enforce_raw(false, "ERROR: Expected ']' after second array index");
+                    enforce_raw(false, "Expected ']' after second array index");
                     return node;
                 }
                 consume(ctx);
@@ -3325,7 +3325,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             skip_whitespace(ctx);
             
             if !expect(ctx, TokenType.IDENTIFIER) {
-                enforce_raw(false, "ERROR: Expected member name after '.'");
+                enforce_raw(false, "Expected member name after '.'");
                 return node;
             }
 
@@ -3468,7 +3468,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 }
                 
                 if !expect(ctx, TokenType.RBRACKET) {
-                    enforce_raw(false, "ERROR: Expected ']' after member array index");
+                    enforce_raw(false, "Expected ']' after member array index");
                     return node;
                 }
                 consume(ctx);
@@ -3504,7 +3504,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     }
                     
                     if !expect(ctx, TokenType.RBRACKET) {
-                        enforce_raw(false, "ERROR: Expected ']' after second member array index");
+                        enforce_raw(false, "Expected ']' after second member array index");
                         return node;
                     }
                     consume(ctx);
@@ -3635,7 +3635,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     }
                     
                     if !found_semicolon_member {
-                        enforce_raw(false, "ERROR: Expected ';' after member assignment");
+                        enforce_raw(false, "Expected ';' after member assignment");
                         return node;
                     }
                     
@@ -3655,7 +3655,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 skip_whitespace(ctx);
                 
                 if !expect(ctx, TokenType.SEMICOLON) {
-                    enforce_raw(false, "ERROR: Expected ';' after member increment/decrement");
+                    enforce_raw(false, "Expected ';' after member increment/decrement");
                     return node;
                 }
                 consume(ctx);
@@ -3691,7 +3691,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             skip_whitespace(ctx);
             
             if !expect(ctx, TokenType.IDENTIFIER) {
-                enforce_raw(false, "ERROR: Expected member name after '*.'");
+                enforce_raw(false, "Expected member name after '*.'");
                 return node;
             }
             
@@ -3730,7 +3730,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 }
                 
                 if !expect(ctx, TokenType.RBRACKET) {
-                    enforce_raw(false, "ERROR: Expected ']' after pointer member array index");
+                    enforce_raw(false, "Expected ']' after pointer member array index");
                     return node;
                 }
                 consume(ctx);
@@ -3766,7 +3766,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     }
                     
                     if !expect(ctx, TokenType.RBRACKET) {
-                        enforce_raw(false, "ERROR: Expected ']' after second pointer member array index");
+                        enforce_raw(false, "Expected ']' after second pointer member array index");
                         return node;
                     }
                     consume(ctx);
@@ -3880,7 +3880,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     }
                     
                     if !found_semicolon_ptr {
-                        enforce_raw(false, "ERROR: Expected ';' after pointer member assignment");
+                        enforce_raw(false, "Expected ';' after pointer member assignment");
                         return node;
                     }
                     
@@ -3899,7 +3899,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 skip_whitespace(ctx);
                 
                 if !expect(ctx, TokenType.SEMICOLON) {
-                    enforce_raw(false, "ERROR: Expected ';' after pointer member increment/decrement");
+                    enforce_raw(false, "Expected ';' after pointer member increment/decrement");
                     return node;
                 }
                 consume(ctx);
@@ -3991,7 +3991,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             }
             
             if !found_semicolon_compound {
-                enforce_raw(false, "ERROR: Expected ';' after compound assignment");
+                enforce_raw(false, "Expected ';' after compound assignment");
                 return node;
             }
 
@@ -4079,7 +4079,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             }
             
             if !found_semicolon_assign {
-                enforce_raw(false, "ERROR: Expected ';' after assignment");
+                enforce_raw(false, "Expected ';' after assignment");
                 return node;
             }
 
@@ -4125,7 +4125,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             }
             
             if !expect(ctx, TokenType.SEMICOLON) {
-                enforce_raw(false, "ERROR: Expected ';' after increment/decrement");
+                enforce_raw(false, "Expected ';' after increment/decrement");
                 return node;
             }
             consume(ctx);
@@ -4171,7 +4171,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
         
         if !found_semicolon_sugar {
-            enforce_raw(false, "ERROR: Expected ';' after function call");
+            enforce_raw(false, "Expected ';' after function call");
             return node;
         }
 
@@ -4202,7 +4202,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.WINDOWS) and !expect(ctx, TokenType.POSIX) {
-            enforce_raw(false, "ERROR: Expected 'windows' or 'posix' after 'platform'");
+            enforce_raw(false, "Expected 'windows' or 'posix' after 'platform'");
             return node;
         }
         val platform_token: Token = consume(ctx);
@@ -4210,7 +4210,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.LBRACE) {
-            enforce_raw(false, "ERROR: Expected '{' after platform name");
+            enforce_raw(false, "Expected '{' after platform name");
             return node;
         }
         consume(ctx);
@@ -4365,7 +4365,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             }
             
             if !expect(ctx, TokenType.LBRACE) {
-                enforce_raw(false, "ERROR: Expected '{' after parallel for header");
+                enforce_raw(false, "Expected '{' after parallel for header");
                 return node;
             }
             consume(ctx);
@@ -4433,7 +4433,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             skip_whitespace(ctx);
             
             if !expect(ctx, TokenType.LPAREN) {
-                enforce_raw(false, "ERROR: Expected '(' after 'parallel local'");
+                enforce_raw(false, "Expected '(' after 'parallel local'");
                 return node;
             }
             consume(ctx);
@@ -4465,7 +4465,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 }
                 
                 if !expect(ctx, TokenType.IDENTIFIER) {
-                    enforce_raw(false, "ERROR: Expected variable name in parallel local");
+                    enforce_raw(false, "Expected variable name in parallel local");
                     return node;
                 }
 
@@ -4474,7 +4474,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 skip_whitespace(ctx);
                 
                 if !expect(ctx, TokenType.COLON) {
-                    enforce_raw(false, "ERROR: Expected ':' after variable name in parallel local");
+                    enforce_raw(false, "Expected ':' after variable name in parallel local");
                     return node;
                 }
 
@@ -4518,7 +4518,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             skip_whitespace(ctx);
             
             if !expect(ctx, TokenType.LBRACE) {
-                enforce_raw(false, "ERROR: Expected '{' after parallel local declaration");
+                enforce_raw(false, "Expected '{' after parallel local declaration");
                 return node;
             }
             consume(ctx);
@@ -4577,7 +4577,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
         
         if !expect(ctx, TokenType.LBRACE) {
-            enforce_raw(false, "ERROR: Expected '{' after 'parallel'");
+            enforce_raw(false, "Expected '{' after 'parallel'");
             return node;
         }
         consume(ctx);
@@ -4620,7 +4620,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.LBRACE) {
-            enforce_raw(false, "ERROR: Expected '{' after 'single'");
+            enforce_raw(false, "Expected '{' after 'single'");
             return node;
         }
         consume(ctx);
@@ -4663,7 +4663,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.LBRACE) {
-            enforce_raw(false, "ERROR: Expected '{' after 'unsafe'");
+            enforce_raw(false, "Expected '{' after 'unsafe'");
             return node;
         }
         consume(ctx); // Skip '{'
@@ -4702,7 +4702,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
     // Handle RAW (only in .axec files)
     if token_type == TokenType.RAW {
         if !ctx.is_axec {
-            enforce_raw(false, "ERROR: Raw C blocks are only allowed in .axec files");
+            enforce_raw(false, "Raw C blocks are only allowed in .axec files");
             return node;
         }
 
@@ -4710,7 +4710,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         skip_whitespace(ctx);
 
         if !expect(ctx, TokenType.LBRACE) {
-            enforce_raw(false, "ERROR: Expected '{' after 'raw'");
+            enforce_raw(false, "Expected '{' after 'raw'");
             return node;
         }
         consume(ctx); // '{'
@@ -4720,7 +4720,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
 
         loop {
             if ctx.pos >= len(ctx.tokens) {
-                enforce_raw(false, "ERROR: Unexpected end of tokens in raw block");
+                enforce_raw(false, "Unexpected end of tokens in raw block");
                 return node;
             }
 
@@ -4760,7 +4760,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
 
         if !expect(ctx, TokenType.RBRACE) {
-            enforce_raw(false, "ERROR: Expected '}' after raw block body");
+            enforce_raw(false, "Expected '}' after raw block body");
             return node;
         }
         consume(ctx); // '}'
@@ -4776,7 +4776,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.LBRACE) {
-            enforce_raw(false, "ERROR: Expected '{' after 'opaque'");
+            enforce_raw(false, "Expected '{' after 'opaque'");
             return node;
         }
         consume(ctx);
@@ -4832,7 +4832,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.DEF) {
-            enforce_raw(false, "ERROR: Expected 'def' after 'extern'");
+            enforce_raw(false, "Expected 'def' after 'extern'");
             return node;
         }
         consume(ctx);
@@ -4840,7 +4840,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         
         // Get function name
         if !expect(ctx, TokenType.IDENTIFIER) {
-            enforce_raw(false, "ERROR: Expected function name after 'extern def'");
+            enforce_raw(false, "Expected function name after 'extern def'");
             return node;
         }
         val func_name_token: Token = consume(ctx);
@@ -4848,7 +4848,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.LPAREN) {
-            enforce_raw(false, "ERROR: Expected '(' after extern function name");
+            enforce_raw(false, "Expected '(' after extern function name");
             return node;
         }
         consume(ctx); // Skip '('
@@ -4892,7 +4892,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
         
         if !expect(ctx, TokenType.RPAREN) {
-            enforce_raw(false, "ERROR: Expected ')' after extern parameters");
+            enforce_raw(false, "Expected ')' after extern parameters");
             return node;
         }
         consume(ctx); // Skip ')'
@@ -4925,7 +4925,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         
         skip_whitespace(ctx);
         if !expect(ctx, TokenType.SEMICOLON) {
-            enforce_raw(false, "ERROR: Expected ';' after extern declaration");
+            enforce_raw(false, "Expected ';' after extern declaration");
             return node;
         }
         consume(ctx); // Skip ';'
@@ -4957,27 +4957,27 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             skip_whitespace(ctx);
             
             if !expect(ctx, TokenType.LPAREN) {
-                enforce_raw(false, "ERROR: Expected '(' after 'use external'");
+                enforce_raw(false, "Expected '(' after 'use external'");
                 return node;
             }
             consume(ctx);
             
             if !expect(ctx, TokenType.STR) {
-                enforce_raw(false, "ERROR: Expected string literal for header file");
+                enforce_raw(false, "Expected string literal for header file");
                 return node;
             }
             val header_token: Token = consume(ctx);
             val header_file: string = header_token.value;
             
             if !expect(ctx, TokenType.RPAREN) {
-                enforce_raw(false, "ERROR: Expected ')' after header file");
+                enforce_raw(false, "Expected ')' after header file");
                 return node;
             }
             consume(ctx);
             skip_whitespace(ctx);
             
             if !expect(ctx, TokenType.SEMICOLON) {
-                enforce_raw(false, "ERROR: Expected ';' after external import");
+                enforce_raw(false, "Expected ';' after external import");
                 return node;
             }
             consume(ctx);
@@ -5012,7 +5012,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         
         // Parse module path (e.g., std.io or std/maps)
         if !expect(ctx, TokenType.IDENTIFIER) {
-            enforce_raw(false, "ERROR: Expected module name after 'use'");
+            enforce_raw(false, "Expected module name after 'use'");
             return node;
         }
         val first_ident: Token = consume(ctx);
@@ -5025,7 +5025,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 module_name = concat(module_name, str("."));
                 
                 if !expect(ctx, TokenType.IDENTIFIER) {
-                    enforce_raw(false, "ERROR: Expected identifier after '.' in module path");
+                    enforce_raw(false, "Expected identifier after '.' in module path");
                     return node;
                 }
                 val ident: Token = consume(ctx);
@@ -5035,7 +5035,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 module_name = concat(module_name, str("/"));
                 
                 if !expect(ctx, TokenType.IDENTIFIER) {
-                    enforce_raw(false, "ERROR: Expected identifier after '/' in module path");
+                    enforce_raw(false, "Expected identifier after '/' in module path");
                     return node;
                 }
                 val ident: Token = consume(ctx);
@@ -5066,7 +5066,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         
         // Parse selective imports: use module (item1, item2);
         if !expect(ctx, TokenType.LPAREN) {
-            enforce_raw(false, "ERROR: Expected '(' or ';' after module name");
+            enforce_raw(false, "Expected '(' or ';' after module name");
             return node;
         }
         consume(ctx);
@@ -5084,20 +5084,20 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             } elif expect(ctx, TokenType.COMMA) {
                 consume(ctx);
             } else {
-                enforce_raw(false, "ERROR: Expected identifier or ',' in use statement");
+                enforce_raw(false, "Expected identifier or ',' in use statement");
                 return node;
             }
         }
         
         if !expect(ctx, TokenType.RPAREN) {
-            enforce_raw(false, "ERROR: Expected ')' after imports");
+            enforce_raw(false, "Expected ')' after imports");
             return node;
         }
         consume(ctx);
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.SEMICOLON) {
-            enforce_raw(false, "ERROR: Expected ';' after use statement");
+            enforce_raw(false, "Expected ';' after use statement");
             return node;
         }
         consume(ctx);
@@ -5147,7 +5147,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
         
         if !expect(ctx, TokenType.LBRACE) {
-            enforce_raw(false, "ERROR: Expected '{' after case value");
+            enforce_raw(false, "Expected '{' after case value");
             return node;
         }
         consume(ctx);
@@ -5183,7 +5183,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.LBRACE) {
-            enforce_raw(false, "ERROR: Expected '{' after default");
+            enforce_raw(false, "Expected '{' after default");
             return node;
         }
         consume(ctx);
