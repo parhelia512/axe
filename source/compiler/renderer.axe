@@ -4271,9 +4271,8 @@ def generate_function_prototype(ast: ref ASTNode): string {
     }
 
     val mapped_return_type: string = map_axe_type_to_c(return_type);
-
-    // Use StringBuilder for prototype generation
     mut sb: StringBuilder = StringBuilder.init(1512);
+
     StringBuilder.append(addr(sb), mapped_return_type);
     StringBuilder.append_char(addr(sb), ' ');
     StringBuilder.append(addr(sb), func_name);
@@ -4479,7 +4478,7 @@ pub def generate_c(ast: ref ASTNode): string {
     }
 
     mut arena: Arena = Arena.create(1024);
-    mut sb_top_level: StringBuilder = StringBuilder.init(1024 * 128);
+    mut sb_top_level: StringBuilder = StringBuilder.init(1024 * 512);
     mut result: string = str("");
 
     if ast == nil {
@@ -4566,13 +4565,9 @@ pub def generate_c(ast: ref ASTNode): string {
         collect_external_imports(ast, str(""), addr(ext_arena));
         build_function_signatures(ast);
         
-        // Use StringBuilder for efficient string building
-        mut sb: StringBuilder = StringBuilder.init(1024 * 64);
+        mut sb: StringBuilder = StringBuilder.init(1024 * 256);
         
-        StringBuilder.append_c(addr(sb), "#define nil ((void*)0)\n#include <stdio.h>\n#include <stdbool.h>\n#include <stdlib.h>\n#include <string.h>\n#include <stdint.h>\n");
-        StringBuilder.append_c(addr(sb), "#define len_ptr(x) ((x)->len)\n");
-        StringBuilder.append_c(addr(sb), "#define len_v(x) ((&(x))->len)\n");
-        StringBuilder.append_c(addr(sb), "#define len(x) len_v(x)\n");
+        StringBuilder.append_c(addr(sb), "#define nil ((void*)0)\n#include <stdio.h>\n#include <stdbool.h>\n#include <stdlib.h>\n#include <string.h>\n#include <stdint.h>\n#define len_ptr(x) ((x)->len)\n#define len_v(x) ((&(x))->len)\n#define len(x) len_v(x)\n");
 
         platform windows {
             StringBuilder.append_c(addr(sb), "#include <windows.h>\n#define NOMINMAX\n#define NOGDI\n#define WIN32_LEAN_AND_MEAN\n");
@@ -4639,6 +4634,10 @@ pub def generate_c(ast: ref ASTNode): string {
         if ast.children != nil {
             mut use_arena: Arena = Arena.create(4096);
             val use_children: ref list(ASTNode) = ast.children;
+            val dot_str: string = str(".");
+            val underscore_str: string = str("_");
+            val double_underscore_str: string = str("__");
+            val dash_str: string = str("-");
             mut ui: i32 = 0;
             loop {
                 if ui >= len(deref(use_children)) {
@@ -4647,8 +4646,8 @@ pub def generate_c(ast: ref ASTNode): string {
                 val uchild: ref ASTNode = addr(use_children.data[ui]);
                 if equals_c(uchild.node_type, "Use") {
                     val module_name: string = uchild.data.use_node.module_name;
-                    mut module_prefix: string = replace_all(module_name, str("."), str("__"));
-                    module_prefix = replace_all(module_prefix, str("-"), str("_"));
+                    mut module_prefix: string = replace_all(module_name, dot_str, double_underscore_str);
+                    module_prefix = replace_all(module_prefix, dash_str, underscore_str);
                     
                     val imports: ref list(string) = uchild.data.use_node.imports;
                     if imports != nil {
@@ -4662,7 +4661,8 @@ pub def generate_c(ast: ref ASTNode): string {
                                 val first_char: char = get_char(import_name, 0);
                                 if first_char >= 'a' and first_char <= 'z' {
                                     if !StringStringMap.contains(addr(g_function_prefixes), import_name) {
-                                        mut prefixed_name: string = concat(module_prefix, str("__"));
+                                        mut prefixed_name: string = module_prefix;
+                                        prefixed_name = concat(prefixed_name, double_underscore_str);
                                         prefixed_name = concat(prefixed_name, import_name);
                                         StringStringMap.set(addr(g_function_prefixes), addr(use_arena), import_name, prefixed_name);
                                     }
@@ -4678,10 +4678,11 @@ pub def generate_c(ast: ref ASTNode): string {
 
         if ast.children != nil {
             val children_for_models: ref list(ASTNode) = ast.children;
+            val children_count: i32 = len(deref(children_for_models));
             mut model_name_arena: Arena = Arena.create(1024 * 64);
             mut mi: i32 = 0;
             loop {
-                if mi >= len(deref(children_for_models)) {
+                if mi >= children_count {
                     break;
                 }
                 val mchild: ref ASTNode = addr(children_for_models.data[mi]);
@@ -4728,12 +4729,13 @@ pub def generate_c(ast: ref ASTNode): string {
             }
 
             val children: ref list(ASTNode) = ast.children;
+            val children_len: i32 = len(deref(children));
 
             StringBoolMap.clear(addr(g_list_element_types));
 
             mut i_scan: i32 = 0;
             loop {
-                if i_scan >= len(deref(children)) {
+                if i_scan >= children_len {
                     break;
                 }
                 scan_for_list_types(addr(children.data[i_scan]));
@@ -4742,7 +4744,7 @@ pub def generate_c(ast: ref ASTNode): string {
 
             mut i_more: i32 = 0;
             loop {
-                if i_more >= len(deref(children)) {
+                if i_more >= children_len {
                     break;
                 }
                 val cnode: ref ASTNode = addr(children.data[i_more]);
@@ -4803,12 +4805,11 @@ pub def generate_c(ast: ref ASTNode): string {
                 i_more++;
             }
 
-            // Use StringBuilder for forward declarations
-            mut sb_fwd: StringBuilder = StringBuilder.init(4096);
-            
+            mut sb_fwd: StringBuilder = StringBuilder.init(4096);            
             mut i_models2: i32 = 0;
+
             loop {
-                if i_models2 >= len(deref(children)) {
+                if i_models2 >= children_len {
                     break;
                 }
                 val m_child: ref ASTNode = addr(children.data[i_models2]);
@@ -4826,7 +4827,7 @@ pub def generate_c(ast: ref ASTNode): string {
 
             mut i_models3: i32 = 0;
             loop {
-                if i_models3 >= len(deref(children)) {
+                if i_models3 >= children_len {
                     break;
                 }
                 val m_child: ref ASTNode = addr(children.data[i_models3]);
@@ -4870,7 +4871,7 @@ pub def generate_c(ast: ref ASTNode): string {
 
             mut i_opaque_plat: i32 = 0;
             loop {
-                if i_opaque_plat >= len(deref(children)) {
+                if i_opaque_plat >= children_len {
                     break;
                 }
                 val op_plat: ref ASTNode = addr(children.data[i_opaque_plat]);
@@ -4921,7 +4922,7 @@ pub def generate_c(ast: ref ASTNode): string {
 
             mut i_enums: i32 = 0;
             loop {
-                if i_enums >= len(deref(children)) {
+                if i_enums >= children_len {
                     break;
                 }
                 val enum_child: ref ASTNode = addr(children.data[i_enums]);
@@ -4940,7 +4941,7 @@ pub def generate_c(ast: ref ASTNode): string {
             
             mut collect_idx: i32 = 0;
             loop {
-                if collect_idx >= len(deref(children)) {
+                if collect_idx >= children_len {
                     break;
                 }
                 val collect_child: ref ASTNode = addr(children.data[collect_idx]);
@@ -4976,7 +4977,7 @@ pub def generate_c(ast: ref ASTNode): string {
             
             mut build_deps_idx: i32 = 0;
             loop {
-                if build_deps_idx >= len(deref(children)) {
+                if build_deps_idx >= children_len {
                     break;
                 }
                 val bdep_child: ref ASTNode = addr(children.data[build_deps_idx]);
@@ -5007,13 +5008,15 @@ pub def generate_c(ast: ref ASTNode): string {
                             }
                             if StringIntMap.contains(addr(model_indices), mapped_type) {
                                 if compare(mapped_type, this_model_name) != 0 {
-                                    val dep_idx: i32 = StringIntMap.get(addr(model_indices), mapped_type);
                                     val current_deps: string = StringList.get(deps_lists, this_model_idx);
                                     if str_len(current_deps) == 0 {
                                         deps_lists.data[this_model_idx] = mapped_type;
                                     } else {
                                         if find_substr(current_deps, mapped_type) < 0 {
-                                            deps_lists.data[this_model_idx] = concat(concat(current_deps, str(",")), mapped_type);
+                                            mut new_deps: string = current_deps;
+                                            new_deps = concat(new_deps, str(","));
+                                            new_deps = concat(new_deps, mapped_type);
+                                            deps_lists.data[this_model_idx] = new_deps;
                                         }
                                     }
                                 }
@@ -5046,7 +5049,10 @@ pub def generate_c(ast: ref ASTNode): string {
                                         deps_lists.data[this_model_idx] = umapped_type;
                                     } else {
                                         if find_substr(current_deps, umapped_type) < 0 {
-                                            deps_lists.data[this_model_idx] = concat(concat(current_deps, str(",")), umapped_type);
+                                            mut new_deps: string = current_deps;
+                                            new_deps = concat(new_deps, str(","));
+                                            new_deps = concat(new_deps, umapped_type);
+                                            deps_lists.data[this_model_idx] = new_deps;
                                         }
                                     }
                                 }
@@ -5230,11 +5236,14 @@ pub def generate_c(ast: ref ASTNode): string {
                 StringBuilder.destroy(addr(sb_list_def));
             }
 
+            mut sb_main: StringBuilder = StringBuilder.init(1024 * 128);
+            StringBuilder.append(addr(sb_main), result);
+
             mut global_arena: Arena = Arena.create(4096);
             mut i_globals: i32 = 0;
 
             loop {
-                if i_globals >= len(deref(children)) {
+                if i_globals >= children_len {
                     break;
                 }
                 val g_child: ref ASTNode = addr(children.data[i_globals]);
@@ -5247,7 +5256,7 @@ pub def generate_c(ast: ref ASTNode): string {
                     StringBoolMap.set(addr(g_emitted_globals), addr(global_arena), var_name, true);
                     val g_code: string = generate_global_decl(g_child);
                     if str_len(g_code) > 0 {
-                        result = concat(result, g_code);
+                        StringBuilder.append(addr(sb_main), g_code);
                     }
                 }
                 i_globals = i_globals + 1;
@@ -5255,22 +5264,22 @@ pub def generate_c(ast: ref ASTNode): string {
 
             mut i_proto: i32 = 0;
             loop {
-                if i_proto >= len(deref(children)) {
+                if i_proto >= children_len {
                     break;
                 }
                 val proto_child: ref ASTNode = addr(children.data[i_proto]);
                 if equals_c(proto_child.node_type, "Function") {
                     val proto_code: string = generate_function_prototype(proto_child);
                     if str_len(proto_code) > 0 {
-                        result = concat(result, proto_code);
+                        StringBuilder.append(addr(sb_main), proto_code);
                     }
                 }
                 if equals_c(proto_child.node_type, "Platform") {
                     val platform_name: string = proto_child.data.platform_node.platform_name;
                     if equals_c(platform_name, "windows") {
-                        result = concat(result, str("#ifdef _WIN32\n"));
+                        StringBuilder.append_c(addr(sb_main), "#ifdef _WIN32\n");
                     } elif equals_c(platform_name, "posix") {
-                        result = concat(result, str("#ifndef _WIN32\n"));
+                        StringBuilder.append_c(addr(sb_main), "#ifndef _WIN32\n");
                     }
                     if proto_child.children != nil {
                         val plat_children: ref list(ASTNode) = proto_child.children;
@@ -5283,35 +5292,35 @@ pub def generate_c(ast: ref ASTNode): string {
                             if equals_c(plat_child.node_type, "Function") {
                                 val plat_proto: string = generate_function_prototype(plat_child);
                                 if str_len(plat_proto) > 0 {
-                                    result = concat(result, plat_proto);
+                                    StringBuilder.append(addr(sb_main), plat_proto);
                                 }
                             }
                             pi = pi + 1;
                         }
                     }
-                    result = concat(result, str("#endif\n"));
+                    StringBuilder.append_c(addr(sb_main), "#endif\n");
                 }
                 i_proto = i_proto + 1;
             }
-            result = concat(result, str("\n"));
+            StringBuilder.append_char(addr(sb_main), '\n');
 
             mut i: i32 = 0;
             loop {
-                if i >= len(deref(children)) {
+                if i >= children_len {
                     break;
                 }
                 val child: ref ASTNode = addr(children.data[i]);
                 if equals_c(child.node_type, "Overload") {
                     val ov_code: string = generate_c(child);
-                    result = concat(result, ov_code);
-                    result = concat(result, str("\n"));
+                    StringBuilder.append(addr(sb_main), ov_code);
+                    StringBuilder.append_char(addr(sb_main), '\n');
                 }
                 i++;
             }
 
             i = 0;
             loop {
-                if i >= len(deref(children)) {
+                if i >= children_len {
                     break;
                 }
                 val fn_child: ref ASTNode = addr(children.data[i]);
@@ -5319,15 +5328,15 @@ pub def generate_c(ast: ref ASTNode): string {
                     val fn_name: string = fn_child.data.function.name;
                     if !equals_c(fn_name, "main") {
                         val fn_code: string = generate_c(fn_child);
-                        result = concat(result, fn_code);
+                        StringBuilder.append(addr(sb_main), fn_code);
                     }
                 }
                 if equals_c(fn_child.node_type, "Platform") {
                     val platform_name: string = fn_child.data.platform_node.platform_name;
                     if equals_c(platform_name, "windows") {
-                        result = concat(result, str("#ifdef _WIN32\n"));
+                        StringBuilder.append_c(addr(sb_main), "#ifdef _WIN32\n");
                     } elif equals_c(platform_name, "posix") {
-                        result = concat(result, str("#ifndef _WIN32\n"));
+                        StringBuilder.append_c(addr(sb_main), "#ifndef _WIN32\n");
                     }
                     if fn_child.children != nil {
                         val plat_children: ref list(ASTNode) = fn_child.children;
@@ -5341,20 +5350,20 @@ pub def generate_c(ast: ref ASTNode): string {
                                 val plat_fn_name: string = plat_child.data.function.name;
                                 if !equals_c(plat_fn_name, "main") {
                                     val plat_fn_code: string = generate_c(plat_child);
-                                    result = concat(result, plat_fn_code);
+                                    StringBuilder.append(addr(sb_main), plat_fn_code);
                                 }
                             }
                             pi++;
                         }
                     }
-                    result = concat(result, str("#endif\n"));
+                    StringBuilder.append_c(addr(sb_main), "#endif\n");
                 }
                 i++;
             }
 
             mut i_main_idx: i32 = 0;
             loop {
-                if i_main_idx >= len(deref(children)) {
+                if i_main_idx >= children_len {
                     break;
                 }
                 val fnn: ref ASTNode = addr(children.data[i_main_idx]);
@@ -5362,7 +5371,7 @@ pub def generate_c(ast: ref ASTNode): string {
                     val namecheck: string = fnn.data.function.name;
                     if equals_c(namecheck, "main") {
                         val main_code: string = generate_c(fnn);
-                        result = concat(result, main_code);
+                        StringBuilder.append(addr(sb_main), main_code);
                         break;
                     }
                 }
@@ -5371,7 +5380,7 @@ pub def generate_c(ast: ref ASTNode): string {
 
             i = 0;
             loop {
-                if i >= len(deref(children)) {
+                if i >= children_len {
                     break;
                 }
                 val child2: ref ASTNode = addr(children.data[i]);
@@ -5379,14 +5388,14 @@ pub def generate_c(ast: ref ASTNode): string {
                     and !equals_c(child2.node_type, "Model") and !equals_c(child2.node_type, "Enum") 
                     and !equals_c(child2.node_type, "Declaration") and !equals_c(child2.node_type, "Platform") {
                     val child_code: string = generate_c(child2);
-                    result = concat(result, child_code);
+                    StringBuilder.append(addr(sb_main), child_code);
                 }
                 i++;
             }
             
             i = 0;
             loop {
-                if i >= len(deref(children)) {
+                if i >= children_len {
                     break;
                 }
                 val plat_node: ref ASTNode = addr(children.data[i]);
@@ -5412,9 +5421,9 @@ pub def generate_c(ast: ref ASTNode): string {
                     
                     if has_non_func_content {
                         if equals_c(platform_name, "windows") {
-                            result = concat(result, str("#ifdef _WIN32\n"));
+                            StringBuilder.append_c(addr(sb_main), "#ifdef _WIN32\n");
                         } elif equals_c(platform_name, "posix") {
-                            result = concat(result, str("#ifndef _WIN32\n"));
+                            StringBuilder.append_c(addr(sb_main), "#ifndef _WIN32\n");
                         }
                         if plat_node.children != nil {
                             val plat_children2: ref list(ASTNode) = plat_node.children;
@@ -5427,16 +5436,19 @@ pub def generate_c(ast: ref ASTNode): string {
                                 // Skip functions - they were already emitted
                                 if !equals_c(pc_child2.node_type, "Function") {
                                     val pc_code: string = generate_c(pc_child2);
-                                    result = concat(result, pc_code);
+                                    StringBuilder.append(addr(sb_main), pc_code);
                                 }
                                 pc2 = pc2 + 1;
                             }
                         }
-                        result = concat(result, str("#endif\n"));
+                        StringBuilder.append_c(addr(sb_main), "#endif\n");
                     }
                 }
                 i++;
             }
+            
+            result = StringBuilder.to_string(addr(sb_main));
+            StringBuilder.destroy(addr(sb_main));
         }
         result = replace_all(result, str("(->"), str("->"));
 
@@ -7754,7 +7766,6 @@ pub def generate_c(ast: ref ASTNode): string {
             StringBoolMap.set(addr(g_enum_names), addr(arena), base_enum_name, true);
         }
         
-        // Use StringBuilder for Enum generation
         mut sb_enum: StringBuilder = StringBuilder.init(1024);
         StringBuilder.append_c(addr(sb_enum), "typedef enum {\n");
         
