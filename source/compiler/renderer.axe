@@ -7904,7 +7904,7 @@ pub def generate_c(ast: ref ASTNode): string {
         val ptr_val: string = ast.data.member_access.value;
         
         result = concat(result, strip(ptr_obj));
-        result = concat(result, str("->"));
+        result = concat_c(result, "->");
         result = concat(result, ptr_memb);
         
         if str_len(strip(ptr_val)) > 0 {
