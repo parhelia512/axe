@@ -6212,7 +6212,71 @@ pub def generate_c(ast: ref ASTNode): string {
         
         if str_len(initializer) > 0 {
             mut trimmed: string = strip(initializer);
-            if has_prefix(trimmed, str("new ")) {
+
+            if has_prefix(trimmed, str("[")) and has_suffix(trimmed, str("]")) {
+                val elements_str: string = substring_se(trimmed, 1, str_len(trimmed) - 1);
+                val elements_trimmed: string = strip(elements_str);
+                mut element_count: i32 = 0;
+                if str_len(elements_trimmed) > 0 {
+                    element_count = 1;
+                    mut depth: i32 = 0;
+                    mut idx_elem: i32 = 0;
+                    loop {
+                        if idx_elem >= str_len(elements_trimmed) {
+                            break;
+                        }
+                        val ch_elem: char = get_char(elements_trimmed, idx_elem);
+                        if ch_elem == '(' or ch_elem == '[' or ch_elem == '{' {
+                            depth = depth + 1;
+                        } elif ch_elem == ')' or ch_elem == ']' or ch_elem == '}' {
+                            depth = depth - 1;
+                        } elif ch_elem == ',' and depth == 0 {
+                            element_count = element_count + 1;
+                        }
+                        idx_elem = idx_elem + 1;
+                    }
+                }
+                
+                mut elem_type_c: string = str("int32_t");
+                if has_prefix(type_name, str("list(")) {
+                    mut paren_end: i32 = 5;
+                    mut depth_type: i32 = 1;
+                    loop {
+                        if paren_end >= str_len(type_name) {
+                            break;
+                        }
+                        val ch_t: char = get_char(type_name, paren_end);
+                        if ch_t == '(' {
+                            depth_type = depth_type + 1;
+                        } elif ch_t == ')' {
+                            depth_type = depth_type - 1;
+                            if depth_type == 0 {
+                                break;
+                            }
+                        }
+                        paren_end = paren_end + 1;
+                    }
+                    val elem_type_axe: string = strip(substr(type_name, 5, paren_end - 5));
+                    elem_type_c = map_axe_type_to_c(elem_type_axe);
+                }
+                
+                val processed_elements: string = process_expression(elements_trimmed);
+                mut sb_list_init: StringBuilder = StringBuilder.init(256);
+
+                StringBuilder.append_c(addr(sb_list_init), " = {.data = (");
+                StringBuilder.append(addr(sb_list_init), elem_type_c);
+                StringBuilder.append_c(addr(sb_list_init), "[]){");
+                StringBuilder.append(addr(sb_list_init), processed_elements);
+                StringBuilder.append_c(addr(sb_list_init), "}, .len = ");
+                StringBuilder.append(addr(sb_list_init), i32_to_string(element_count));
+                StringBuilder.append_c(addr(sb_list_init), ", .capacity = ");
+                StringBuilder.append(addr(sb_list_init), i32_to_string(element_count));
+                StringBuilder.append_c(addr(sb_list_init), "}");
+
+                result = concat(result, StringBuilder.to_string(addr(sb_list_init)));
+                
+                StringBuilder.destroy(addr(sb_list_init));
+            } elif has_prefix(trimmed, str("new ")) {
                 trimmed = substring_se(trimmed, 4, str_len(trimmed));
                 trimmed = strip(trimmed);
 
