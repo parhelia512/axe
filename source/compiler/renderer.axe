@@ -5344,12 +5344,12 @@ pub def generate_c(ast: ref ASTNode): string {
                                     result = concat(result, plat_fn_code);
                                 }
                             }
-                            pi = pi + 1;
+                            pi++;
                         }
                     }
                     result = concat(result, str("#endif\n"));
                 }
-                i = i + 1;
+                i++;
             }
 
             mut i_main_idx: i32 = 0;
