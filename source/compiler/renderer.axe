@@ -7342,6 +7342,7 @@ pub def generate_c(ast: ref ASTNode): string {
         }
         
         mut sb_forin: StringBuilder = StringBuilder.init(1024);
+        
         StringBuilder.append_c(addr(sb_forin), "for (int32_t ");
         StringBuilder.append(addr(sb_forin), index_var);
         StringBuilder.append_c(addr(sb_forin), " = 0; ");
@@ -7352,7 +7353,6 @@ pub def generate_c(ast: ref ASTNode): string {
         StringBuilder.append_c(addr(sb_forin), "len; ");
         StringBuilder.append(addr(sb_forin), index_var);
         StringBuilder.append_c(addr(sb_forin), "++) {\n");
-        
         StringBuilder.append_c(addr(sb_forin), "typeof(");
         StringBuilder.append(addr(sb_forin), array_name);
         StringBuilder.append(addr(sb_forin), accessor);
