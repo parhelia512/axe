@@ -27,6 +27,7 @@ def main() {
 - [Documentation on the language](https://axe-docs.pages.dev)
 - [The Visual Studio Code extension for Axe](https://marketplace.visualstudio.com/items?itemName=NavidM.axe-programming-language)
 - [The LSP, namely Axels](https://github.com/axelang/axels/releases/), installation involves just downloading it and adding it to PATH.
+- [Saw, a build tool and package manager for Axe](https://github.com/axelang/saw/releases)
 
 ## Features
 
