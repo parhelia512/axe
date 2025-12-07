@@ -340,7 +340,10 @@ def validate_type_imported(type_name: string) {
     }
     
     if !is_valid_symbol(base_type) {
-        print "error: undefined symbol: ";
+        print(get_short_filename(g_current_source_file));
+        print ":";
+        print(i32_to_string(g_current_line));
+        print ": error: undefined symbol: ";
         print base_type;
         println ", perhaps missing 'use' statement?";
         unsafe {
@@ -3636,7 +3639,10 @@ def rewrite_global_var_refs(expr: string): string {
                     val is_upper_case_const: bool = is_all_upper_or_underscore(ident);
                     if is_upper_case_const and !is_builtin_type(ident) and !is_language_keyword(ident) and !is_c_constant(ident) {
                         if !is_symbol_imported(ident) {
-                            print "error: undefined symbol: ";
+                            print(get_short_filename(g_current_source_file));
+                            print ":";
+                            print(i32_to_string(g_current_line));
+                            print ": error: undefined symbol: ";
                             print ident;
                             println ", perhaps missing 'use' statement?";
                             unsafe {
@@ -6722,7 +6728,10 @@ pub def generate_c(ast: ref ASTNode): string {
                 if !StringStringMap.contains(addr(g_function_param_types), func_name) {
                     val base_func: string = func_name;
                     if !is_symbol_imported(base_func) {
-                        print "error: undefined symbol: ";
+                        print(get_short_filename(g_current_source_file));
+                        print ":";
+                        print(i32_to_string(g_current_line));
+                        print ": error: undefined symbol: ";
                         print base_func;
                         println ", perhaps missing 'use' statement?";
                         unsafe {
