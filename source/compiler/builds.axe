@@ -3,6 +3,8 @@
 /// 
 /// Handles build process orchestration.
 
+use gstate;
+
 use structs (
     ASTNode
 );
@@ -19,13 +21,25 @@ use imports (
     process_imports,
     has_imported_module
 );
+use renderer (
+    has_external_header, 
+    initialize_renderer, 
+    set_source_file, 
+    generate_c
+);
+use std.os (
+    ExecResult, 
+    exec_capture, 
+    exec, 
+    delete_file, 
+    get_executable_dir
+);
 
-use gstate;
-use renderer (has_external_header, initialize_renderer, set_source_file, generate_c);
 use std.io;
-use std.os (ExecResult, exec_capture, exec, delete_file, get_executable_dir);
 use std.string;
-use std.lists (StringList);
+use std.lists (
+    StringList
+);
 
 /// Print all errors if there are any.
 def filter_and_print_errors(output: string) {
