@@ -523,9 +523,9 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
             consume(ctx);
 
             val defn: MacroDef = macros_get(ident_name);
-
             mut expanded_tokens: list(Token);
             mut i_tok: i32 = 0;
+
             loop {
                 if i_tok >= len(defn.body) {
                     break;
