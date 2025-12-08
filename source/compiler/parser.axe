@@ -495,6 +495,86 @@ def scan_expression_for_c_calls(expr: string) {
     }
 }
 
+/// Scan function arguments for variables that might be passed by reference
+/// This marks variables as mutated if they're passed as arguments (potential ref params)
+def scan_function_args_for_ref_params(args_str: string) {
+    // Split arguments by comma (handling nested parens/brackets)
+    mut args: list(string);
+    mut current_arg: StringBuilder = StringBuilder.init(128);
+    mut depth: i32 = 0;
+    mut i: i32 = 0;
+    
+    loop {
+        if i >= str_len(args_str) {
+            break;
+        }
+        
+        val ch: char = get_char(args_str, i);
+        
+        if ch == '(' or ch == '[' {
+            depth = depth + 1;
+            StringBuilder.append_char(addr(current_arg), ch);
+        } elif ch == ')' or ch == ']' {
+            depth = depth - 1;
+            StringBuilder.append_char(addr(current_arg), ch);
+        } elif ch == ',' and depth == 0 {
+            val arg: string = strip(StringBuilder.to_string(addr(current_arg)));
+            if str_len(arg) > 0 {
+                append(args, arg);
+            }
+            StringBuilder.destroy(addr(current_arg));
+            current_arg = StringBuilder.init(128);
+        } else {
+            StringBuilder.append_char(addr(current_arg), ch);
+        }
+        
+        i = i + 1;
+    }
+    
+    // Don't forget the last argument
+    val last_arg: string = strip(StringBuilder.to_string(addr(current_arg)));
+    if str_len(last_arg) > 0 {
+        append(args, last_arg);
+    }
+    StringBuilder.destroy(addr(current_arg));
+    
+    // Check each argument - if it's a simple identifier, mark it as potentially mutated
+    mut arg_idx: i32 = 0;
+    loop {
+        if arg_idx >= len(args) {
+            break;
+        }
+        
+        val arg: string = args.data[arg_idx];
+        
+        // Skip if argument contains operators, function calls, or member access
+        // (these indicate it's not a simple variable reference)
+        mut is_simple_var: bool = true;
+        mut j: i32 = 0;
+        loop {
+            if j >= str_len(arg) {
+                break;
+            }
+            val c: char = get_char(arg, j);
+            if c == '(' or c == ')' or c == '.' or c == '+' or c == '-' or c == '*' or c == '/' or c == '[' or c == ']' {
+                is_simple_var = false;
+                break;
+            }
+            j = j + 1;
+        }
+        
+        // If it's a simple identifier, mark it as mutated (might be passed by ref)
+        if is_simple_var and str_len(arg) > 0 {
+            val first_ch: char = get_char(arg, 0);
+            if (first_ch >= 'a' and first_ch <= 'z') or (first_ch >= 'A' and first_ch <= 'Z') or first_ch == '_' {
+                mark_variable_mutated(arg);
+            }
+        }
+        
+        arg_idx = arg_idx + 1;
+    }
+}
+
 /// Check if an identifier is NULL and report an error.
 def check_null_usage(ctx: ref ParserContext, ident: string) {
     if equals_c(ident, "NULL") {
@@ -2064,7 +2144,7 @@ def parse_function(ctx: ref ParserContext): ASTNode {
         mut dbg: string = str("  func_name = ");
         dbg = concat(dbg, func_name);
         debug_print_str dbg;
-        val buffer: char[64] = {};
+        mut buffer: char[64] = {};
         dbg = str("  ctx.pos = ");
         dbg = concat_c(dbg, int_to_str(ctx.pos, buffer));
         dbg = concat(dbg, str(" / "));
@@ -3365,7 +3445,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                         }
                     }
 
-                    mut trimmed_init_val: string = strip(initializer);
+                    val trimmed_init_val: string = strip(initializer);
 
                     if str_len(type_name) == 0 {
                         val brace_pos_val: i32 = find_char_from(trimmed_init_val, '{', 0);
@@ -3601,19 +3681,24 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         node.data.declaration.initializer = initializer;
         node.data.declaration.type_name = type_name;
         node.data.declaration.ref_depth = 0;
-        // Always register the variable as mutable
+
         register_variable(var_name.value, true);
-        // Only track mutation for variables with initializers
-        // Variables without initializers (e.g., mut buffer: char[1024];) are typically
-        // written to later and don't need mutation tracking
-        // Also skip Arena types since they're typically only used via addr()
-        val is_arena_type: bool = equals_c(type_name, "Arena") or has_suffix(type_name, str("Arena"));
-        if str_len(initializer) > 0 and !is_arena_type {
-            register_for_mutation_tracking(var_name.value);
+
+        mut should_track: bool = false;
+
+        if str_len(initializer) > 0 {
+            val has_dot: bool = find_char_from(initializer, '.', 0) >= 0;
+            val has_paren: bool = find_char_from(initializer, '(', 0) >= 0;
+            val is_constructor: bool = has_dot and has_paren;
+            
+            if !is_constructor {
+                should_track = true;
+                register_for_mutation_tracking(var_name.value);
+            }
+            
             scan_expression_for_addr(initializer);
             scan_expression_for_c_calls(initializer);
-            // If initializer contains C function call, mark this variable as mutated
-            // (since C code might write to memory it returns)
+
             if contains_c_call(initializer) {
                 mark_variable_mutated(var_name.value);
             }
@@ -3873,6 +3958,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             // Scan function arguments for addr() calls
             scan_expression_for_addr(args_str);
             scan_expression_for_c_calls(args_str);
+            // Scan for variables passed as arguments (potential ref params)
+            scan_function_args_for_ref_params(args_str);
             
             mut is_assignment: bool = false;
             if ctx.pos < len(ctx.tokens) {
@@ -5698,7 +5785,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
     // Handle DEF inside platform blocks and globally
     if token_type == TokenType.DEF {
         consume(ctx); // Skip 'def'
-        mut func_node: ASTNode = parse_function(ctx);
+        val func_node: ASTNode = parse_function(ctx);
         return func_node;
     }
     

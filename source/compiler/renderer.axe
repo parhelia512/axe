@@ -827,7 +827,7 @@ def get_base_type_from_field(field_type: string): string {
         t = strip(substr(t, 5, paren_pos - 5));
     }
     
-    mut bracket_pos: i32 = find_substr(t, str("["));
+    val bracket_pos: i32 = find_substr(t, str("["));
 
     if bracket_pos >= 0 {
         t = strip(substr(t, 0, bracket_pos));
@@ -2196,7 +2196,7 @@ def rewrite_casts(expr: string): string {
                 }
 
                 if k < expr_len and get_char(expr, k) == '[' {
-                    mut t_start: i32 = k + 1;
+                    val t_start: i32 = k + 1;
                     mut t_end: i32 = -1;
                     mut in_str_type: bool = false;
                     mut p: i32 = t_start;
@@ -2427,7 +2427,7 @@ def process_parameter_type(param_type: string): string {
     //   'ref ref char'  -> 'char**'
     //   'ref MyModel*'  -> 'struct ...* *'
 
-    mut result: string = strip(param_type);
+    val result: string = strip(param_type);
     val mapped: string = map_axe_type_to_c(result);
     
     if find_substr(mapped, str("__list_")) >= 0 and !has_suffix(mapped, str("*")) {
@@ -2482,7 +2482,7 @@ def int_to_ascii(n: i32): string {
 }
 
 def get_type_format_specifier(var_type: string): string {
-    mut t: string = strip(var_type);
+    val t: string = strip(var_type);
 
     if equals_c(t, "int32_t") or has_suffix(t, str("int32_t")) {
         return str("%d");
@@ -2513,7 +2513,7 @@ def get_type_format_specifier(var_type: string): string {
 }
 
 def lookup_expression_type(expr: string): string {
-    mut e: string = strip(expr);
+    val e: string = strip(expr);
 
     if StringStringMap.contains(addr(g_var_types), e) {
         return StringStringMap.get(addr(g_var_types), e);
@@ -2563,7 +2563,7 @@ def process_interpolated_string(interp_content: string, return_struct: bool): st
             append(parts, StringBuilder.to_string(addr(sb_part)));
             StringBuilder.clear(addr(sb_part));
 
-            mut brace_start: i32 = pos + 1;
+            val brace_start: i32 = pos + 1;
             mut brace_depth: i32 = 1;
             mut brace_end: i32 = brace_start;
 
@@ -2996,7 +2996,7 @@ def rewrite_enum_member_refs(s: string): string {
 
             // Check for '.'
             if k < s_len and get_char(s, k) == '.' {
-                mut dot_pos: i32 = k;
+                val dot_pos: i32 = k;
                 k = k + 1;
 
                 // Skip whitespace after '.'
@@ -3204,7 +3204,7 @@ def rewrite_len_calls(expr: string): string {
     loop {
         mut start_idx: i32 = -1;
         mut paren_pos: i32 = -1;
-        mut search_pos: i32 = 0;
+        val search_pos: i32 = 0;
         val result_len: i32 = cast[i32](str_len(result));
         
         loop {
@@ -3739,7 +3739,7 @@ def process_expression(expr: string): string {
         }
     }
 
-    mut open_idx: i32 = find_char_from(trimmed, '(', 0);
+    val open_idx: i32 = find_char_from(trimmed, '(', 0);
     if open_idx > 0 {
         val func_name_raw: string = strip(substring_se(trimmed, 0, open_idx));
         if equals_c(func_name_raw, "str") or has_suffix(func_name_raw, str("__str")) {
@@ -3809,7 +3809,7 @@ def process_expression(expr: string): string {
     }
 
     mut has_c_prefix: bool = false;
-    mut c_prefix_end: i32 = c_prefix_end_index(trimmed);
+    val c_prefix_end: i32 = c_prefix_end_index(trimmed);
     if c_prefix_end >= 0 {
         has_c_prefix = true;
     }
@@ -3846,7 +3846,7 @@ def process_expression(expr: string): string {
         // To fix these without disturbing normal inter-token spacing, run the
         // normalization pass below on the already-trimmed expression.
 
-        mut normalized_only: string = trimmed;
+        val normalized_only: string = trimmed;
         mut sb_norm: StringBuilder = StringBuilder.init(str_len(normalized_only) + 16);
         mut jn: i32 = 0;
         val norm_len: i32 = cast[i32](str_len(normalized_only));
@@ -4012,7 +4012,7 @@ def process_expression(expr: string): string {
     // used above to clean up spurious internal spaces within tokens such as
     // "0 . 0" or "reduce _angle" while preserving spaces between tokens.
     
-    mut normalized: string = result;
+    val normalized: string = result;
     
     debug_print_raw "\n[DBG-EXPR] after sugar/C before normalize:";
     debug_print_str normalized;
@@ -4450,7 +4450,7 @@ def generate_global_decl(ast: ref ASTNode): string {
     }
 
     if str_len(initializer) > 0 {
-        mut trimmed: string = strip(initializer);
+        val trimmed: string = strip(initializer);
         val brace_idx: i32 = find_char_from(trimmed, '{', 0);
         if brace_idx >= 0 {
             val type_part: string = strip(substring_se(trimmed, 0, brace_idx));
@@ -6673,7 +6673,7 @@ pub def generate_c(ast: ref ASTNode): string {
         }
 
         if ri < str_len(processed_expr) and is_ident_start(get_char(processed_expr, ri)) {
-            mut istart: i32 = ri;
+            val istart: i32 = ri;
             mut j: i32 = ri + 1;
             loop {
                 if j >= str_len(processed_expr) {
@@ -6714,7 +6714,7 @@ pub def generate_c(ast: ref ASTNode): string {
                 }
 
                 if k < str_len(processed_expr) and is_ident_start(get_char(processed_expr, k)) {
-                    mut mstart: i32 = k;
+                    val mstart: i32 = k;
                     mut m: i32 = k + 1;
                     loop {
                         if m >= str_len(processed_expr) {
@@ -6833,7 +6833,7 @@ pub def generate_c(ast: ref ASTNode): string {
         StringBuilder.destroy(addr(sb_mem));
         val processed_chain: string = rewrite_ref_member_access(member_chain);
 
-        mut trimmed_value: string = strip(value);
+        val trimmed_value: string = strip(value);
         if str_len(trimmed_value) > 0 {
             val processed_value: string = process_expression(trimmed_value);
             debug_print_raw "\n[DEBUG]   processed value:";
@@ -7158,8 +7158,8 @@ pub def generate_c(ast: ref ASTNode): string {
         val incr_raw: string = ast.data.for_loop.increment;
 
         mut init: string = strip(init_raw);
-        mut cond: string = strip(cond_raw);
-        mut incr: string = strip(incr_raw);
+        val cond: string = strip(cond_raw);
+        val incr: string = strip(incr_raw);
 
         mut loop_var_name: string = str("");
         mut loop_var_added: bool = false;
@@ -7235,8 +7235,8 @@ pub def generate_c(ast: ref ASTNode): string {
         val incr_raw: string = ast.data.parallel_for.increment;
 
         mut init: string = strip(init_raw);
-        mut cond: string = strip(cond_raw);
-        mut incr: string = strip(incr_raw);
+        val cond: string = strip(cond_raw);
+        val incr: string = strip(incr_raw);
 
         if has_prefix(init, str("mut ")) {
             init = strip(substr(init, 4, str_len(init) - 4));
@@ -7899,7 +7899,7 @@ pub def generate_c(ast: ref ASTNode): string {
     }
     
     if equals_c(node_type, "Opaque") {
-        mut onames: ref list(string) = ast.data.opaque_node.type_names;
+        val onames: ref list(string) = ast.data.opaque_node.type_names;
         if onames != nil {
             mut arena_opaque: Arena = Arena.create(2560);
             mut sb_opaque: StringBuilder = StringBuilder.init(512);
@@ -7923,7 +7923,7 @@ pub def generate_c(ast: ref ASTNode): string {
     }
     
     if equals_c(node_type, "Foreign") {
-        mut fnames: ref list(string) = ast.data.foreign_node.type_names;
+        val fnames: ref list(string) = ast.data.foreign_node.type_names;
         if fnames != nil {
             mut arena_foreign: Arena = Arena.create(2560);
             mut fi: i32 = 0;

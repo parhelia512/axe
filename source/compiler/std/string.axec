@@ -704,7 +704,7 @@ pub def str_ncopy(dest: char*, src: char*, n: i32): char* {
 }
 
 /// Converts an integer to a string. Buffer must be at least 12 bytes.
-pub def int_to_str(value: i32, buffer: char*): char* {
+pub def int_to_str(value: i32, buffer: ref char): char* {
     unsafe {
         C.sprintf(buffer, "%d", value);
     }
