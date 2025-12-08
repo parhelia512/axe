@@ -1538,21 +1538,18 @@ def rewrite_ref_member_access(expr: string): string {
         }
 
         if is_ident_start(ch) {
-            val start_pos: i32 = pos;
             val ident: string = parse_ident_at(expr, addr(pos));
             
             mut lookahead: i32 = pos;
             skip_ws_at(expr, addr(lookahead));
             
             mut is_member_chain: bool = false;
-            mut starts_with_arrow: bool = false;
             if lookahead < expr_len and get_char(expr, lookahead) == '.' {
                 if lookahead + 1 < expr_len and get_char(expr, lookahead + 1) != '>' {
                     is_member_chain = true;
                 }
             } elif lookahead + 1 < expr_len and get_char(expr, lookahead) == '-' and get_char(expr, lookahead + 1) == '>' {
                 is_member_chain = true;
-                starts_with_arrow = true;
             }
             
             if is_member_chain {
@@ -2996,7 +2993,6 @@ def rewrite_enum_member_refs(s: string): string {
 
             // Check for '.'
             if k < s_len and get_char(s, k) == '.' {
-                val dot_pos: i32 = k;
                 k = k + 1;
 
                 // Skip whitespace after '.'
@@ -3889,7 +3885,6 @@ def process_expression(expr: string): string {
                 }
 
                 mut knext: i32 = jn + 1;
-                mut next_pos: i32 = -1;
                 loop {
                     if knext >= norm_len {
                         break;
@@ -3897,7 +3892,6 @@ def process_expression(expr: string): string {
                     val cnext: char = get_char(normalized_only, knext);
                     if cnext != ' ' and cnext != '\t' and cnext != '\n' {
                         next = cnext;
-                        next_pos = knext;
                         break;
                     }
                     knext = knext + 1;
@@ -4059,7 +4053,6 @@ def process_expression(expr: string): string {
             }
 
             mut kn: i32 = jf + 1;
-            mut next_pos2: i32 = -1;
             loop {
                 if kn >= normalized_len {
                     break;
@@ -4067,7 +4060,6 @@ def process_expression(expr: string): string {
                 val cn: char = get_char(normalized, kn);
                 if cn != ' ' and cn != '\t' and cn != '\n' {
                     next2 = cn;
-                    next_pos2 = kn;
                     break;
                 }
                 kn = kn + 1;
@@ -4498,11 +4490,6 @@ pub def generate_c(ast: ref ASTNode): string {
     }
 
     val node_type: string = ast.node_type;
-    val str_empty: string = str("");
-    val str_double_underscore: string = str("__");
-    val str_dot: string = str(".");
-    val str_comma: string = str(",");
-    val str_equals_space: string = str(" = ");
 
     if equals_c(node_type, "MacroExpansion") {
         if ast.children != nil {
@@ -7223,7 +7210,7 @@ pub def generate_c(ast: ref ASTNode): string {
         StringBuilder.append_c(addr(sb_for), "}\n");
         
         if loop_var_added {
-            val dummy: string = StringStringMap.pop(addr(g_var_types), loop_var_name);
+            StringStringMap.pop(addr(g_var_types), loop_var_name);
         }
 
         return StringBuilder.to_string(addr(sb_for));

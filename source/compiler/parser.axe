@@ -3504,8 +3504,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 consume(ctx);
                 skip_whitespace(ctx);
 
-                mut rhs_has_function_call: bool = false;
-                mut last_non_ws_token_type: i32 = -1;
+                // mut rhs_has_function_call: bool = false;
+                // mut last_non_ws_token_type: i32 = -1;
                 mut first_non_ws_token: Token;
                 mut non_ws_count: i32 = 0;
 
@@ -3531,15 +3531,15 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                         }
                         non_ws_count = non_ws_count + 1;
 
-                        if t.token_type == TokenType.IDENTIFIER {
-                            if ctx.pos + 1 < len(ctx.tokens) {
-                                val next_t: Token = ctx.tokens.data[ctx.pos + 1];
-                                if next_t.token_type == TokenType.LPAREN and last_non_ws_token_type != TokenType.NEW {
-                                    rhs_has_function_call = true;
-                                }
-                            }
-                        }
-                        last_non_ws_token_type = t.token_type;
+                        // if t.token_type == TokenType.IDENTIFIER {
+                        //     if ctx.pos + 1 < len(ctx.tokens) {
+                        //         val next_t: Token = ctx.tokens.data[ctx.pos + 1];
+                        //         if next_t.token_type == TokenType.LPAREN and last_non_ws_token_type != TokenType.NEW {
+                        //             rhs_has_function_call = true;
+                        //         }
+                        //     }
+                        // }
+                        // last_non_ws_token_type = t.token_type;
                     }
 
                     if t.token_type == TokenType.STR {
@@ -3679,8 +3679,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 consume(ctx);
                 skip_whitespace(ctx);
 
-                mut rhs_has_function_call_mut: bool = false;
-                mut last_non_ws_token_type_mut: i32 = -1;
+                // mut rhs_has_function_call_mut: bool = false;
+                // mut last_non_ws_token_type_mut: i32 = -1;
                 mut first_non_ws_token_mut: Token;
                 mut non_ws_count_mut: i32 = 0;
                 mut found_semicolon_mut: bool = false;
@@ -3706,15 +3706,15 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                         }
                         non_ws_count_mut = non_ws_count_mut + 1;
 
-                        if t.token_type == TokenType.IDENTIFIER {
-                            if ctx.pos + 1 < len(ctx.tokens) {
-                                val next_t: Token = ctx.tokens.data[ctx.pos + 1];
-                                if next_t.token_type == TokenType.LPAREN and last_non_ws_token_type_mut != TokenType.NEW {
-                                    rhs_has_function_call_mut = true;
-                                }
-                            }
-                        }
-                        last_non_ws_token_type_mut = t.token_type;
+                        // if t.token_type == TokenType.IDENTIFIER {
+                        //     if ctx.pos + 1 < len(ctx.tokens) {
+                        //         val next_t: Token = ctx.tokens.data[ctx.pos + 1];
+                        //         if next_t.token_type == TokenType.LPAREN and last_non_ws_token_type_mut != TokenType.NEW {
+                        //             rhs_has_function_call_mut = true;
+                        //         }
+                        //     }
+                        // }
+                        // last_non_ws_token_type_mut = t.token_type;
                     }
 
                     if t.token_type == TokenType.STR {
@@ -3821,7 +3821,6 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
 
         register_variable(var_name.value, true, mut_line, ctx.filename);
 
-        mut should_track: bool = false;
 
         if str_len(initializer) > 0 {
             val has_dot: bool = find_char_from(initializer, '.', 0) >= 0;
@@ -3829,7 +3828,6 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             val is_constructor: bool = has_dot and has_paren;
             
             if !is_constructor {
-                should_track = true;
                 register_for_mutation_tracking(var_name.value);
             }
             
@@ -6122,7 +6120,6 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         
         loop {
             if expect(ctx, TokenType.DOT) {
-                val dot_tok: Token = peek(ctx);
                 consume(ctx);
                 
                 if expect(ctx, TokenType.DOT) {
