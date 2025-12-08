@@ -147,13 +147,13 @@ def parse(csv_data: string, options: CsvOptions, arena: ref Arena): CsvDocument 
     mut in_quotes: bool = false;
     
     for mut i = 0 to csv_data.len {
-        mut c: char = csv_data.data[i];
+        val c: char = csv_data.data[i];
         
         if c == options.quote_char {
             if in_quotes {
                 if i + 1 < csv_data.len and csv_data.data[i + 1] == options.quote_char {
                     if field_pos >= current_field_cap - 1 {
-                        mut new_cap: usize = current_field_cap * 2;
+                        val new_cap: usize = current_field_cap * 2;
                         mut new_data: ref char = Arena.alloc(arena, new_cap);
                         if new_data != nil {
                             for mut j = 0 to field_pos {
@@ -217,7 +217,7 @@ def parse(csv_data: string, options: CsvOptions, arena: ref Arena): CsvDocument 
             field_pos = 0;
         } else {
             if field_pos >= current_field_cap - 1 {
-                mut new_cap: usize = current_field_cap * 2;
+                val new_cap: usize = current_field_cap * 2;
                 mut new_data: ref char = Arena.alloc(arena, new_cap);
                 if new_data != nil {
                     for mut j = 0 to field_pos {
@@ -272,7 +272,7 @@ def to_string(doc: ref CsvDocument, options: CsvOptions): string {
         return result;
     }
     
-    mut estimated_size: usize = doc.row_count * 100;
+    val estimated_size: usize = doc.row_count * 100;
     mut result_data: ref char = Arena.alloc(doc.arena, estimated_size);
     if result_data == nil {
         return result;
@@ -286,7 +286,7 @@ def to_string(doc: ref CsvDocument, options: CsvOptions): string {
         mut row: ref CsvRow = addr(doc.rows[i]);
         
         for mut j = 0 to row.field_count {
-            mut field: string = row.fields.data[j];
+            val field: string = row.fields.data[j];
             
             mut needs_quotes: bool = false;
             for mut k = 0 to field.len {
@@ -307,7 +307,7 @@ def to_string(doc: ref CsvDocument, options: CsvOptions): string {
                     break;
                 }
                 
-                mut new_cap: usize = result.cap * 2;
+                val new_cap: usize = result.cap * 2;
                 mut new_data: ref char = Arena.alloc(doc.arena, new_cap);
                 if new_data == nil {
                     return result;
