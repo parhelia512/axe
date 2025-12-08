@@ -5815,7 +5815,7 @@ pub def generate_c(ast: ref ASTNode): string {
                 } else {
                     val stmt_code: string = generate_c(child);
                     if str_len(stmt_code) > 0 {
-                        mut buf: string = stmt_code;
+                        val buf: string = stmt_code;
                         mut idx: i32 = 0;
                         val buf_len: i32 = cast[i32](str_len(buf));
 
@@ -5829,7 +5829,7 @@ pub def generate_c(ast: ref ASTNode): string {
                             } else {
                                 StringBuilder.append_char(addr(sb_test), ch);
                             }
-                            idx = idx + 1;
+                            idx++;
                         }
                         StringBuilder.append_char(addr(sb_test), '\n');
                     }
