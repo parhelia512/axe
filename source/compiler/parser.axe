@@ -3243,6 +3243,30 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             }
         }
 
+        // Handle "for mut i = 0 to N" syntax
+        if part_idx == 0 and str_len(init) > 0 and str_len(cond) == 0 {
+            val to_pos: i32 = find_substr(init, str(" to "));
+            if to_pos >= 0 {
+                val var_part: string = strip(substring_se(init, 0, to_pos));
+                val end_part: string = strip(substring_se(init, to_pos + 4, str_len(init)));
+                mut var_name: string = str("i");
+                val eq_pos: i32 = find_char_from(var_part, '=', 0);
+                if eq_pos > 0 {
+                    val before_eq: string = strip(substring_se(var_part, 0, eq_pos));
+                    mut name_part: string = before_eq;
+                    if has_prefix(name_part, str("mut ")) {
+                        name_part = strip(substring_se(name_part, 4, str_len(name_part)));
+                    }
+                    if str_len(name_part) > 0 {
+                        var_name = name_part;
+                    }
+                }
+                init = var_part;
+                cond = concat(concat(var_name, str(" < ")), end_part);
+                incr = concat(var_name, str("++"));
+            }
+        }
+
         mut fnode: ASTNode;
         fnode.node_type = str("For");
         fnode.data.for_loop.initialization = init;
