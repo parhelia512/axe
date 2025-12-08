@@ -3648,7 +3648,7 @@ def rewrite_global_var_refs(expr: string): string {
                 if next_ch != '(' and next_ch != '.' {
                     val is_upper_case_const: bool = is_all_upper_or_underscore(ident);
                     if is_upper_case_const and !is_builtin_type(ident) and !is_language_keyword(ident) and !is_c_constant(ident) {
-                        if !is_symbol_imported(ident) {
+                        if !is_symbol_imported(ident) and !StringBoolMap.contains(addr(g_emitted_globals), ident) {
                             print(get_short_filename(g_current_source_file));
                             print ":";
                             print(i32_to_string(g_current_line));
@@ -5281,6 +5281,42 @@ pub def generate_c(ast: ref ASTNode): string {
             }
 
             mut global_arena: Arena = Arena.create(4096);
+            mut i_globals_collect: i32 = 0;
+
+            loop {
+                if i_globals_collect >= children_len {
+                    break;
+                }
+                val g_child_collect: ref ASTNode = addr(children.data[i_globals_collect]);
+                if equals_c(g_child_collect.node_type, "Declaration") {
+                    val var_name: string = g_child_collect.data.declaration.name;
+                    if !StringBoolMap.contains(addr(g_emitted_globals), var_name) {
+                        StringBoolMap.set(addr(g_emitted_globals), addr(global_arena), var_name, true);
+                    }
+                } elif equals_c(g_child_collect.node_type, "Platform") {
+                    if g_child_collect.children != nil {
+                        val plat_children_collect: ref list(ASTNode) = g_child_collect.children;
+                        mut plat_idx: i32 = 0;
+                        loop {
+                            if plat_idx >= len(deref(plat_children_collect)) {
+                                break;
+                            }
+                            val plat_decl: ref ASTNode = addr(plat_children_collect.data[plat_idx]);
+                            if equals_c(plat_decl.node_type, "Declaration") {
+                                val plat_var_name: string = plat_decl.data.declaration.name;
+                                if !StringBoolMap.contains(addr(g_emitted_globals), plat_var_name) {
+                                    StringBoolMap.set(addr(g_emitted_globals), addr(global_arena), plat_var_name, true);
+                                }
+                            }
+                            plat_idx++;
+                        }
+                    }
+                }
+                i_globals_collect++;
+            }
+            
+            mut generated_arena: Arena = Arena.create(4096);
+            mut generated_in_this_pass: StringBoolMap = deref(StringBoolMap.create(addr(generated_arena), 128));
             mut i_globals: i32 = 0;
 
             loop {
@@ -5290,17 +5326,15 @@ pub def generate_c(ast: ref ASTNode): string {
                 val g_child: ref ASTNode = addr(children.data[i_globals]);
                 if equals_c(g_child.node_type, "Declaration") {
                     val var_name: string = g_child.data.declaration.name;
-                    if StringBoolMap.contains(addr(g_emitted_globals), var_name) {
-                        i_globals = i_globals + 1;
-                        continue;
-                    }
-                    StringBoolMap.set(addr(g_emitted_globals), addr(global_arena), var_name, true);
-                    val g_code: string = generate_global_decl(g_child);
-                    if str_len(g_code) > 0 {
-                        StringBuilder.append(addr(sb_prog), g_code);
+                    if !StringBoolMap.contains(addr(generated_in_this_pass), var_name) {
+                        StringBoolMap.set(addr(generated_in_this_pass), addr(generated_arena), var_name, true);
+                        val g_code: string = generate_global_decl(g_child);
+                        if str_len(g_code) > 0 {
+                            StringBuilder.append(addr(sb_prog), g_code);
+                        }
                     }
                 }
-                i_globals = i_globals + 1;
+                i_globals++;
             }
 
             mut i_proto: i32 = 0;
@@ -5336,12 +5370,12 @@ pub def generate_c(ast: ref ASTNode): string {
                                     StringBuilder.append(addr(sb_prog), plat_proto);
                                 }
                             }
-                            pi = pi + 1;
+                            pi++;
                         }
                     }
                     StringBuilder.append_c(addr(sb_prog), "#endif\n");
                 }
-                i_proto = i_proto + 1;
+                i_proto++;
             }
             StringBuilder.append_char(addr(sb_prog), '\n');
 
