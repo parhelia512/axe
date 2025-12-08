@@ -4490,7 +4490,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                         err = concat(err, str("' of immutable variable '"));
                         err = concat(err, ident_name);
                         err = concat(err, str("'"));
-                        enforce_raw(false, err.data);
+                        enforce_raw(false, format_error(ctx, err).data);
                         return node;
                     }
 
@@ -4855,7 +4855,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             if !is_variable_mutable(ident_name) {
                 mut err: string = str("Cannot assign to immutable variable: ");
                 err = concat(err, ident_name);
-                enforce_raw(false, err.data);
+                enforce_raw(false, format_error(ctx, err).data);
                 return node;
             }
 
@@ -4930,7 +4930,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             if !is_variable_mutable(ident_name) {
                 mut err: string = str("Cannot assign to immutable variable: ");
                 err = concat(err, ident_name);
-                enforce_raw(false, err.data);
+                enforce_raw(false, format_error(ctx, err).data);
                 return node;
             }
 
