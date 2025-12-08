@@ -1933,7 +1933,6 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         return;
     }
     
-    val unexpected_token: Token = ctx.tokens.data[ctx.pos];
     mut err: string = format_error(
         ctx,
         str("Unexpected token at top level. Expected def, model, enum, val, mut, use, platform, macro, opaque, foreign, extern, or pub.")
@@ -2466,8 +2465,8 @@ def parse_function(ctx: ref ParserContext): ASTNode {
         }
         val var_to_clear_all: string = g_all_vars_in_scope.data[clear_all_idx];
         StringBoolMap.pop(addr(g_var_actually_used), var_to_clear_all);
-        val dummy_line: i32 = StringIntMap.pop(addr(g_var_declaration_lines), var_to_clear_all);
-        val dummy_file: string = StringStringMap.pop(addr(g_var_declaration_files), var_to_clear_all);
+        StringIntMap.pop(addr(g_var_declaration_lines), var_to_clear_all);
+        StringStringMap.pop(addr(g_var_declaration_files), var_to_clear_all);
         clear_all_idx++;
     }
     g_all_vars_in_scope.len = 0;
@@ -4301,6 +4300,9 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     node.data.array_assign.index = index_expr;
                     node.data.array_assign.index2 = index2_expr;
                     node.data.array_assign.value = value_expr;
+                    scan_expression_for_usage(index_expr);
+                    scan_expression_for_usage(index2_expr);
+                    scan_expression_for_usage(value_expr);
                     // Mark the array/pointer variable as mutated
                     mark_variable_mutated(ident_name);
                     return node;
@@ -4415,6 +4417,11 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 if expect(ctx, TokenType.SEMICOLON) {
                     consume(ctx);
                 }
+
+                scan_expression_for_addr(args_str2);
+                scan_expression_for_c_calls(args_str2);
+                scan_expression_for_usage(args_str2);
+                scan_function_args_for_ref_params(args_str2);
 
                 node.node_type = str("FunctionCall");
                 mut full_name: string = ident_name;
@@ -4561,6 +4568,9 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                         node.data.array_assign.index = member_index_expr;
                         node.data.array_assign.index2 = member_index2_expr;
                         node.data.array_assign.value = member_array_value_expr;
+                        scan_expression_for_usage(member_index_expr);
+                        scan_expression_for_usage(member_index2_expr);
+                        scan_expression_for_usage(member_array_value_expr);
                         // Mark the base variable as mutated
                         mark_variable_mutated(ident_name);
                         return node;
@@ -4831,6 +4841,9 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                         node.data.array_assign.index = ptr_member_index_expr;
                         node.data.array_assign.index2 = ptr_member_index2_expr;
                         node.data.array_assign.value = ptr_member_array_value_expr;
+                        scan_expression_for_usage(ptr_member_index_expr);
+                        scan_expression_for_usage(ptr_member_index2_expr);
+                        scan_expression_for_usage(ptr_member_array_value_expr);
                         // Mark the base variable as mutated
                         mark_variable_mutated(ident_name);
                         return node;
@@ -5224,6 +5237,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         if str_len(trimmed_sugar) > 0 {
             append(sugar_args_list, trimmed_sugar);
         }
+
+        scan_expression_for_usage(trimmed_sugar);
 
         unsafe {
             val list_size_s: usize = C.sizeof(list(string));

@@ -93,11 +93,6 @@ pub def exec_capture(cmd: string): ExecResult {
         return result;
     }
     
-    unsafe {
-        mut buf_ptr: char* = output_buf;
-        buf_ptr[0] = '\0';
-    }
-    
     mut total_len: usize = 0;
     mut buffer: char[1024];
     
