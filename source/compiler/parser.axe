@@ -653,6 +653,120 @@ def check_null_usage(ctx: ref ParserContext, ident: string) {
     }
 }
 
+/// Check if an expression contains a function call (identifier followed by '(')
+def has_function_call_in_expression(expr: string): bool {
+    mut i: i32 = 0;
+    val expr_len: i32 = str_len(expr);
+    
+    loop {
+        if i >= expr_len {
+            break;
+        }
+        
+        val ch: char = get_char(expr, i);
+        
+        if (ch >= 'a' and ch <= 'z') or (ch >= 'A' and ch <= 'Z') or ch == '_' {
+            val id_start: i32 = i;
+            mut id_end: i32 = i;
+            loop {
+                if id_end >= expr_len {
+                    break;
+                }
+                val ich: char = get_char(expr, id_end);
+                if (ich >= 'a' and ich <= 'z') or (ich >= 'A' and ich <= 'Z') or (ich >= '0' and ich <= '9') or ich == '_' {
+                    id_end++;
+                } else {
+                    break;
+                }
+            }
+            
+            val ident: string = substring_se(expr, id_start, id_end);
+            
+            mut j: i32 = id_end;
+            loop {
+                if j >= expr_len {
+                    break;
+                }
+                val wch: char = get_char(expr, j);
+                if wch == ' ' or wch == '\t' or wch == '\n' {
+                    j++;
+                } else {
+                    break;
+                }
+            }
+            
+            if j < expr_len and get_char(expr, j) == '(' {
+                if !equals_c(ident, "new") and !equals_c(ident, "cast") {
+                    return true;
+                }
+            }
+            
+            i = id_end;
+        } else {
+            i++;
+        }
+    }
+    
+    return false;
+}
+
+/// Extract the function name from an expression that contains a function call
+def extract_function_name(expr: string): string {
+    mut i: i32 = 0;
+    val expr_len: i32 = str_len(expr);
+    
+    loop {
+        if i >= expr_len {
+            break;
+        }
+        
+        val ch: char = get_char(expr, i);
+
+        if (ch >= 'a' and ch <= 'z') or (ch >= 'A' and ch <= 'Z') or ch == '_' {
+            val id_start: i32 = i;
+            mut id_end: i32 = i;
+            loop {
+                if id_end >= expr_len {
+                    break;
+                }
+                val ich: char = get_char(expr, id_end);
+                if (ich >= 'a' and ich <= 'z') or (ich >= 'A' and ich <= 'Z') or (ich >= '0' and ich <= '9') or ich == '_' {
+                    id_end = id_end + 1;
+                } else {
+                    break;
+                }
+            }
+            
+            val ident: string = substring_se(expr, id_start, id_end);
+            
+            mut j: i32 = id_end;
+            loop {
+                if j >= expr_len {
+                    break;
+                }
+                val wch: char = get_char(expr, j);
+                if wch == ' ' or wch == '\t' or wch == '\n' {
+                    j = j + 1;
+                } else {
+                    break;
+                }
+            }
+            
+            if j < expr_len and get_char(expr, j) == '(' {
+                if !equals_c(ident, "new") and !equals_c(ident, "cast") {
+                    return concat(ident, str("()"));
+                }
+            }
+            
+            i = id_end;
+        } else {
+            i++;
+        }
+    }
+    
+    return str("<unknown function>");
+}
+
 /// Add a child AST node to a parent AST node
 pub def add_child_to_ast(ast: ref ASTNode, child: ASTNode) {
     if ast.children == nil {
@@ -1541,6 +1655,19 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
     if token_type == TokenType.MUT or token_type == TokenType.VAL {
         val decl_node: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
         if str_len(decl_node.node_type) > 0 {
+            if equals_c(decl_node.node_type, "Declaration") {
+                val init_expr: string = decl_node.data.declaration.initializer;
+                if has_function_call_in_expression(init_expr) {
+                    val func_name: string = extract_function_name(init_expr);
+                    print ctx.filename;
+                    print ":";
+                    print(i32_to_string(current_line(ctx)));
+                    print ": error: The result of ";
+                    print func_name;
+                    println " cannot be resolved at compile time.";
+                    quit(1);
+                }
+            }
             add_child_to_ast(ast, decl_node);
         }
         return;
