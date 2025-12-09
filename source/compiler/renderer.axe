@@ -1223,7 +1223,7 @@ def register_function_prefix(full_name: string) {
         if c1 == '_' and c2 == '_' {
             last_sep = j;
         }
-        j = j + 1;
+        j++;
     }
 
     if last_sep >= 0 and last_sep + 2 < n {
@@ -1247,7 +1247,7 @@ def register_function_prefix(full_name: string) {
             if c1b == '_' and c2b == '_' {
                 second_last_sep = k;
             }
-            k = k + 1;
+            k++;
         }
         
         if second_last_sep >= 0 and second_last_sep + 2 < n {
