@@ -1,0 +1,11 @@
+use std.io;
+
+val result = some_func();
+
+def some_func(): i32 {
+    return 42;
+}
+
+def main() {
+    println(result);
+}
