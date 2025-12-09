@@ -1,0 +1,6 @@
+pub def double_to_str(value: f64, buffer: char*): char* {
+    unsafe {
+        C.sprintf(buffer, "%lf", value);
+    }
+    return buffer;
+}
