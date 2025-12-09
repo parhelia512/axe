@@ -1,0 +1,35 @@
+use std.string;
+
+[noinline]
+def no_inline_function(x: i32): i32 {
+    return x + 1;
+}
+
+[cold]
+def cold_function(msg: string) {
+    println "This is rarely called";
+    println msg;
+}
+
+[hot]
+def hot_function(x: i32, y: i32): i32 {
+    return x * y + x - y;
+}
+
+[inline]
+def inline_function(a: i32): i32 {
+    return a * 2;
+}
+
+def main() {
+    val result1: i32 = no_inline_function(5);
+    val result2: i32 = hot_function(3, 4);
+    val result3: i32 = inline_function(7);
+    
+    println "Results:";
+    println result1;
+    println result2; 
+    println result3;
+    
+    cold_function(str("Error occurred"));
+}
