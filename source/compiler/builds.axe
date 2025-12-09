@@ -355,12 +355,12 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
         if command_exists(str("cc")) {
             compiler = str("cc");
             if !::quiet_mode {
-                println "Warning: clang not found, using cc instead";
+                println "\nWarning: clang not found, using cc instead";
             }
         }
         
         if str_len(compiler) == 0 {
-            println "You do not have the LLVM C toolchain installed.";
+            println "\nYou do not have the LLVM C toolchain installed.";
             println "Install clang from https://releases.llvm.org/ or via your package manager.";
             println "Alternatively, ensure 'cc' is available in your PATH.";
             return false;
