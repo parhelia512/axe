@@ -2553,7 +2553,53 @@ def parse_function(ctx: ref ParserContext): ASTNode {
     func.data.function.name = func_name;
     func.data.function.return_type = str("");
     func.data.function.is_public = false;
+    func.data.function.generic_type_params = nil;
     ctx.pos++;
+    
+    skip_whitespace(ctx);
+    
+    if expect(ctx, TokenType.LBRACKET) {
+        consume(ctx);  // consume '['
+        mut type_params: list(string);
+        
+        loop {
+            skip_whitespace(ctx);
+            if ctx.pos >= len(ctx.tokens) {
+                break;
+            }
+            
+            if ctx.tokens.data[ctx.pos].token_type == TokenType.RBRACKET {
+                consume(ctx);  // consume ']'
+                break;
+            }
+            
+            if ctx.tokens.data[ctx.pos].token_type == TokenType.COMMA {
+                consume(ctx);
+                continue;
+            }
+            
+            if ctx.tokens.data[ctx.pos].token_type == TokenType.IDENTIFIER {
+                val type_param: string = ctx.tokens.data[ctx.pos].value;
+                append(type_params, type_param);
+                consume(ctx);
+            } else {
+                mut err: string = format_error(ctx, str("Expected type parameter name in generic function"));
+                enforce_raw(false, err.data);
+                return func;
+            }
+        }
+        
+        if len(type_params) > 0 {
+            unsafe {
+                val params_size: usize = C.sizeof(list(string));
+                val heap_params: ref list(string) = cast[ref list(string)](C.malloc(params_size));
+                if heap_params != nil {
+                    C.memcpy(heap_params, addr(type_params), params_size);
+                    func.data.function.generic_type_params = heap_params;
+                }
+            }
+        }
+    }
     
     skip_whitespace(ctx);
 
@@ -2874,6 +2920,37 @@ def parse_function(ctx: ref ParserContext): ASTNode {
     clear_local_variables();
     g_current_scope_depth = 0;
     
+    if func.data.function.generic_type_params != nil {
+        val type_params: ref list(string) = func.data.function.generic_type_params;
+        if len(deref(type_params)) > 0 {
+            mut has_when_branch: bool = false;
+            if func.children != nil {
+                val func_children: ref list(ASTNode) = func.children;
+                mut wi: i32 = 0;
+                loop {
+                    if wi >= len(deref(func_children)) {
+                        break;
+                    }
+                    if equals_c(func_children.data[wi].node_type, "WhenBranch") {
+                        has_when_branch = true;
+                        break;
+                    }
+                    wi++;
+                }
+            }
+            
+            if !has_when_branch {
+                print ctx.filename;
+                print ":";
+                print(i32_to_string(func.line));
+                print ": error: generic function '";
+                print func_name;
+                println "' must have at least one 'when' branch";
+                quit(1);
+            }
+        }
+    }
+    
     return func;
 }
 
@@ -2931,6 +3008,87 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         node.node_type = str("Continue");
         node.line = token.line;
         node.source_file = ctx.filename;
+        return node;
+    }
+    
+    if token_type == TokenType.WHEN {
+        val when_line: i32 = token.line;
+        consume(ctx);  // consume 'when'
+        skip_whitespace(ctx);
+        
+        if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.IDENTIFIER {
+            mut err: string = format_error(ctx, str("Expected type parameter name after 'when'"));
+            enforce_raw(false, err.data);
+            return node;
+        }
+        val type_param: string = ctx.tokens.data[ctx.pos].value;
+        consume(ctx);
+        skip_whitespace(ctx);
+        
+        if !expect(ctx, TokenType.IS) {
+            mut err: string = format_error(ctx, str("Expected 'is' after type parameter in when clause"));
+            enforce_raw(false, err.data);
+            return node;
+        }
+        consume(ctx);  // consume 'is'
+        skip_whitespace(ctx);
+        
+        if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.IDENTIFIER {
+            mut err: string = format_error(ctx, str("Expected type name after 'is' in when clause"));
+            enforce_raw(false, err.data);
+            return node;
+        }
+        val concrete_type: string = ctx.tokens.data[ctx.pos].value;
+        consume(ctx);
+        skip_whitespace(ctx);
+        
+        if !expect(ctx, TokenType.LBRACE) {
+            mut err: string = format_error(ctx, str("Expected '{' after type in when clause"));
+            enforce_raw(false, err.data);
+            return node;
+        }
+        consume(ctx);  // consume '{'
+        
+        mut body_children: list(ASTNode);
+        loop {
+            if ctx.pos >= len(ctx.tokens) {
+                break;
+            }
+            
+            skip_whitespace(ctx);
+            
+            if ctx.pos >= len(ctx.tokens) {
+                break;
+            }
+            
+            if ctx.tokens.data[ctx.pos].token_type == TokenType.RBRACE {
+                consume(ctx);  // consume '}'
+                break;
+            }
+            
+            val stmt: ASTNode = parse_statement_helper(ctx, scope);
+            if str_len(stmt.node_type) > 0 {
+                append(body_children, stmt);
+            }
+        }
+        
+        node.node_type = str("WhenBranch");
+        node.line = when_line;
+        node.source_file = ctx.filename;
+        node.data.when_branch.type_param = type_param;
+        node.data.when_branch.concrete_type = concrete_type;
+        
+        if len(body_children) > 0 {
+            unsafe {
+                val list_size: usize = C.sizeof(list(ASTNode));
+                val heap_list: ref list(ASTNode) = cast[ref list(ASTNode)](C.malloc(list_size));
+                if heap_list != nil {
+                    C.memcpy(heap_list, addr(body_children), list_size);
+                    node.children = heap_list;
+                }
+            }
+        }
+        
         return node;
     }
     

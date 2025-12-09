@@ -2027,6 +2027,62 @@ def rewrite_function_prefixes(expr: string): string {
                 k++;
             }
 
+            if k < expr_len and get_char(expr, k) == '[' {
+                mut bracket_end: i32 = k + 1;
+                loop {
+                    if bracket_end >= expr_len {
+                        break;
+                    }
+                    if get_char(expr, bracket_end) == ']' {
+                        break;
+                    }
+                    bracket_end++;
+                }
+                
+                if bracket_end < expr_len {
+                    val type_arg: string = strip(substring_se(expr, k + 1, bracket_end));
+                    mut m: i32 = bracket_end + 1;
+                    loop {
+                        if m >= expr_len {
+                            break;
+                        }
+                        val wm: char = get_char(expr, m);
+                        if wm != ' ' and wm != '\t' and wm != '\n' {
+                            break;
+                        }
+                        m++;
+                    }
+                    
+                    if m < expr_len and get_char(expr, m) == '(' {
+                        mut sb_call: StringBuilder = StringBuilder.init(str_len(func_name) + str_len(type_arg) + 4);
+                        StringBuilder.append(addr(sb_call), func_name);
+                        StringBuilder.append_c(addr(sb_call), "[");
+                        StringBuilder.append(addr(sb_call), type_arg);
+                        StringBuilder.append_c(addr(sb_call), "]");
+                        val call_key: string = StringBuilder.to_string(addr(sb_call));
+                        StringBuilder.destroy(addr(sb_call));
+                        
+                        if StringStringMap.contains(addr(g_function_prefixes), call_key) {
+                            val mangled: string = StringStringMap.get(addr(g_function_prefixes), call_key);
+                            StringBuilder.append(addr(sb), mangled);
+                            i = m;
+                            continue;
+                        }
+                        
+                        mut sb_mangle: StringBuilder = StringBuilder.init(str_len(func_name) + str_len(type_arg) + 8);
+                        StringBuilder.append(addr(sb_mangle), func_name);
+                        StringBuilder.append_c(addr(sb_mangle), "__T_");
+                        StringBuilder.append(addr(sb_mangle), type_arg);
+                        val mangled_fallback: string = StringBuilder.to_string(addr(sb_mangle));
+                        StringBuilder.destroy(addr(sb_mangle));
+                        
+                        StringBuilder.append(addr(sb), mangled_fallback);
+                        i = m;
+                        continue;
+                    }
+                }
+            }
+
             if k < expr_len and get_char(expr, k) == '(' {
                 val has_double_underscore: bool = find_substr(func_name, str("__")) >= 0;
                 if has_double_underscore {
@@ -5913,6 +5969,122 @@ pub def generate_c(ast: ref ASTNode): string {
         mut func_name: string = ast.data.function.name;
         mut return_type: string = ast.data.function.return_type;
         val is_public: bool = ast.data.function.is_public;
+        
+        val generic_type_params: ref list(string) = ast.data.function.generic_type_params;
+        if generic_type_params != nil and len(deref(generic_type_params)) > 0 {
+            mut sb_all: StringBuilder = StringBuilder.init(4096);
+            
+            if ast.children != nil {
+                val children: ref list(ASTNode) = ast.children;
+                mut wi: i32 = 0;
+                loop {
+                    if wi >= len(deref(children)) {
+                        break;
+                    }
+                    val child: ref ASTNode = addr(children.data[wi]);
+                    if equals_c(child.node_type, "WhenBranch") {
+                        val type_param: string = child.data.when_branch.type_param;
+                        val concrete_type: string = child.data.when_branch.concrete_type;
+                        
+                        mut sb_fname: StringBuilder = StringBuilder.init(str_len(func_name) + str_len(type_param) + str_len(concrete_type) + 8);
+                        StringBuilder.append(addr(sb_fname), func_name);
+                        StringBuilder.append_c(addr(sb_fname), "__");
+                        StringBuilder.append(addr(sb_fname), type_param);
+                        StringBuilder.append_c(addr(sb_fname), "_");
+                        StringBuilder.append(addr(sb_fname), concrete_type);
+                        val mangled_name: string = StringBuilder.to_string(addr(sb_fname));
+                        StringBuilder.destroy(addr(sb_fname));
+                        
+                        if StringBoolMap.contains(addr(g_generated_functions), mangled_name) {
+                            wi++;
+                            continue;
+                        }
+                        
+                        mut spec_arena: Arena = Arena.create(1024);
+                        StringBoolMap.set(addr(g_generated_functions), addr(spec_arena), mangled_name, true);
+                        
+                        mut spec_return: string = return_type;
+                        if equals_c(spec_return, type_param.data) {
+                            spec_return = concrete_type;
+                        }
+                        val mapped_return: string = map_axe_type_to_c(spec_return);
+                        
+                        StringBuilder.append(addr(sb_all), emit_line_directive(ast.line));
+                        StringBuilder.append(addr(sb_all), mapped_return);
+                        StringBuilder.append_char(addr(sb_all), ' ');
+                        StringBuilder.append(addr(sb_all), mangled_name);
+                        StringBuilder.append_char(addr(sb_all), '(');
+                        
+                        val params: ref list(string) = ast.data.function.params;
+                        if params != nil {
+                            mut pi: i32 = 0;
+                            loop {
+                                if pi >= len(deref(params)) {
+                                    break;
+                                }
+                                
+                                if pi > 0 {
+                                    StringBuilder.append_c(addr(sb_all), ", ");
+                                }
+                                
+                                val param: string = params.data[pi];
+                                val colon_pos: i32 = find_char_from(param, ':', 0);
+                                
+                                if colon_pos >= 0 {
+                                    val param_name: string = strip(substring_se(param, 0, colon_pos));
+                                    mut param_type: string = strip(substr(param, colon_pos + 1, str_len(param) - colon_pos - 1));
+                                    
+                                    if equals_c(param_type, type_param.data) {
+                                        param_type = concrete_type;
+                                    }
+                                    
+                                    val mapped_type: string = map_axe_type_to_c(param_type);
+                                    
+                                    StringBuilder.append(addr(sb_all), mapped_type);
+                                    StringBuilder.append_char(addr(sb_all), ' ');
+                                    StringBuilder.append(addr(sb_all), param_name);
+                            
+                                    StringStringMap.set(addr(g_var_types), addr(spec_arena), param_name, param_type);
+                                } else {
+                                    StringBuilder.append(addr(sb_all), param);
+                                }
+                                
+                                pi++;
+                            }
+                        }
+                        
+                        StringBuilder.append_c(addr(sb_all), ") {\n");
+                        
+                        if child.children != nil {
+                            val body: ref list(ASTNode) = child.children;
+                            mut bi: i32 = 0;
+                            loop {
+                                if bi >= len(deref(body)) {
+                                    break;
+                                }
+                                val body_code: string = generate_c(addr(body.data[bi]));
+                                StringBuilder.append(addr(sb_all), body_code);
+                                bi++;
+                            }
+                        }
+                        
+                        StringBuilder.append_c(addr(sb_all), "}\n\n");
+                        
+                        mut sb_short: StringBuilder = StringBuilder.init(str_len(func_name) + str_len(concrete_type) + 4);
+                        StringBuilder.append(addr(sb_short), func_name);
+                        StringBuilder.append_c(addr(sb_short), "[");
+                        StringBuilder.append(addr(sb_short), concrete_type);
+                        StringBuilder.append_c(addr(sb_short), "]");
+                        val short_call: string = StringBuilder.to_string(addr(sb_short));
+                        StringBuilder.destroy(addr(sb_short));
+                        StringStringMap.set(addr(g_function_prefixes), addr(spec_arena), short_call, mangled_name);
+                    }
+                    wi++;
+                }
+            }
+            
+            return StringBuilder.to_string(addr(sb_all));
+        }
         
         if !equals_c(func_name, "main") {
             mut sep2: i32 = -1;

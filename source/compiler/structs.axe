@@ -95,6 +95,12 @@ pub model ASTNode {
             return_type: string;
             is_public: bool;
             tags: ref list(string);
+            generic_type_params: ref list(string);
+        };
+        
+        when_branch: model {
+            type_param: string;
+            concrete_type: string;
         };
         
         macro_node: model {
