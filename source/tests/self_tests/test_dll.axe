@@ -1,0 +1,13 @@
+foreign {
+    BOOL,
+    WINAPI,
+    HINSTANCE,
+    DWORD,
+    LPVOID,
+    TRUE,
+    FALSE
+}
+
+def DllMain(hinst: HINSTANCE, reason: DWORD, reserved: LPVOID): BOOL {
+    return TRUE;
+}
