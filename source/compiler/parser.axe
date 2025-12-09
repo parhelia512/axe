@@ -14,6 +14,7 @@ use structs (
     Scope
 );
 
+use imports (is_symbol_imported);
 use gstate;
 use std.string;
 use std.io;
@@ -35,6 +36,7 @@ mut g_var_declaration_files: StringStringMap;
 mut g_var_scope_depth: StringIntMap;
 mut g_current_scope_depth: i32;
 mut g_function_has_raw_block: bool;
+mut g_check_shadowing: bool;
 mut g_macro_names: list(string);
 mut g_macro_defs: list(MacroDef);
 
@@ -53,6 +55,7 @@ pub def initialize_all() {
     g_var_declaration_files = deref(StringStringMap.create(addr(arena), 128));
     g_var_scope_depth = deref(StringIntMap.create(addr(arena), 128));
     g_current_scope_depth = 0;
+    g_check_shadowing = false;
     g_macro_names.len = 0;
     g_macro_defs.len = 0;
 }
@@ -328,6 +331,18 @@ def register_variable(var_name: string, is_mutable: bool, line_num: i32, source_
                 quit(1);
             }
         }
+    }
+    
+    if g_check_shadowing and is_symbol_imported(var_name) {
+        print source_file;
+        print ":";
+        print(i32_to_string(line_num));
+        print ": error: variable '";
+        print var_name;
+        print "' shadows imported symbol '";
+        print var_name;
+        println "'";
+        quit(1);
     }
     
     StringBoolMap.set(addr(g_var_mutability), addr(arena), var_name, is_mutable);
@@ -907,6 +922,8 @@ pub def parse(tokens: ref list(Token), is_axec: bool, check_entry_point: bool, c
     ctx.check_entry_point = check_entry_point;
     ctx.current_module = current_module;
     ctx.filename = filename;
+    
+    g_check_shadowing = check_entry_point;
     
     debug_print_raw "=== DEBUG TOKENS ===";
     mut i: i32 = 0;
@@ -2489,6 +2506,19 @@ def parse_function(ctx: ref ParserContext): ASTNode {
     }
     
     mut func_name: string = ctx.tokens.data[ctx.pos].value;
+    
+    if ctx.check_entry_point and is_symbol_imported(func_name) {
+        print ctx.filename;
+        print ":";
+        print(i32_to_string(current_line(ctx)));
+        print ": error: function '";
+        print func_name;
+        print "' shadows imported symbol '";
+        print func_name;
+        println "'";
+        quit(1);
+    }
+    
     func.data.function.name = func_name;
     func.data.function.return_type = str("");
     func.data.function.is_public = false;

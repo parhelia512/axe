@@ -70,6 +70,9 @@ def register_imported_symbol(symbol_name: string) {
 
 /// Check if a symbol has been imported
 pub def is_symbol_imported(symbol_name: string): bool {
+    if g_imported_symbols.keys == nil {
+        return false;
+    }
     return StringBoolMap.contains(addr(g_imported_symbols), symbol_name);
 }
 
@@ -592,6 +595,62 @@ def prefix_types_in_node(node: ref ASTNode, module_prefix: string, exported: ref
     }
 }
 
+/// Check if a symbol name already exists in the program AST (original user code only)
+///
+/// Skips already-imported symbols (which have __ in their names)
+def check_symbol_exists_in_program(program: ref ASTNode, symbol_name: string): bool {
+    if program.children == nil {
+        return false;
+    }
+    
+    val children: ref list(ASTNode) = program.children;
+    mut i: i32 = 0;
+    loop {
+        if i >= len(deref(children)) {
+            break;
+        }
+        val child: ASTNode = children.data[i];
+        
+        if equals_c(child.node_type, "Function") {
+            val func_name: string = child.data.function.name;
+            if find_char_from(func_name, '_', 0) >= 0 {
+                if str_contains_c(func_name, "__") {
+                    i++;
+                    continue;
+                }
+            }
+            if compare(func_name, symbol_name) == 0 {
+                return true;
+            }
+        } elif equals_c(child.node_type, "Declaration") {
+            if compare(child.data.declaration.name, symbol_name) == 0 {
+                return true;
+            }
+        } elif equals_c(child.node_type, "Model") {
+            val model_name: string = child.data.model_node.name;
+            if str_contains_c(model_name, "__") {
+                i++;
+                continue;
+            }
+            if compare(model_name, symbol_name) == 0 {
+                return true;
+            }
+        } elif equals_c(child.node_type, "Enum") {
+            val enum_name: string = child.data.enum_node.name;
+            if str_contains_c(enum_name, "__") {
+                i++;
+                continue;
+            }
+            if compare(enum_name, symbol_name) == 0 {
+                return true;
+            }
+        }
+        
+        i++;
+    }
+    return false;
+}
+
 def merge_imported_module(program: ref ASTNode, imported: ref ASTNode, use_module: string) {
     val module_prefix: string = get_module_prefix(use_module);
 
@@ -625,11 +684,35 @@ def merge_imported_module(program: ref ASTNode, imported: ref ASTNode, use_modul
                 continue;
             }
             val func_name: string = child.data.function.name;
+            
+            if check_symbol_exists_in_program(program, func_name) {
+                print "error: imported symbol '";
+                print func_name;
+                print "' from module '";
+                print use_module;
+                println "' shadows a local declaration";
+                unsafe {
+                    C.exit(1);
+                }
+            }
+            
             register_imported_symbol(func_name);
             prefix_function_node(addr(child), module_prefix, addr(exported));
             prefix_types_in_node(addr(child), module_prefix, addr(exported));
         } elif equals_c(child.node_type, "Model") {
             val original_name: string = child.data.model_node.name;
+            
+            if check_symbol_exists_in_program(program, original_name) {
+                print "error: imported symbol '";
+                print original_name;
+                print "' from module '";
+                print use_module;
+                println "' shadows a local declaration";
+                unsafe {
+                    C.exit(1);
+                }
+            }
+            
             register_imported_symbol(original_name);
             prefix_model_node(addr(child), module_prefix);
             val prefixed_name: string = child.data.model_node.name;
@@ -637,6 +720,18 @@ def merge_imported_module(program: ref ASTNode, imported: ref ASTNode, use_modul
             prefix_types_in_node(addr(child), module_prefix, addr(exported));
         } elif equals_c(child.node_type, "Enum") {
             val enum_name: string = child.data.enum_node.name;
+            
+            if check_symbol_exists_in_program(program, enum_name) {
+                print "error: imported symbol '";
+                print enum_name;
+                print "' from module '";
+                print use_module;
+                println "' shadows a local declaration";
+                unsafe {
+                    C.exit(1);
+                }
+            }
+            
             register_imported_symbol(enum_name);
             prefix_enum_node(addr(child), module_prefix);
         } elif equals_c(child.node_type, "Declaration") {
