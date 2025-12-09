@@ -15,6 +15,7 @@ val JSON_TYPE_OBJ: i32 = 5;
 extern def yyjson_read(json: char*, size: size_t, flags: i32): char*;
 extern def yyjson_doc_free(doc: char*);
 extern def yyjson_doc_get_root(doc: char*): char*;
+extern def yyjson_is_null(value: char*): bool;
 
 /// Parse a JSON string and return a document
 def parse(json_str: string): char* {
@@ -42,10 +43,8 @@ def get_root(doc: char*): char* {
 /// Check if a value is null
 def is_null(value: char*): bool {
     mut result: bool = false;
-    raw {
-        if (value != NULL) {
-            result = yyjson_is_null((yyjson_val*)value);
-        }
+    if value != nil {
+        result = yyjson_is_null(cast[ref yyjson_val](value));
     }
     return result;
 }
