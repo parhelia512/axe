@@ -679,6 +679,8 @@ pub def get_cwd(): string {
     return out;
 }
 
+extern def _NSGetExecutablePath(buf: char*, bufsize: u32*): i32;
+
 /// Get the path to the currently running executable
 pub def get_executable_path(): string {
     mut out: string = str("");
@@ -696,10 +698,9 @@ pub def get_executable_path(): string {
     
     platform posix {
         unsafe {
-            extern def readlink(pathname: ref char, buf: ref char, bufsiz: usize): i64;
-            val len: i64 = readlink("/proc/self/exe", buffer, 2047);
-            if len > 0 {
-                buffer[len] = '\0';
+            val size: u32 = 2048;
+            val result: i32 = _NSGetExecutablePath(buffer, &size);
+            if result == 0 {
                 out = str(buffer);
             }
         }
