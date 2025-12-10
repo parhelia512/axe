@@ -443,12 +443,19 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
             compile_cmd = concat(compile_cmd, toolchain_root);
             compile_cmd = concat_c(compile_cmd, "/external/x64-windows/pcre.lib");
         }
-        platform posix {
+        platform linux {
             compile_cmd = concat_c(compile_cmd, " -I");
             compile_cmd = concat(compile_cmd, toolchain_root);
             compile_cmd = concat_c(compile_cmd, "/external/pcre/include ");
             compile_cmd = concat(compile_cmd, toolchain_root);
             compile_cmd = concat_c(compile_cmd, "/external/lib-linux/libpcre.a");
+        }
+        platform macos {
+            compile_cmd = concat_c(compile_cmd, " -I");
+            compile_cmd = concat(compile_cmd, toolchain_root);
+            compile_cmd = concat_c(compile_cmd, "/external/pcre/include ");
+            compile_cmd = concat(compile_cmd, toolchain_root);
+            compile_cmd = concat_c(compile_cmd, "/external/lib-macos/libpcre.a");
         }
     }
     
@@ -479,10 +486,15 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
             compile_cmd = concat(compile_cmd, toolchain_root);
             compile_cmd = concat_c(compile_cmd, "/external/x64-windows/yyjson.lib");
         }
-        platform posix {
+        platform linux {
             compile_cmd = concat_c(compile_cmd, " ");
             compile_cmd = concat(compile_cmd, toolchain_root);
             compile_cmd = concat_c(compile_cmd, "/external/lib-linux/libyyjson.a");
+        }
+        platform macos {
+            compile_cmd = concat_c(compile_cmd, " ");
+            compile_cmd = concat(compile_cmd, toolchain_root);
+            compile_cmd = concat_c(compile_cmd, "/external/lib-macos/libyyjson.a");
         }
     }
     
