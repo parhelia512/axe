@@ -37,6 +37,12 @@ macro make_list(
                 lst = Arena.alloc(arena, C.sizeof(name));
                 lst*.data = Arena.alloc_array(arena, C.sizeof(type), capacity);
             }
+            if lst == nil {
+                panic(error.create("List: failed to allocate list header"));
+            }
+            if lst*.data == nil {
+                panic(error.create("List: failed to allocate list data"));
+            }
             lst.len = 0;
             lst.cap = capacity;
             return lst;

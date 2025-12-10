@@ -26,6 +26,12 @@ pub model Arena {
         
         unsafe {
             arena.buffer = C.malloc(size * 100);
+            if arena.buffer == 0 {
+                panic(error.create(
+                    concat(str("Arena: failed to allocate "),
+                    i32_to_string(cast[i32](size * 100))).data
+                ));
+            }
             arena.capacity = size * 100;
             arena.offset = 0;
         }
