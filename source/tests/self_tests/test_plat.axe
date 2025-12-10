@@ -1,0 +1,13 @@
+use std.io;
+
+def main() {
+    platform dragonflybsd {
+        print "DragonFly BSD\n";
+    }
+    platform macos {
+        print "macos";
+    }
+    platform windows {
+        print "windows";
+    }
+}
