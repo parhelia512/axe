@@ -708,6 +708,17 @@ pub def get_executable_path(): string {
         }
     }
     
+    platform linux {
+        unsafe {
+            extern def readlink(pathname: char*, buf: char*, bufsiz: usize): isize;
+            val len: isize = readlink("/proc/self/exe", buffer, 2047);
+            if len > 0 {
+                buffer[len] = 0;
+                out = str(buffer);
+            }
+        }
+    }
+
     return out;
 }
 
