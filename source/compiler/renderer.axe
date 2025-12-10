@@ -185,8 +185,10 @@ def emit_line_directive(line: i32): string {
     StringBuilder.append_c(addr(sb), "#line ");
     StringBuilder.append(addr(sb), i32_to_string(line));
     if g_current_source_file.data != nil and str_len(g_current_source_file) > 0 {
+        mut path_to_emit: string = g_current_source_file;
+        path_to_emit = replace_all(path_to_emit, str("\\"), str("/"));
         StringBuilder.append_c(addr(sb), " \"");
-        StringBuilder.append(addr(sb), g_current_source_file);
+        StringBuilder.append(addr(sb), path_to_emit);
         StringBuilder.append_c(addr(sb), "\"");
     }
     StringBuilder.append_c(addr(sb), "\n");
