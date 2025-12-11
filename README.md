@@ -62,9 +62,9 @@ If you already have an axe binary (recommended - download from release v0.0.5), 
 git clone https://github.com/axelang/axe.git
 cd axe/source/compiler
 axe axc -o axe --release
-
-# or use "saw build --release" with the saw build tool
 ```
+
+Or use `saw build --release` with the saw build tool.
 
 This will create the `axe` executable.
 
