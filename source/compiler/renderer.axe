@@ -1894,6 +1894,136 @@ def rewrite_ref_member_access(expr: string): string {
     return result;
 }
 
+/// Rewrite generic function calls of the form `func[Type](args)` into
+/// specialized function names like `func__T_Type(args)`.
+def rewrite_generic_calls(expr: string): string {
+    mut sb: StringBuilder = StringBuilder.init(str_len(expr) + 128);
+    mut i: i32 = 0;
+    mut in_string: bool = false;
+    mut in_char_literal: bool = false;
+    val expr_len: i32 = cast[i32](str_len(expr));
+
+    loop {
+        if i >= expr_len {
+            break;
+        }
+
+        val ch: char = get_char(expr, i);
+
+        if ch == '\'' and !in_string and !is_escaped_quote(expr, i) {
+            in_char_literal = !in_char_literal;
+            StringBuilder.append_char(addr(sb), ch);
+            i++;
+            continue;
+        }
+
+        if ch == '"' and !in_char_literal and !is_escaped_quote(expr, i) {
+            in_string = !in_string;
+            StringBuilder.append_char(addr(sb), ch);
+            i++;
+            continue;
+        }
+
+        if in_string or in_char_literal {
+            StringBuilder.append_char(addr(sb), ch);
+            i++;
+            continue;
+        }
+
+        if is_ident_start(ch) {
+            val ident_start: i32 = i;
+            mut j: i32 = i;
+            loop {
+                if j >= expr_len {
+                    break;
+                }
+                val cj: char = get_char(expr, j);
+                if !is_token_char(cj) {
+                    break;
+                }
+                j = j + 1;
+            }
+            val ident: string = substring_se(expr, ident_start, j);
+            
+            if equals_c(ident, "cast") {
+                StringBuilder.append(addr(sb), ident);
+                i = j;
+                continue;
+            }
+            
+            mut k: i32 = j;
+            loop {
+                if k >= expr_len {
+                    break;
+                }
+                val ws: char = get_char(expr, k);
+                if ws != ' ' and ws != '\t' and ws != '\n' {
+                    break;
+                }
+                k = k + 1;
+            }
+            
+            if k < expr_len and get_char(expr, k) == '[' {
+                k = k + 1;
+                val type_start: i32 = k;
+                
+                mut bracket_depth: i32 = 1;
+                loop {
+                    if k >= expr_len or bracket_depth == 0 {
+                        break;
+                    }
+                    val tc: char = get_char(expr, k);
+                    if tc == '[' {
+                        bracket_depth = bracket_depth + 1;
+                    } elif tc == ']' {
+                        bracket_depth = bracket_depth - 1;
+                    }
+                    if bracket_depth > 0 {
+                        k = k + 1;
+                    }
+                }
+                
+                val type_end: i32 = k;
+                val type_arg: string = strip(substring_se(expr, type_start, type_end));
+                
+                if k < expr_len and get_char(expr, k) == ']' {
+                    k = k + 1;
+                    
+                    loop {
+                        if k >= expr_len {
+                            break;
+                        }
+                        val ws2: char = get_char(expr, k);
+                        if ws2 != ' ' and ws2 != '\t' and ws2 != '\n' {
+                            break;
+                        }
+                        k = k + 1;
+                    }
+                    
+                    if k < expr_len and get_char(expr, k) == '(' {
+                        StringBuilder.append(addr(sb), ident);
+                        StringBuilder.append_c(addr(sb), "__T_");
+                        StringBuilder.append(addr(sb), type_arg);
+                        i = k;
+                        continue;
+                    }
+                }
+            }
+            
+            StringBuilder.append(addr(sb), ident);
+            i = j;
+            continue;
+        }
+
+        StringBuilder.append_char(addr(sb), ch);
+        i++;
+    }
+
+    val result: string = StringBuilder.to_string(addr(sb));
+    StringBuilder.destroy(addr(sb));
+    return result;
+}
+
 /// Rewrite method-style calls of the form `Base.method(...)` into a single
 /// C identifier using the canonical model name when available. 
 /// 
@@ -3905,6 +4035,7 @@ def process_expression(expr: string): string {
     mut in_string: bool = false;
     mut i: i32 = 0;
 
+    trimmed = rewrite_generic_calls(trimmed);
     trimmed = rewrite_global_scope_refs(trimmed);
 
     if has_prefix(trimmed, str("__INTERPOLATED__")) and has_suffix(trimmed, str("__INTERPOLATED__")) {
@@ -5617,6 +5748,10 @@ pub def generate_c(ast: ref ASTNode): string {
                 }
                 val proto_child: ref ASTNode = addr(children.data[i_proto]);
                 if equals_c(proto_child.node_type, "Function") {
+                    if proto_child.data.function.is_generic {
+                        i_proto++;
+                        continue;
+                    }
                     val proto_code: string = generate_function_prototype(proto_child);
                     if str_len(proto_code) > 0 {
                         val proto_name: string = proto_child.data.function.name;
