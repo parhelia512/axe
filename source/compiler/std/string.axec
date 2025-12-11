@@ -449,7 +449,7 @@ pub def substring_cse(s: char*, start: i32, end: i32): char* {
 }
 
 /// Compares string with char*. Returns 0 if equal.
-pub def equals_c(a: string, b: char*): i32 {
+pub def equals_c(a: string, b: ref char): i32 {
     mut result: i32 = 0;
     unsafe {
         result = C.strcmp((char*)a.data, (char*)b);
