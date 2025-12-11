@@ -249,7 +249,8 @@ pub def atan(x: f64): f64 {
 /// Float power: base^exp for non-integer exponents
 pub def powf(base: f64, expp: f64): f64 {
     if base <= 0.0 {
-        return 0.0; // avoid log(0) or negative base issues
+        // avoid log(0) or negative base issues
+        return 0.0;
     }
     return exp(ln(base) * expp);
 }
