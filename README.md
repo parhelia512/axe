@@ -160,8 +160,6 @@ def main() {
 }
 ```
 
-Note that when clauses are REQUIRED in generic functions.
-
 ### Game of Life
 
 ```
