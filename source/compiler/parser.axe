@@ -4433,6 +4433,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 mark_variable_mutated(var_name.value);
             }
         }
+
         debug_print_raw "\n[DEBUG] MUT declaration finished for:";
         debug_print_str var_name.value;
         return node;
@@ -4962,11 +4963,12 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     node.data.array_assign.index = index_expr;
                     node.data.array_assign.index2 = index2_expr;
                     node.data.array_assign.value = value_expr;
+
                     scan_expression_for_usage(index_expr);
                     scan_expression_for_usage(index2_expr);
                     scan_expression_for_usage(value_expr);
-                    // Mark the array/pointer variable as mutated
                     mark_variable_mutated(ident_name);
+
                     return node;
                 }
             }
