@@ -6386,17 +6386,18 @@ pub def generate_c(ast: ref ASTNode): string {
         if is_generic {
             val when_types: ref list(string) = ast.data.function.when_branch_types;
             val when_counts: ref list(i32) = ast.data.function.when_branch_counts;
+            val when_starts: ref list(i32) = ast.data.function.when_branch_starts;
             val type_params: ref list(string) = ast.data.function.type_params;
             
-            if when_types == nil or when_counts == nil or type_params == nil {
+            if when_types == nil or when_counts == nil or when_starts == nil or type_params == nil {
                 return str("");
             }
             
             val type_param_name: string = type_params.data[0];
             
             mut sb_all_funcs: StringBuilder = StringBuilder.init(8192);
+
             mut branch_idx: i32 = 0;
-            mut child_offset: i32 = 0;
             
             loop {
                 if branch_idx >= len(deref(when_types)) {
@@ -6418,7 +6419,6 @@ pub def generate_c(ast: ref ASTNode): string {
                 StringBuilder.destroy(addr(sb_spec_name));
                 
                 if StringBoolMap.contains(addr(g_generated_functions), spec_func_name) {
-                    child_offset = child_offset + child_count;
                     branch_idx++;
                     continue;
                 }
@@ -6502,31 +6502,46 @@ pub def generate_c(ast: ref ASTNode): string {
                 
                 if ast.children != nil {
                     val children: ref list(ASTNode) = ast.children;
-                    val common_count: i32 = ast.data.function.common_child_count;
-                    mut cc: i32 = 0;
+                    mut ci: i32 = 0;
+                    mut next_check_branch: i32 = 0;
 
                     loop {
-                        if cc >= common_count {
+                        if ci >= len(deref(children)) {
                             break;
                         }
-                        if cc < len(deref(children)) {
-                            val common_code: string = generate_c(addr(children.data[cc]));
-                            StringBuilder.append(addr(sb_func), common_code);
+
+                        mut is_branch_start: bool = false;
+                        if next_check_branch < len(deref(when_starts)) {
+                             if ci == when_starts.data[next_check_branch] {
+                                 is_branch_start = true;
+                             }
                         }
-                        cc++;
-                    }
-                    
-                    val branch_offset: i32 = common_count + child_offset;
-                    mut ci: i32 = 0;
-                    loop {
-                        if ci >= child_count {
-                            break;
+
+                        if is_branch_start {
+                            val branch_type: string = when_types.data[next_check_branch];
+                            val b_count: i32 = when_counts.data[next_check_branch];
+                            
+                            val is_match: bool = equals_c(branch_type, concrete_type.data);
+                            
+                            if is_match {
+                                mut bi: i32 = 0;
+                                loop {
+                                     if bi >= b_count { break; }
+                                     val child_idx: i32 = ci + bi;
+                                     if child_idx < len(deref(children)) {
+                                         val child_code: string = generate_c(addr(children.data[child_idx]));
+                                         StringBuilder.append(addr(sb_func), child_code);
+                                     }
+                                     bi++;
+                                }
+                            }
+                            ci = ci + b_count;
+                            next_check_branch++;
+                            continue;
                         }
-                        val child_idx: i32 = branch_offset + ci;
-                        if child_idx < len(deref(children)) {
-                            val child_code: string = generate_c(addr(children.data[child_idx]));
-                            StringBuilder.append(addr(sb_func), child_code);
-                        }
+
+                        val common_code: string = generate_c(addr(children.data[ci]));
+                        StringBuilder.append(addr(sb_func), common_code);
                         ci++;
                     }
                 }
@@ -6537,7 +6552,6 @@ pub def generate_c(ast: ref ASTNode): string {
                 StringBuilder.destroy(addr(sb_func));
                 StringBuilder.append(addr(sb_all_funcs), func_code);
                 
-                child_offset = child_offset + child_count;
                 branch_idx = branch_idx + 1;
             }
             
