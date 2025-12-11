@@ -372,39 +372,14 @@ def is_builtin_function(name: string): bool {
 
 /// Check if a symbol is valid (either builtin, imported, or a known model/enum)
 def is_valid_symbol(symbol_name: string): bool {
-    if str_len(symbol_name) == 0 {
-        return true;
-    }
-    
-    if is_builtin_type(symbol_name) {
-        return true;
-    }
-    
-    if is_language_keyword(symbol_name) {
-        return true;
-    }
-    
-    if StringBoolMap.contains(addr(g_opaque_types), symbol_name) {
-        return true;
-    }
-    
-    if StringBoolMap.contains(addr(g_foreign_types), symbol_name) {
-        return true;
-    }
-    
-    if is_symbol_imported(symbol_name) {
-        return true;
-    }
-    
-    if StringStringMap.contains(addr(g_model_names), symbol_name) {
-        return true;
-    }
-    
-    if StringBoolMap.contains(addr(g_enum_names), symbol_name) {
-        return true;
-    }
-    
-    return false;
+    return str_len(symbol_name) == 0
+        or is_builtin_type(symbol_name)
+        or is_language_keyword(symbol_name)
+        or StringBoolMap.contains(addr(g_opaque_types), symbol_name)
+        or StringBoolMap.contains(addr(g_foreign_types), symbol_name)
+        or is_symbol_imported(symbol_name)
+        or StringStringMap.contains(addr(g_model_names), symbol_name)
+        or StringBoolMap.contains(addr(g_enum_names), symbol_name);
 }
 
 /// Validate that a type is properly imported (call this for user-facing types)
