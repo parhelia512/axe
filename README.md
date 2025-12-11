@@ -48,9 +48,9 @@ def main() {
 
 ## Installation
 
-### Prerequisites
+### Prerequisite
 
-- [Clang compiler](https://clang.llvm.org/)
+[Clang compiler](https://clang.llvm.org/)
 
 ### Building from Source
 
