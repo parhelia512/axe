@@ -6562,6 +6562,7 @@ pub def generate_c(ast: ref ASTNode): string {
             mut sep2: i32 = -1;
             mut i2: i32 = 0;
             val n2: i32 = str_len(func_name);
+
             loop {
                 if i2 + 1 >= n2 {
                     break;
@@ -6571,7 +6572,7 @@ pub def generate_c(ast: ref ASTNode): string {
                 if c1b == '_' and c2b == '_' {
                     sep2 = i2;
                 }
-                i2 = i2 + 1;
+                i2++;
             }
 
             if sep2 >= 0 and sep2 + 2 < n2 {
@@ -6580,7 +6581,7 @@ pub def generate_c(ast: ref ASTNode): string {
                 mut has_inner_sep2: bool = false;
                 mut j2: i32 = 0;
                 val mlen2: i32 = str_len(model_part2);
-                
+
                 loop {
                     if j2 + 1 >= mlen2 {
                         break;
@@ -6591,7 +6592,7 @@ pub def generate_c(ast: ref ASTNode): string {
                         has_inner_sep2 = true;
                         break;
                     }
-                    j2 = j2 + 1;
+                    j2++;
                 }
 
                 if !has_inner_sep2 {
@@ -6617,6 +6618,7 @@ pub def generate_c(ast: ref ASTNode): string {
         }
         
         mut func_arena: Arena = Arena.create(1024);
+
         StringBoolMap.set(addr(g_generated_functions), addr(func_arena), func_name, true);
         StringStringMap.clear(addr(g_var_types));
         
