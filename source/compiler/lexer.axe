@@ -64,9 +64,6 @@ enum TokenType {
     PARALLEL,
     LOCAL,
     SINGLE,
-    // WINDOWS and POSIX were previously lexed as special tokens here.
-    // Treat platform names (windows, posix, linux, macos, etc.) as identifiers
-    // so platform handling is done at the parser/renderer level instead.
     TO,
     REDUCE,
     OPAQUE,
