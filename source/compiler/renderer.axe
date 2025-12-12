@@ -4748,9 +4748,9 @@ def generate_function_prototype(ast: ref ASTNode): string {
 
     val mapped_return_type: string = map_axe_type_to_c(return_type);
     mut sb: StringBuilder = StringBuilder.init(1512);
-
     mut is_inline: bool = false;
     val tags: ref list(string) = ast.data.function.tags;
+
     if tags != nil {
         mut ti: i32 = 0;
         loop {
