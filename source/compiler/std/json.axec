@@ -134,13 +134,13 @@ def get_int64(value: char*): i64 {
     return result;
 }
 
+extern def yyjson_get_real(value: char*): f64;
+
 /// Get floating point value
 def get_real(value: char*): f64 {
     mut result: f64 = 0.0;
-    raw {
-        if (value != NULL) {
-            result = yyjson_get_real((yyjson_val*)value);
-        }
+    if value != nil {
+        result = yyjson_get_real(cast[ref yyjson_val](value));
     }
     return result;
 }
