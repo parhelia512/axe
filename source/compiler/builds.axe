@@ -154,6 +154,7 @@ def ast_has_entry_point(node: ref ASTNode): bool {
 
     val children: ref list(ASTNode) = node.children;
     mut i: i32 = 0;
+
     loop {
         if i >= len(deref(children)) { break; }
         val child: ASTNode = children.data[i];
@@ -164,7 +165,7 @@ def ast_has_entry_point(node: ref ASTNode): bool {
         if child.children != nil {
             if ast_has_entry_point(addr(child)) { return true; }
         }
-        i = i + 1;
+        i++;
     }
     return false;
 }
