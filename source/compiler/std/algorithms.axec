@@ -3,6 +3,7 @@ use std.io;
 use std.string;
 use std.lists;
 
+/// Check if some list contains a value.
 def list_contains[T, T2](lst: T, value: T2): bool {
     for mut i = 0; i < lst.len; i++ {
         when T2 is i32 and T is IntList {
