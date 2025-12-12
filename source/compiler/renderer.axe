@@ -112,6 +112,9 @@ mut g_function_return_types: StringStringMap;
 /// Extern functions
 mut g_extern_functions: StringBoolMap;
 
+/// Track overloaded functions (to skip validation as they don't have a single signature)
+mut g_overloads: StringBoolMap;
+
 /// Current source file name for #line directives
 mut g_current_source_file: string;
 
@@ -230,6 +233,7 @@ pub def initialize_renderer() {
     g_generic_functions = deref(StringBoolMap.create(addr(arena), 128));
     g_function_param_types = deref(StringStringMap.create(addr(arena), 256));
     g_extern_functions = deref(StringBoolMap.create(addr(arena), 128));
+    g_overloads = deref(StringBoolMap.create(addr(arena), 128));
     g_emitted_prototypes = deref(StringBoolMap.create(addr(arena), 1024));
     g_emit_line_directives = false;
     g_current_source_file = str("");
@@ -591,11 +595,15 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
         if arg_idx_nested >= len(arg_list) {
             break;
         }
+
         val arg_expr: string = arg_list.data[arg_idx_nested];
         
         // First check if this argument itself is a function call
+
+        val is_string_lit: bool = has_prefix(arg_expr, str("\"")) or has_prefix(arg_expr, str("'"));
         val arg_paren: i32 = find_char_from(arg_expr, '(', 0);
-        if arg_paren > 0 {
+
+        if !is_string_lit and arg_paren > 0 {
             val nested_func: string = strip(substring_se(arg_expr, 0, arg_paren));
             val nested_args_start: i32 = arg_paren + 1;
             val nested_args_end: i32 = str_len(arg_expr) - 1;
@@ -612,7 +620,42 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
         lookup_name = StringStringMap.get(addr(g_function_prefixes), func_name);
     }
     
+    if has_prefix(func_name, str("cast")) {
+        return;
+    }
+
+    val dot_pos: i32 = find_char_from(func_name, '.', 0);
+    if dot_pos > 0 {
+        val base_name: string = strip(substring_se(func_name, 0, dot_pos));
+        if is_symbol_imported(base_name) or StringStringMap.contains(addr(g_model_names), base_name) {
+            return;
+        }
+    }
+    
     if !StringStringMap.contains(addr(g_function_param_types), lookup_name) {
+        if StringBoolMap.contains(addr(g_overloads), lookup_name) 
+            or StringBoolMap.contains(addr(g_extern_functions), lookup_name) 
+            or StringBoolMap.contains(addr(g_generic_functions), lookup_name) 
+            or StringBoolMap.contains(addr(g_function_return_types), lookup_name) 
+            or StringBoolMap.contains(addr(g_function_param_types), lookup_name) 
+            or StringBoolMap.contains(addr(g_emitted_prototypes), lookup_name)
+            or StringBoolMap.contains(addr(g_function_prefixes), lookup_name) {
+            return;
+        }
+
+        if g_current_source_file.data != nil {
+            print(get_short_filename(g_current_source_file));
+        } else {
+            print "(null)";
+        }
+        print ":";
+        print(i32_to_string(g_current_line));
+        print ": error: undefined function: '";
+        print func_name;
+        println "'";
+        unsafe {
+            C.exit(1);
+        }
         return;
     }
     
@@ -770,6 +813,11 @@ def collect_function_signatures(node: ref ASTNode, arena: ref Arena) {
         val ret_type: string = node.data.extern_node.return_type;
         register_function_signature(func_name, params, ret_type, arena);
         StringBoolMap.set(addr(g_extern_functions), arena, func_name, true);
+    }
+
+    if equals_c(node.node_type, "Overload") {
+        val func_name: string = node.data.overload_node.name;
+        StringBoolMap.set(addr(g_overloads), arena, func_name, true);
     }
     
     if node.children != nil {
@@ -7802,6 +7850,8 @@ pub def generate_c(ast: ref ASTNode): string {
         if call_args != nil and len(deref(call_args)) > 0 {
             val args_str: string = strip(call_args.data[0]);
             validate_function_call(func_name, args_str, 0);
+        } else {
+            validate_function_call(func_name, str(""), 0);
         }
 
         if equals_c(func_name, "append") {
