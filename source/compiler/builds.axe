@@ -167,6 +167,7 @@ def ast_has_entry_point(node: ref ASTNode): bool {
         }
         i++;
     }
+
     return false;
 }
 
