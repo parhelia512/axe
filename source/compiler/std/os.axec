@@ -663,14 +663,14 @@ pub def get_cwd(): string {
 
     platform posix {
         if getcwd(buffer, sizeof(buffer)) != nil {
-            out = str(buffer);            
+            out = str(addr(buffer));            
         } else {
             panic(error.create("Failed to get current working directory"));
         }
     }
     platform windows {
         if _getcwd(buffer, sizeof(buffer)) != nil {
-            out = str(buffer);            
+            out = str(addr(buffer));            
         } else {
             panic(error.create("Failed to get current working directory"));
         }
@@ -693,7 +693,7 @@ pub def get_executable_path(): string {
             extern def GetModuleFileNameA(hModule: ref void, lpFilename: ref char, nSize: u32): u32;
             val len: u32 = GetModuleFileNameA(nil, buffer, 2048);
             if len > 0 {
-                out = str(buffer);
+                out = str(addr(buffer));
             }
         }
     }
@@ -703,7 +703,7 @@ pub def get_executable_path(): string {
             val size: u32 = 2048;
             val result: i32 = _NSGetExecutablePath(buffer, &size);
             if result == 0 {
-                out = str(buffer);
+                out = str(addr(buffer));
             }
         }
     }
@@ -714,7 +714,7 @@ pub def get_executable_path(): string {
             val len: isize = readlink("/proc/self/exe", buffer, 2047);
             if len > 0 {
                 buffer[len] = 0;
-                out = str(buffer);
+                out = str(addr(buffer));
             }
         }
     }
