@@ -1,0 +1,11 @@
+use std.io;
+
+def genfunc[T]() {
+    when T is ref char {
+        println("Type is ref char");
+    }
+}
+
+def main() {
+    genfunc[ref char]();
+}
