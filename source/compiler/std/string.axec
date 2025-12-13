@@ -2,11 +2,6 @@ use std.lists (
     StringList
 );
 
-use std.typecons (
-    Any,
-    AnyKind
-);
-
 use std.arena (
     Arena
 );
