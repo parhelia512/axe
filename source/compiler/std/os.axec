@@ -156,12 +156,12 @@ pub def quit(code: i32) {
 /// Check if a file exists.
 pub def file_exists(path: string): bool {
     mut val out: bool = false;
-    raw {
-        FILE *f = fopen(path.data, "r");
-        if (f != NULL) {
-            fclose(f);
-            out = true;
-        }
+    foreign {FILE};
+
+    val f: ref FILE = fopen(path.data, "r");
+    if f != nil {
+        fclose(f);
+        out = true;
     }
     return out;
 }
