@@ -8,6 +8,7 @@ foreign {
     FALSE
 }
 
+[entry]
 def DllMain(hinst: HINSTANCE, reason: DWORD, reserved: LPVOID): BOOL {
     return TRUE;
 }
