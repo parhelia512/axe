@@ -232,20 +232,16 @@ pub def is_file(path: string): bool {
     mut out: bool = false;
 
     platform posix {
-        raw {
-            struct stat sb;
-            if (stat(path.data, &sb) == 0) {
-                out = S_ISREG(sb.st_mode);
-            }
+        mut sb: $(stat);
+        if C.stat(path.data, addr(sb)) == 0 {
+            out = C.S_ISREG(sb.st_mode);
         }
     }
 
     platform windows {
-        raw {
-            struct _stat sb;
-            if (_stat(path.data, &sb) == 0) {
-                out = (sb.st_mode & _S_IFREG) != 0;
-            }
+        mut sb: $(_stat);
+        if C._stat(path.data, addr(sb)) == 0 {
+            out = (sb.st_mode & _S_IFREG) != 0;
         }
     }
 
