@@ -168,24 +168,22 @@ pub def file_exists(path: string): bool {
 
 /// Read entire file into a newly allocated string.
 pub def read_file(path: string): string {
-    mut val out: string;
+    mut f: ref FILE = fopen(path.data, "rb");
 
-    raw {
-        FILE *f = fopen(path.data, "rb");
-    }
     if (!f) {
         panic(error.create("Failed to open file"));
     }
-    raw {
-        fseek(f, 0, SEEK_END);
-        long size = ftell(f);
-        fseek(f, 0, SEEK_SET);
 
-        char *buf = (char*)malloc(size + 1);
-        fread(buf, 1, size, f);
-        buf[size] = 0;
-        fclose(f);
-    }
+    foreign {SEEK_END, SEEK_SET};
+
+    C.fseek(f, 0, SEEK_END);
+    val size: usize = C.ftell(f);
+    C.fseek(f, 0, SEEK_SET);
+    mut buf: ref char = cast[ref char](C.malloc(size + 1));
+
+    C.fread(buf, 1, size, f);
+    buf[size] = '\0';
+    C.fclose(f);
 
     return string.create(buf);
 }
