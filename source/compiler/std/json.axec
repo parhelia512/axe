@@ -239,19 +239,18 @@ def stringify(doc: ref char): string {
 /// Serialize a JSON value to a string
 def stringify_val(value: ref char): string {
     mut result: string;
-    raw {
-        result.data = NULL;
-        result.len = 0;
-        result.cap = 0;
-        
-        if (value != NULL) {
-            size_t len;
-            char* json = yyjson_val_write((yyjson_val*)value, 0, &len);
-            if (json != NULL) {
-                result.data = json;
-                result.len = len;
-                result.cap = len + 1;
-            }
+
+    result.data = nil;
+    result.len = 0;
+    result.cap = 0;
+    
+    if value != nil {
+        mut len: usize;
+        val json: ref char = yyjson_val_write(cast[ref yyjson_val](value), 0, addr(len));
+        if json != nil {
+            result.data = json;
+            result.len = len;
+            result.cap = len + 1;
         }
     }
     return result;
@@ -260,19 +259,19 @@ def stringify_val(value: ref char): string {
 /// Serialize with pretty formatting
 def stringify_pretty(doc: ref char): string {
     mut result: string;
-    raw {
-        result.data = NULL;
-        result.len = 0;
-        result.cap = 0;
-        
-        if (doc != NULL) {
-            size_t len;
-            char* json = yyjson_write((yyjson_doc*)doc, YYJSON_WRITE_PRETTY, &len);
-            if (json != NULL) {
-                result.data = json;
-                result.len = len;
-                result.cap = len + 1;
-            }
+    result.data = nil;
+    result.len = 0;
+    result.cap = 0;
+
+    foreign {YYJSON_WRITE_PRETTY};
+
+    if doc != nil {
+        mut len: usize;
+        val json: ref char = yyjson_write(cast[ref yyjson_doc](doc), YYJSON_WRITE_PRETTY, addr(len));
+        if json != nil {
+            result.data = json;
+            result.len = len;
+            result.cap = len + 1;
         }
     }
     return result;
