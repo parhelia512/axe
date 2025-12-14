@@ -147,6 +147,7 @@ def get_real(value: char*): f64 {
 
 extern def yyjson_get_str(value: ref char): ref char;
 extern def yyjson_get_len(value: ref char): usize;
+extern def yyjson_arr_get_first(arr: ref char): ref char;
 
 /// Get string value
 def get_str(value: char*): string {
@@ -175,10 +176,8 @@ def get_str(value: char*): string {
 /// Get the length of an array or object
 def get_len(value: char*): usize {
     mut result: usize = 0;
-    raw {
-        if (value != NULL) {
-            result = yyjson_get_len((yyjson_val*)value);
-        }
+    if value != nil {
+        result = yyjson_get_len(cast[ref yyjson_val](value));
     }
     return result;
 }
@@ -186,10 +185,8 @@ def get_len(value: char*): usize {
 /// Get a value from an object by key
 def obj_get(obj: char*, key: string): char* {
     mut result: char* = nil;
-    raw {
-        if (obj != NULL && key.data != NULL) {
-            result = (char*)yyjson_obj_get((yyjson_val*)obj, key.data);
-        }
+    if obj != nil && key.data != nil {
+        result = yyjson_obj_get(cast[ref yyjson_val](obj), key.data);
     }
     return result;
 }
@@ -197,10 +194,8 @@ def obj_get(obj: char*, key: string): char* {
 /// Get a value from an array by index
 def arr_get(arr: char*, idx: usize): char* {
     mut result: char* = nil;
-    raw {
-        if (arr != NULL) {
-            result = (char*)yyjson_arr_get((yyjson_val*)arr, idx);
-        }
+    if arr != nil {
+        result = yyjson_arr_get(cast[ref yyjson_val](arr), idx);
     }
     return result;
 }
@@ -208,10 +203,8 @@ def arr_get(arr: char*, idx: usize): char* {
 /// Get the first element in an array
 def arr_get_first(arr: char*): char* {
     mut result: char* = nil;
-    raw {
-        if (arr != NULL) {
-            result = (char*)yyjson_arr_get_first((yyjson_val*)arr);
-        }
+    if arr != nil {
+        result = yyjson_arr_get_first(cast[ref yyjson_val](arr));
     }
     return result;
 }
@@ -219,10 +212,8 @@ def arr_get_first(arr: char*): char* {
 /// Get the last element in an array
 def arr_get_last(arr: char*): char* {
     mut result: char* = nil;
-    raw {
-        if (arr != NULL) {
-            result = (char*)yyjson_arr_get_last((yyjson_val*)arr);
-        }
+    if arr != nil {
+        result = yyjson_arr_get_last(cast[ref yyjson_val](arr));
     }
     return result;
 }
