@@ -4,8 +4,6 @@ def main() {
     unsafe {
         val x: usize = 42;
         val y: ref i32 = cast[ref i32](x);
-        val size: usize = C.sizeof(list(string));
-        println size;
-        println y;
+        println(deref(y));
     }
 }
