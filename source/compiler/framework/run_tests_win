@@ -35,14 +35,28 @@ foreach ($folder in $folders) {
         & ..\axc $file
         $exit = $LASTEXITCODE
 
-        if ($exit -ne 0) {
-            Write-Host "FAILED: $file" -ForegroundColor Red
-            $failed++
-            $counts.failed++
-            $failedFiles += $file
+        $isErrorTest = $_.Name -like '*_error.axe'
+
+        if ($isErrorTest) {
+            if ($exit -ne 0) {
+                Write-Host "OK (expected failure): $file" -ForegroundColor Green
+                $counts.passed++
+            } else {
+                Write-Host "FAILED (expected error but succeeded): $file" -ForegroundColor Red
+                $failed++
+                $counts.failed++
+                $failedFiles += $file
+            }
         } else {
-            Write-Host "OK: $file" -ForegroundColor Green
-            $counts.passed++
+            if ($exit -ne 0) {
+                Write-Host "FAILED: $file" -ForegroundColor Red
+                $failed++
+                $counts.failed++
+                $failedFiles += $file
+            } else {
+                Write-Host "OK: $file" -ForegroundColor Green
+                $counts.passed++
+            }
         }
     }
 }
