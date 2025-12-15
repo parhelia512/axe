@@ -1,0 +1,5 @@
+def test_basic_types(x: i32) { }
+
+def main() {
+    test_basic_types("hello");
+}

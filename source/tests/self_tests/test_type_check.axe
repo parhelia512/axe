@@ -1,0 +1,5 @@
+def foo(x: i32) { }
+
+def main() {
+    foo("hello");  // This should definitely fail with type mismatch
+}

@@ -1,0 +1,8 @@
+use std.io;
+use std.string;
+
+def main() {
+    val addr_var: string = str("test addr(");    
+    println("addr( problem test");
+    println(addr_var);
+}
