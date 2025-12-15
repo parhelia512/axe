@@ -895,7 +895,6 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
             print expected_type;
             print "' but got '";
             print inferred_type;
-            println "' (did you mean to declare the parameter as 'ref ...'?)";
             unsafe {
                 C.exit(1);
             }
