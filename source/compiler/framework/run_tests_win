@@ -1,9 +1,11 @@
+cd ..
+
 Set-StrictMode -Version Latest
 
 $scriptDir = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
 Set-Location $scriptDir
 
-if (-not (Test-Path "./axc.exe")) {
+if (-not (Test-Path "../axc.exe")) {
     Write-Host "ERROR: axc not found in $PWD\axc" -ForegroundColor Red
     exit 1
 }
@@ -11,7 +13,7 @@ if (-not (Test-Path "./axc.exe")) {
 $failed = 0
 $counts = @{ total = 0; passed = 0; failed = 0 }
 $failedFiles = @()
-$folders = @("..\\tests\\self_tests", "..\\tests\\legacy_tests")
+$folders = @("..\\..\\tests\\self_tests", "..\\..\\tests\\legacy_tests")
 
 Write-Host "=== Axe compiler PowerShell test runner ==="
 
@@ -30,7 +32,7 @@ foreach ($folder in $folders) {
         Write-Host "------------------------------"
         Write-Host "Running $file"
 
-        & .\axc $file
+        & ..\axc $file
         $exit = $LASTEXITCODE
 
         if ($exit -ne 0) {
