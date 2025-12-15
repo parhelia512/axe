@@ -21,8 +21,8 @@ pub def is_match(re: regex, text: string): bool {
 
 extern def pcre_compile(pattern: ref char,
     options: i32,
-    errptr: addr ref char,
-    erroffset: addr i32,
+    errptr: ref char,
+    erroffset: ref i32,
     tableptr: ref void): ref pcre;
 
 extern def pcre_exec(code: ref pcre,
