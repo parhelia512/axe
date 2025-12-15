@@ -3897,134 +3897,235 @@ def rewrite_enum_member_refs(s: string): string {
 
 /// Rewrite addr(...) to &(...) or &var for C address-of operations
 def rewrite_adr(expr: string): string {
-    mut result: string = expr;
-    
+    mut sb: StringBuilder = StringBuilder.init(str_len(expr) + 64);
+    mut i: i32 = 0;
+    mut in_string: bool = false;
+    mut in_char_literal: bool = false;
+    val expr_len: i32 = cast[i32](str_len(expr));
+
     loop {
-        val start_idx: i32 = find_substr(result, str("addr"));
-        if start_idx < 0 {
+        if i >= expr_len {
             break;
         }
-        
-        mut pos: i32 = start_idx + 4;
-        loop {
-            if pos >= str_len(result) {
-                break;
-            }
-            val ws: char = get_char(result, pos);
-            if ws != ' ' and ws != '\t' {
-                break;
-            }
-            pos = pos + 1;
-        }
-        
-        if pos >= str_len(result) or get_char(result, pos) != '(' {
-            break;
-        }
-        
-        val paren_start: i32 = pos + 1;
-        mut depth: i32 = 1;
-        mut paren_end: i32 = paren_start;
-        
-        loop {
-            if paren_end >= str_len(result) or depth == 0 {
-                break;
-            }
-            val ch: char = get_char(result, paren_end);
-            if ch == '(' {
-                depth = depth + 1;
-            } elif ch == ')' {
-                depth = depth - 1;
-            }
-            if depth > 0 {
-                paren_end = paren_end + 1;
-            }
-        }
-        
-        if depth != 0 {
-            break;
-        }
-        
-        val var_name: string = strip(substring_se(result, paren_start, paren_end));
-        val has_bracket: bool = find_char_from(var_name, '[', cast[usize](0)) >= 0;
-        val has_dot: bool = find_char_from(var_name, '.', cast[usize](0)) >= 0;
-        mut replacement: string = str("");
 
-        if has_bracket or has_dot {
-            replacement = concat(str("&("), var_name);
-            replacement = concat(replacement, str(")"));
-        } else {
-            replacement = concat(str("&"), var_name);
-        }
-        
-        val before: string = substring_se(result, 0, start_idx);
-        val after: string = substring_se(result, paren_end + 1, cast[i32](str_len(result)));
+        val ch: char = get_char(expr, i);
 
-        result = concat(before, replacement);
-        result = concat(result, after);
+        if ch == '\'' and !in_string and !is_escaped_quote(expr, i) {
+            in_char_literal = !in_char_literal;
+            StringBuilder.append_char(addr(sb), ch);
+            i++;
+            continue;
+        }
+
+        if ch == '"' and !in_char_literal and !is_escaped_quote(expr, i) {
+            in_string = !in_string;
+            StringBuilder.append_char(addr(sb), ch);
+            i++;
+            continue;
+        }
+
+        if !in_string and !in_char_literal and is_ident_start(ch) {
+            val ident_start: i32 = i;
+            mut j: i32 = i;
+            loop {
+                if j >= expr_len {
+                    break;
+                }
+                val cj: char = get_char(expr, j);
+                if !is_token_char(cj) {
+                    break;
+                }
+                j++;
+            }
+            
+            val ident: string = substring_se(expr, ident_start, j);
+            if equals_c(ident, "addr") {
+                mut k: i32 = j;
+                loop {
+                    if k >= expr_len {
+                        break;
+                    }
+                    val ws: char = get_char(expr, k);
+                    if ws != ' ' and ws != '\t' and ws != '\n' {
+                        break;
+                    }
+                    k++;
+                }
+
+                if k < expr_len and get_char(expr, k) == '(' {
+                    val paren_start: i32 = k + 1;
+                    mut paren_end: i32 = paren_start;
+                    mut depth: i32 = 1;
+                    mut in_arg_str: bool = false;
+                    mut in_arg_char: bool = false;
+
+                    loop {
+                        if paren_end >= expr_len or depth == 0 {
+                            break;
+                        }
+                        val pc: char = get_char(expr, paren_end);
+                        
+                        if pc == '"' and !in_arg_char and !is_escaped_quote(expr, paren_end) {
+                            in_arg_str = !in_arg_str;
+                        } elif pc == '\'' and !in_arg_str and !is_escaped_quote(expr, paren_end) {
+                            in_arg_char = !in_arg_char;
+                        } elif !in_arg_str and !in_arg_char {
+                            if pc == '(' {
+                                depth++;
+                            } elif pc == cast[char](41) { // ')'
+                                depth--;
+                            }
+                        }
+                        
+                        if depth > 0 {
+                            paren_end++;
+                        }
+                    }
+
+                    if depth == 0 {
+                        val var_name: string = strip(substring_se(expr, paren_start, paren_end));
+                        val has_bracket: bool = find_char_from(var_name, '[', cast[usize](0)) >= 0;
+                        val has_dot: bool = find_char_from(var_name, '.', cast[usize](0)) >= 0;
+                        
+                        if has_bracket or has_dot {
+                            StringBuilder.append_c(addr(sb), "&(");
+                            StringBuilder.append(addr(sb), var_name);
+                            StringBuilder.append_c(addr(sb), ")");
+                        } else {
+                            StringBuilder.append_c(addr(sb), "&");
+                            StringBuilder.append(addr(sb), var_name);
+                        }
+                        
+                        i = paren_end + 1;
+                        continue;
+                    }
+                }
+            }
+            
+            StringBuilder.append(addr(sb), ident);
+            i = j;
+            continue;
+        }
+
+        StringBuilder.append_char(addr(sb), ch);
+        i++;
     }
-    
+
+    val result: string = StringBuilder.to_string(addr(sb));
+    StringBuilder.destroy(addr(sb));
     return result;
 }
 
 /// Rewrite deref(expr) to (*expr) for pointer dereference.
 def rewrite_dereference(expr: string): string {
-    mut result: string = expr;
-    
+    mut sb: StringBuilder = StringBuilder.init(str_len(expr) + 64);
+    mut i: i32 = 0;
+    mut in_string: bool = false;
+    mut in_char_literal: bool = false;
+    val expr_len: i32 = cast[i32](str_len(expr));
+
     loop {
-        val start_idx: i32 = find_substr(result, str("deref"));
-        if start_idx < 0 {
+        if i >= expr_len {
             break;
         }
-        
-        mut pos: i32 = start_idx + 5;
-        loop {
-            if pos >= str_len(result) {
-                break;
-            }
-            val ws: char = get_char(result, pos);
-            if ws != ' ' and ws != '\t' {
-                break;
-            }
-            pos++;
+
+        val ch: char = get_char(expr, i);
+
+        if ch == '\'' and !in_string and !is_escaped_quote(expr, i) {
+            in_char_literal = !in_char_literal;
+            StringBuilder.append_char(addr(sb), ch);
+            i++;
+            continue;
         }
-        
-        if pos >= str_len(result) or get_char(result, pos) != '(' {
-            break;
+
+        if ch == '"' and !in_char_literal and !is_escaped_quote(expr, i) {
+            in_string = !in_string;
+            StringBuilder.append_char(addr(sb), ch);
+            i++;
+            continue;
         }
-        
-        val paren_start: i32 = pos + 1;
-        mut depth: i32 = 1;
-        mut paren_end: i32 = paren_start;
-        
-        loop {
-            if paren_end >= str_len(result) or depth == 0 {
-                break;
+
+        if !in_string and !in_char_literal and is_ident_start(ch) {
+            val ident_start: i32 = i;
+            mut j: i32 = i;
+            loop {
+                if j >= expr_len {
+                    break;
+                }
+                val cj: char = get_char(expr, j);
+                if !is_token_char(cj) {
+                    break;
+                }
+                j++;
             }
-            val ch: char = get_char(result, paren_end);
-            if ch == '(' {
-                depth++;
-            } elif ch == cast[char](41) {
-                depth--;
+            
+            val ident: string = substring_se(expr, ident_start, j);
+            if equals_c(ident, "deref") {
+                mut k: i32 = j;
+                loop {
+                    if k >= expr_len {
+                        break;
+                    }
+                    val ws: char = get_char(expr, k);
+                    if ws != ' ' and ws != '\t' and ws != '\n' {
+                        break;
+                    }
+                    k++;
+                }
+
+                if k < expr_len and get_char(expr, k) == '(' {
+                    val paren_start: i32 = k + 1;
+                    mut paren_end: i32 = paren_start;
+                    mut depth: i32 = 1;
+                    mut in_arg_str: bool = false;
+                    mut in_arg_char: bool = false;
+
+                    loop {
+                        if paren_end >= expr_len or depth == 0 {
+                            break;
+                        }
+                        val pc: char = get_char(expr, paren_end);
+                        
+                        if pc == '"' and !in_arg_char and !is_escaped_quote(expr, paren_end) {
+                            in_arg_str = !in_arg_str;
+                        } elif pc == '\'' and !in_arg_str and !is_escaped_quote(expr, paren_end) {
+                            in_arg_char = !in_arg_char;
+                        } elif !in_arg_str and !in_arg_char {
+                            if pc == '(' {
+                                depth++;
+                            } elif pc == cast[char](41) { // ')'
+                                depth--;
+                            }
+                        }
+                        
+                        if depth > 0 {
+                            paren_end++;
+                        }
+                    }
+
+                    if depth == 0 {
+                        val var_name: string = strip(substring_se(expr, paren_start, paren_end));
+                        StringBuilder.append_c(addr(sb), "(*");
+                        StringBuilder.append(addr(sb), var_name);
+                        StringBuilder.append_c(addr(sb), ")");
+                        
+                        i = paren_end + 1;
+                        continue;
+                    }
+                }
             }
-            if depth > 0 {
-                paren_end++;
-            }
+            
+            StringBuilder.append(addr(sb), ident);
+            i = j;
+            continue;
         }
-        
-        if depth != 0 {
-            break;
-        }
-        
-        val var_name: string = strip(substring_se(result, paren_start, paren_end));
-        mut replacement: string = concat(str("(*"), var_name);
-        replacement = concat_c(replacement, ")");
-        
-        val before: string = substring_se(result, 0, start_idx);
-        val after: string = substring_se(result, paren_end + 1, cast[i32](str_len(result)));
-        result = concat(before, replacement);
-        result = concat(result, after);
+
+        StringBuilder.append_char(addr(sb), ch);
+        i++;
     }
-    
+
+    val result: string = StringBuilder.to_string(addr(sb));
+    StringBuilder.destroy(addr(sb));
     return result;
 }
 
