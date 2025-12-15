@@ -1,8 +1,6 @@
-use pub_test_lib;
+use pub_test_lib_error;
 
 def main() {
-    pub_test_lib.public_func();
-    
-    mut m = PublicModel{};
+    public_func();
     PublicModel.public_method();
 }
