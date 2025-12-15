@@ -140,6 +140,34 @@ pub def println_bool(value: bool) {
     }
 }
 
+/// Read an integer from stdin
+pub def read_i32(): i32 {
+    mut value: i32 = 0;
+    unsafe {
+        C.scanf("%d", addr(value));
+    }
+    return value;
+}
+
+/// Read a float from stdin
+pub def read_f32(): f32 {
+    mut value: f32 = 0.0;
+    unsafe {
+        C.scanf("%f", addr(value));
+    }
+    return value;
+}
+
+/// Read a string from stdin
+pub def read_str(arena: Arena): string {
+    val buffer_size: usize = 1024;
+    mut buffer: ref char = Arena.alloc_array(addr(arena), C.sizeof(char), buffer_size);
+    unsafe {
+        C.scanf("%1023s", buffer);
+    }
+    return str(buffer);
+}
+
 test {
     val x: f32 = 3.14159;
     val y: f32 = 2.71828;

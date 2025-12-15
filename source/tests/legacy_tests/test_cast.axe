@@ -7,5 +7,6 @@ def main() {
         val y: ref i32 = cast[ref i32](x);
         val size: usize = C.sizeof(list(string));
         println size;
+        println y;
     }
 }

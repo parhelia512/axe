@@ -8,7 +8,7 @@ def main() {
 
     loop {
         print("Guess the number between 1 and 100: ");
-        guess = read_int();
+        guess = read_i32();
         if guess == secret {
             print("You guessed it.");
             break;
