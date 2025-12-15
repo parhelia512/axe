@@ -9235,6 +9235,22 @@ pub def generate_c(ast: ref ASTNode): string {
         }
         StringBuilder.append_c(addr(sb_ploc), ")\n{\n");
         
+        mut vj: i32 = 0;
+        loop {
+            if vj >= len(deref(private_vars)) {
+                break;
+            }
+            val pname: string = private_vars.data[vj];
+            val ptype: string = private_types.data[vj];
+            mut decl_arena: Arena = Arena.create(512);
+            if str_len(strip(ptype)) > 0 {
+                StringStringMap.set(addr(g_var_types), addr(decl_arena), pname, ptype);
+            } else {
+                StringStringMap.set(addr(g_var_types), addr(decl_arena), pname, str("auto"));
+            }
+            vj++;
+        }
+
         if ast.children != nil {
             val children: ref list(ASTNode) = ast.children;
             mut i_ploc: i32 = 0;
