@@ -1,0 +1,13 @@
+use std.string;
+use std.io;
+
+def is_addr_call(expr: string): bool {
+    val trimmed: string = strip(expr);
+    if str_len(trimmed) == 0 or !has_prefix(trimmed, str("addr(")) or !has_suffix(trimmed, str(")")) {
+        return false;
+    }
+}
+
+def main() {
+    println("hi");
+}
