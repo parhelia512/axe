@@ -2984,7 +2984,7 @@ def rewrite_casts(expr: string): string {
                                         }
                                     }
                                 }
-                                q = q + 1;
+                                q++;
                             }
 
                             if end_paren >= 0 {
