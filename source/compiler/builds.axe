@@ -34,7 +34,8 @@ use std.os (
     exec_capture, 
     exec, 
     delete_file, 
-    get_executable_dir
+    get_executable_dir,
+    file_exists
 );
 
 use std.io;
@@ -477,23 +478,35 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
 
     val exe_filename: string = get_output_filename(output_filename, filename);
     val needs_omp: bool = should_link_openmp(addr(ast), filename);
+    val homebrew_llvm_path: string = str("/opt/homebrew/opt/llvm/bin/clang");
     mut compiler: string = str("");
 
-    if command_exists(str("clang")) {
-        compiler = str("clang");
-    } else {
-        if command_exists(str("cc")) {
-            compiler = str("cc");
-            if !::quiet_mode {
-                println "\ncc: Linking.";
-            }
+    platform macos {
+        if file_exists(homebrew_llvm_path) {
+            compiler = homebrew_llvm_path;
         }
-        
-        if str_len(compiler) == 0 {
-            println "\nYou do not have the LLVM C toolchain installed.";
-            println "Install clang from https://releases.llvm.org/ or via your package manager.";
-            println "Alternatively, ensure 'cc' is available in your PATH.";
-            return false;
+    }
+
+    if str_len(compiler) == 0 {
+        if command_exists(str("clang")) {
+            compiler = str("clang");
+        } else {
+            if command_exists(str("cc")) {
+                compiler = str("cc");
+                if !::quiet_mode {
+                    println "\ncc: Linking.";
+                }
+            }
+            
+            if str_len(compiler) == 0 {
+                println "\nYou do not have the LLVM C toolchain installed.";
+                println "Install clang from https://releases.llvm.org/ or via your package manager.";
+                println "Alternatively, ensure 'cc' is available in your PATH.";
+                platform macos {
+                    println "For parallel features to work, run 'brew install llvm' first (requires installing Homebrew).";
+                }
+                return false;
+            }
         }
     }
     
