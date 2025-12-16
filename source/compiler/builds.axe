@@ -113,7 +113,7 @@ def prefix_root_enums(node: ref ASTNode, mprefix: string) {
                 break;
             }
             prefix_root_enums(addr(chs.data[ci]), mprefix);
-            ci = ci + 1;
+            ci++;
         }
     }
 }
