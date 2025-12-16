@@ -3645,9 +3645,10 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
     
     // Handle SWITCH
     if token_type == TokenType.SWITCH {
+        val switch_line: i32 = token.line;
         consume(ctx);
         skip_whitespace(ctx);
-        
+
         mut switch_expr: string = str("");
         loop {
             if ctx.pos >= len(ctx.tokens) {
@@ -3663,36 +3664,58 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             }
             consume(ctx);
         }
-        
+
         scan_expression_for_usage(switch_expr);
-        
+
         if !expect(ctx, TokenType.LBRACE) {
             mut err: string = format_error(ctx, str("Expected '{' after switch expression"));
             enforce_raw(false, err.data);
             return node;
         }
-        consume(ctx);
-        
-        mut depth: i32 = 1;
+        consume(ctx); // skip '{'
+
+        push_scope();
+
+        mut lnode: ASTNode;
+        lnode.node_type = str("Switch");
+        lnode.line = switch_line;
+        lnode.source_file = ctx.filename;
+        lnode.data.switch_node.expression = switch_expr;
+
+        mut body: list(ASTNode);
         loop {
             if ctx.pos >= len(ctx.tokens) {
                 break;
             }
-            val t: Token = peek(ctx);
-            if t.token_type == TokenType.LBRACE {
-                depth = depth + 1;
-            } elif t.token_type == TokenType.RBRACE {
-                depth = depth - 1;
-                if depth == 0 {
-                    consume(ctx);
-                    break;
-                }
+
+            skip_whitespace(ctx);
+            if ctx.pos >= len(ctx.tokens) {
+                break;
             }
-            consume(ctx);
+
+            if ctx.tokens.data[ctx.pos].token_type == TokenType.RBRACE {
+                consume(ctx); // skip '}'
+                break;
+            }
+
+            val stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+            if str_len(stmt.node_type) > 0 {
+                append(body, stmt);
+            }
         }
-        
-        node.node_type = str("Switch");
-        return node;
+
+        pop_scope();
+
+        unsafe {
+            val list_size: usize = C.sizeof(list(ASTNode));
+            val heap_list: ref list(ASTNode) = cast[ref list(ASTNode)](C.malloc(list_size));
+            if heap_list != nil {
+                C.memcpy(heap_list, addr(body), list_size);
+                lnode.children = heap_list;
+            }
+        }
+
+        return lnode;
     }
     
     // Handle IF
@@ -7318,31 +7341,48 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             enforce_raw(false, "Expected '{' after case value");
             return node;
         }
-        consume(ctx);
-        
-        // Skip case body
-        mut depth: i32 = 1;
+        consume(ctx); // skip '{'
+
+        push_scope();
+
+        mut cnode: ASTNode;
+        cnode.node_type = str("Case");
+        cnode.line = token.line;
+        cnode.source_file = ctx.filename;
+        cnode.data.case_node.value = case_value;
+        cnode.data.case_node.is_default = false;
+
+        mut body: list(ASTNode);
         loop {
             if ctx.pos >= len(ctx.tokens) {
                 break;
             }
-            val t: Token = peek(ctx);
-            if t.token_type == TokenType.LBRACE {
-                depth = depth + 1;
-            } elif t.token_type == TokenType.RBRACE {
-                depth = depth - 1;
-                if depth == 0 {
-                    consume(ctx);
-                    break;
-                }
+            skip_whitespace(ctx);
+            if ctx.pos >= len(ctx.tokens) {
+                break;
             }
-            consume(ctx);
+            if ctx.tokens.data[ctx.pos].token_type == TokenType.RBRACE {
+                consume(ctx); // skip '}'
+                break;
+            }
+            val stmt: ASTNode = parse_statement_helper(ctx, scope);
+            if str_len(stmt.node_type) > 0 {
+                append(body, stmt);
+            }
         }
-        
-        node.node_type = str("Case");
-        node.data.case_node.value = case_value;
-        node.data.case_node.is_default = false;
-        return node;
+
+        pop_scope();
+
+        unsafe {
+            val list_size: usize = C.sizeof(list(ASTNode));
+            val heap_list: ref list(ASTNode) = cast[ref list(ASTNode)](C.malloc(list_size));
+            if heap_list != nil {
+                C.memcpy(heap_list, addr(body), list_size);
+                cnode.children = heap_list;
+            }
+        }
+
+        return cnode;
     }
     
     // Handle DEFAULT (within switch statements)
@@ -7354,31 +7394,48 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             enforce_raw(false, "Expected '{' after default");
             return node;
         }
-        consume(ctx);
-        
-        // Skip default body
-        mut depth: i32 = 1;
+        consume(ctx); // skip '{'
+
+        push_scope();
+
+        mut cnode: ASTNode;
+        cnode.node_type = str("Case");
+        cnode.line = token.line;
+        cnode.source_file = ctx.filename;
+        cnode.data.case_node.value = str("");
+        cnode.data.case_node.is_default = true;
+
+        mut body: list(ASTNode);
         loop {
             if ctx.pos >= len(ctx.tokens) {
                 break;
             }
-            val t: Token = peek(ctx);
-            if t.token_type == TokenType.LBRACE {
-                depth = depth + 1;
-            } elif t.token_type == TokenType.RBRACE {
-                depth = depth - 1;
-                if depth == 0 {
-                    consume(ctx);
-                    break;
-                }
+            skip_whitespace(ctx);
+            if ctx.pos >= len(ctx.tokens) {
+                break;
             }
-            consume(ctx);
+            if ctx.tokens.data[ctx.pos].token_type == TokenType.RBRACE {
+                consume(ctx); // skip '}'
+                break;
+            }
+            val stmt: ASTNode = parse_statement_helper(ctx, scope);
+            if str_len(stmt.node_type) > 0 {
+                append(body, stmt);
+            }
         }
-        
-        node.node_type = str("Case");
-        node.data.case_node.value = str("");
-        node.data.case_node.is_default = true;
-        return node;
+
+        pop_scope();
+
+        unsafe {
+            val list_size: usize = C.sizeof(list(ASTNode));
+            val heap_list: ref list(ASTNode) = cast[ref list(ASTNode)](C.malloc(list_size));
+            if heap_list != nil {
+                C.memcpy(heap_list, addr(body), list_size);
+                cnode.children = heap_list;
+            }
+        }
+
+        return cnode;
     }
     
     consume(ctx);

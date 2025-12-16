@@ -9429,6 +9429,55 @@ pub def generate_c(ast: ref ASTNode): string {
         return StringBuilder.to_string(addr(sb_if));
     }
     
+    if equals_c(node_type, "Switch") {
+        val switch_expr_raw: string = ast.data.switch_node.expression;
+        val switch_expr: string = strip(switch_expr_raw);
+        val cond_norm: string = process_expression(switch_expr);
+        mut sb_switch: StringBuilder = StringBuilder.init(2048);
+    
+        StringBuilder.append_c(addr(sb_switch), "switch (");
+        StringBuilder.append(addr(sb_switch), cond_norm);
+        StringBuilder.append_c(addr(sb_switch), ") {\n");
+
+        if ast.children != nil {
+            val cases: ref list(ASTNode) = ast.children;
+            mut ci: i32 = 0;
+            loop {
+                if ci >= len(deref(cases)) { break; }
+                val cnode: ref ASTNode = addr(cases.data[ci]);
+                if equals_c(cnode.node_type, "Case") {
+                    if cnode.data.case_node.is_default {
+                        StringBuilder.append_c(addr(sb_switch), "default: {\n");
+                    } else {
+                        val raw_val: string = strip(cnode.data.case_node.value);
+                        val case_val: string = process_expression(raw_val);
+                        StringBuilder.append_c(addr(sb_switch), "case ");
+                        StringBuilder.append(addr(sb_switch), case_val);
+                        StringBuilder.append_c(addr(sb_switch), ": {\n");
+                    }
+
+                    if cnode.children != nil {
+                        val body: ref list(ASTNode) = cnode.children;
+                        mut bi: i32 = 0;
+                        loop {
+                            if bi >= len(deref(body)) { break; }
+                            val child_code: string = generate_c(addr(body.data[bi]));
+                            StringBuilder.append(addr(sb_switch), child_code);
+                            bi = bi + 1;
+                        }
+                    }
+
+                    StringBuilder.append_c(addr(sb_switch), "break;\n}");
+                    StringBuilder.append_c(addr(sb_switch), "\n");
+                }
+                ci++;
+            }
+        }
+
+        StringBuilder.append_c(addr(sb_switch), "}\n");
+        return StringBuilder.to_string(addr(sb_switch));
+    }
+    
     if equals_c(node_type, "Unsafe") {
         val body: ref list(ASTNode) = ast.data.unsafe_node.body;
         mut sb_unsafe: StringBuilder = StringBuilder.init(1024);
