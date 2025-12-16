@@ -265,7 +265,7 @@ def validate_entry_points(node: ref ASTNode, filename: string): bool {
 def compile_file(filename: string, is_axec: bool, output_filename: string): bool {
     if !::quiet_mode {
         println(concat(str("Compiling: "), filename));
-        println "\n1 | IO";
+        println "1 | IO";
     }
 
     val source: string = read_file(filename);
