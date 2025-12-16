@@ -3,29 +3,18 @@ use std.io;
 def cross_platform_func() {
     platform windows {
         parallel for mut i = 0; i < 10; i++ {
+            println "windows:";
             println i;
         }
     }
     platform posix {
         parallel for mut i = 0; i < 10; i++ {
+            println "posix:";
             println i;
         }
     }
 }
 
-platform windows {
-    def some_function() {
-        println "hi from windows!";
-    }
-}
-
-platform posix {
-    def some_function() {
-        println "hi from posix!";
-    }
-}
-
 def main() {
     cross_platform_func();
-    some_function();
 }
