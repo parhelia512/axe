@@ -34,21 +34,21 @@ def main() {
     
     // Access and print the tokens
     println "Token 0: type=";
-    print_i32(tokens[0].token_type);
+    print_i32(tokens.data[0].token_type);
     print " value=";
-    print_i32(tokens[0].value);
+    print_i32(tokens.data[0].value);
     println "";
     
     println "Token 1: type=";
-    print_i32(tokens[1].token_type);
+    print_i32(tokens.data[1].token_type);
     print " value=";
-    print_i32(tokens[1].value);
+    print_i32(tokens.data[1].value);
     println "";
     
     println "Token 2: type=";
-    print_i32(tokens[2].token_type);
+    print_i32(tokens.data[2].token_type);
     print " value=";
-    print_i32(tokens[2].value);
+    print_i32(tokens.data[2].value);
     println "";
     
     // Test with simple types
@@ -59,12 +59,12 @@ def main() {
     append(numbers, 40);
     
     println "Numbers:";
-    print_i32(numbers[0]);
+    print_i32(numbers.data[0]);
     print " ";
-    print_i32(numbers[1]);
+    print_i32(numbers.data[1]);
     print " ";
-    print_i32(numbers[2]);
+    print_i32(numbers.data[2]);
     print " ";
-    print_i32(numbers[3]);
+    print_i32(numbers.data[3]);
     println "";
 }
