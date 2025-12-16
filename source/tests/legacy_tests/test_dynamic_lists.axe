@@ -8,7 +8,7 @@ def main() {
     append(nums, 3);
     
     println "Length: ";
-    println len(nums);
+    println(len(nums));
     
     for n in nums {
         println n;
