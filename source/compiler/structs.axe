@@ -25,6 +25,7 @@ pub model ParserContext {
     current_scope: Scope;
     filename: string;
     in_test_block: bool;
+    expecting_public: bool;
 }
 
 /// Scope tracking for variable declarations

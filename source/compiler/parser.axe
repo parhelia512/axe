@@ -949,6 +949,7 @@ pub def parse(tokens: ref list(Token), is_axec: bool, check_entry_point: bool, c
     ctx.check_entry_point = check_entry_point;
     ctx.current_module = current_module;
     ctx.filename = filename;
+    ctx.expecting_public = false;
     
     g_check_shadowing = check_entry_point;
     
@@ -1183,7 +1184,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         main_node.node_type = str("Function");
         main_node.data.function.name = str("main");
         main_node.data.function.return_type = str("");
-        main_node.data.function.is_public = false;
+        main_node.data.function.is_public = ctx.expecting_public;
         
         unsafe {
             mut empty_params: list(string);
@@ -1412,7 +1413,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         model_node.node_type = str("Model");
         val model_name: string = ctx.tokens.data[ctx.pos].value;
         model_node.data.model_node.name = model_name;
-        model_node.data.model_node.is_public = false;
+        model_node.data.model_node.is_public = ctx.expecting_public;
         ctx.pos++;
 
         skip_whitespace(ctx);
@@ -2137,7 +2138,9 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
     if token_type == TokenType.PUB {
         ctx.pos++;  // Skip 'pub'
         skip_whitespace(ctx);
+        ctx.expecting_public = true;
         parse_top_level(ctx, ast);
+        ctx.expecting_public = false;
         return;
     }
     
@@ -2620,7 +2623,7 @@ def parse_function(ctx: ref ParserContext): ASTNode {
     
     func.data.function.name = func_name;
     func.data.function.return_type = str("");
-    func.data.function.is_public = false;
+    func.data.function.is_public = ctx.expecting_public;
     func.data.function.is_generic = false;
     ctx.pos++;
     
@@ -7450,6 +7453,7 @@ test {
     mut ctx1: ParserContext;
     ctx1.tokens = addr(tokens1);
     ctx1.pos = 0;
+    ctx1.expecting_public = false;
     mut type1: string = parse_type(addr(ctx1));
     assert equals_c(type1, "i32"), "Expected i32.";
 
@@ -7458,6 +7462,7 @@ test {
     mut ctx2: ParserContext;
     ctx2.tokens = addr(tokens2);
     ctx2.pos = 0;
+    ctx2.expecting_public = false;
     mut pos_before: i32 = ctx2.pos;
     skip_whitespace(addr(ctx2));
     assert ctx2.pos > pos_before, "Expected position to advance after skipping whitespace";
@@ -7467,6 +7472,7 @@ test {
     mut ctx3: ParserContext;
     ctx3.tokens = addr(tokens3);
     ctx3.pos = 0;
+    ctx3.expecting_public = false;
     mut peeked: Token = peek(addr(ctx3));
     mut pos_after_peek: i32 = ctx3.pos;
     mut consumed: Token = consume(addr(ctx3));
@@ -7478,6 +7484,7 @@ test {
     mut ctx4: ParserContext;
     ctx4.tokens = addr(tokens4);
     ctx4.pos = 0;
+    ctx4.expecting_public = false;
     assert expect(addr(ctx4), TokenType.DEF), "Expected to find 'def' token";
 
     println "\nTest 5: parse_type with ref type";
@@ -7485,6 +7492,7 @@ test {
     mut ctx5: ParserContext;
     ctx5.tokens = addr(tokens5);
     ctx5.pos = 0;
+    ctx5.expecting_public = false;
     mut type5: string = parse_type(addr(ctx5));
     assert str_len(type5) > 0, "Expected non-empty type string for 'ref i32'";
     assert str_contains_c(type5, "i32"), "Expected type to contain 'i32'";
@@ -7494,6 +7502,7 @@ test {
     mut ctx6: ParserContext;
     ctx6.tokens = addr(tokens6);
     ctx6.pos = 0;
+    ctx6.expecting_public = false;
     mut type6: string = parse_type(addr(ctx6));
     assert str_len(type6) > 0, "Expected non-empty type for list(Token)";
     assert str_contains_c(type6, "Token"), "Expected type to contain 'Token'";
@@ -7503,6 +7512,7 @@ test {
     mut ctx7: ParserContext;
     ctx7.tokens = addr(tokens7);
     ctx7.pos = 0;
+    ctx7.expecting_public = false;
     mut func7: ASTNode = parse_function(addr(ctx7));
     assert equals_c(func7.node_type, "Function"), "Expected Function node type";
 
@@ -7511,6 +7521,7 @@ test {
     mut ctx8: ParserContext;
     ctx8.tokens = addr(tokens8);
     ctx8.pos = 0;
+    ctx8.expecting_public = false;
     mut func8: ASTNode = parse_function(addr(ctx8));
     assert equals_c(func8.node_type, "Function"), "Expected Function node for function with params";
 
@@ -7559,6 +7570,7 @@ test {
     mut tokens17: list(Token) = lex(str("ref i32"));
     mut ctx17: ParserContext;
     ctx17.tokens = addr(tokens17);
+    ctx17.expecting_public = false;
     ctx17.pos = 0;
     mut type17: string = parse_type(addr(ctx17));
     assert str_len(type17) > 0, "Expected non-empty type for i32*";
@@ -7574,6 +7586,7 @@ test {
     mut ctx19: ParserContext;
     ctx19.tokens = addr(tokens19);
     ctx19.pos = 0;
+    ctx19.expecting_public = false;
     ctx19.is_axec = false;
     ctx19.check_entry_point = false;
     ctx19.current_module = str("");
@@ -7585,6 +7598,7 @@ test {
     mut ctx20: ParserContext;
     ctx20.tokens = addr(tokens20);
     ctx20.pos = 0;
+    ctx20.expecting_public = false;
     ctx20.is_axec = false;
     val stmt20: ASTNode = parse_statement_helper(addr(ctx20), addr(ctx20.current_scope));
     assert equals_c(stmt20.node_type, "Return"), "Expected Return node";
@@ -7595,6 +7609,7 @@ test {
     mut ctx21: ParserContext;
     ctx21.tokens = addr(tokens21);
     ctx21.pos = 0;
+    ctx21.expecting_public = false;
     ctx21.is_axec = false;
     val stmt21: ASTNode = parse_statement_helper(addr(ctx21), addr(ctx21.current_scope));
 
@@ -7603,6 +7618,7 @@ test {
     mut ctx22: ParserContext;
     ctx22.tokens = addr(tokens22);
     ctx22.pos = 0;
+    ctx22.expecting_public = false;
     ctx22.is_axec = false;
     val stmt22: ASTNode = parse_statement_helper(addr(ctx22), addr(ctx22.current_scope));
     assert equals_c(stmt22.node_type, "Unsafe"), "Expected Unsafe node";
@@ -7612,6 +7628,7 @@ test {
     mut ctx23: ParserContext;
     ctx23.tokens = addr(tokens23);
     ctx23.pos = 0;
+    ctx23.expecting_public = false;
     ctx23.is_axec = false;
     val stmt23: ASTNode = parse_statement_helper(addr(ctx23), addr(ctx23.current_scope));
     assert equals_c(stmt23.node_type, "If"), "Expected If node with elif and else";
@@ -7621,6 +7638,7 @@ test {
     mut ctx24: ParserContext;
     ctx24.tokens = addr(tokens24);
     ctx24.pos = 0;
+    ctx24.expecting_public = false;
     ctx24.is_axec = false;
     val stmt24: ASTNode = parse_statement_helper(addr(ctx24), addr(ctx24.current_scope));
     assert equals_c(stmt24.node_type, "Use"), "Expected Use node";
@@ -7631,6 +7649,7 @@ test {
     mut ctx25: ParserContext;
     ctx25.tokens = addr(tokens25);
     ctx25.pos = 0;
+    ctx25.expecting_public = false;
     ctx25.is_axec = false;
     val stmt25: ASTNode = parse_statement_helper(addr(ctx25), addr(ctx25.current_scope));
     assert equals_c(stmt25.node_type, "Use"), "Expected Use node with selective imports";
@@ -7641,6 +7660,7 @@ test {
     mut ctx26: ParserContext;
     ctx26.tokens = addr(tokens26);
     ctx26.pos = 0;
+    ctx26.expecting_public = false;
     ctx26.is_axec = false;
     val stmt26: ASTNode = parse_statement_helper(addr(ctx26), addr(ctx26.current_scope));
     assert equals_c(stmt26.node_type, "Case"), "Expected Case node";
@@ -7651,6 +7671,7 @@ test {
     mut ctx27: ParserContext;
     ctx27.tokens = addr(tokens27);
     ctx27.pos = 0;
+    ctx27.expecting_public = false;
     ctx27.is_axec = false;
     val stmt27: ASTNode = parse_statement_helper(addr(ctx27), addr(ctx27.current_scope));
     assert equals_c(stmt27.node_type, "Case"), "Expected Case node for default";
@@ -7661,6 +7682,7 @@ test {
     mut ctx28: ParserContext;
     ctx28.tokens = addr(tokens28);
     ctx28.pos = 0;
+    ctx28.expecting_public = false;
     ctx28.is_axec = false;
     val stmt28: ASTNode = parse_statement_helper(addr(ctx28), addr(ctx28.current_scope));
     assert equals_c(stmt28.node_type, "MemberAccess"), "Expected MemberAccess node";
@@ -7673,6 +7695,7 @@ test {
     mut ctx29: ParserContext;
     ctx29.tokens = addr(tokens29);
     ctx29.pos = 0;
+    ctx29.expecting_public = false;
     ctx29.is_axec = false;
     val stmt29: ASTNode = parse_statement_helper(addr(ctx29), addr(ctx29.current_scope));
     assert equals_c(stmt29.node_type, "MemberAccess"), "Expected MemberAccess node";
@@ -7685,6 +7708,7 @@ test {
     mut ctx30: ParserContext;
     ctx30.tokens = addr(tokens30);
     ctx30.pos = 0;
+    ctx30.expecting_public = false;
     ctx30.is_axec = false;
     val stmt30: ASTNode = parse_statement_helper(addr(ctx30), addr(ctx30.current_scope));
     assert equals_c(stmt30.node_type, "ArrayAccess"), "Expected ArrayAccess node";
@@ -7696,6 +7720,7 @@ test {
     mut ctx31: ParserContext;
     ctx31.tokens = addr(tokens31);
     ctx31.pos = 0;
+    ctx31.expecting_public = false;
     ctx31.is_axec = false;
     val stmt31: ASTNode = parse_statement_helper(addr(ctx31), addr(ctx31.current_scope));
     assert equals_c(stmt31.node_type, "ArrayAssign"), "Expected ArrayAssign node";
@@ -7708,6 +7733,7 @@ test {
     mut ctx32: ParserContext;
     ctx32.tokens = addr(tokens32);
     ctx32.pos = 0;
+    ctx32.expecting_public = false;
     ctx32.is_axec = false;
     val stmt32: ASTNode = parse_statement_helper(addr(ctx32), addr(ctx32.current_scope));
     assert equals_c(stmt32.node_type, "ArrayAccess"), "Expected ArrayAccess node for 2D array";
@@ -7739,6 +7765,7 @@ test {
 
     ctx37.tokens = addr(tokens37);
     ctx37.pos = 0;
+    ctx37.expecting_public = false;
     ctx37.is_axec = false;
 
     val stmt37: ASTNode = parse_statement_helper(addr(ctx37), addr(ctx37.current_scope));

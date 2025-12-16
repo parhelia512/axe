@@ -1,4 +1,4 @@
-def add(a: i32, b: i32): i32 
+def add(a: i32, b: i32): i32
 {
     return a + b;
 }
@@ -6,8 +6,4 @@ def add(a: i32, b: i32): i32
 def subtract(a: i32, b: i32): i32
 {
     return a - b;
-}
-
-def main() {
-    subtract(10, 5);
 }

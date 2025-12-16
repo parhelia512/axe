@@ -370,9 +370,13 @@ def build_exported_name_map(imported: ref ASTNode): StringBoolMap {
         }
         val child: ASTNode = children.data[i];
         if equals_c(child.node_type, "Function") {
-            StringBoolMap.set(addr(m), addr(arena), child.data.function.name, true);
+            if child.data.function.is_public {
+                StringBoolMap.set(addr(m), addr(arena), child.data.function.name, true);
+            }
         } elif equals_c(child.node_type, "Model") {
-            StringBoolMap.set(addr(m), addr(arena), child.data.model_node.name, true);
+            if child.data.model_node.is_public {
+                StringBoolMap.set(addr(m), addr(arena), child.data.model_node.name, true);
+            }
         } elif equals_c(child.node_type, "Enum") {
             StringBoolMap.set(addr(m), addr(arena), child.data.enum_node.name, true);
         }
@@ -688,7 +692,7 @@ def merge_imported_module(program: ref ASTNode, imported: ref ASTNode, use_modul
                 continue;
             }
             val func_name: string = child.data.function.name;
-            
+
             if check_symbol_exists_in_program(program, func_name) {
                 print "error: imported symbol '";
                 print func_name;
@@ -699,13 +703,13 @@ def merge_imported_module(program: ref ASTNode, imported: ref ASTNode, use_modul
                     C.exit(1);
                 }
             }
-            
+
             register_imported_symbol(func_name);
             prefix_function_node(addr(child), module_prefix, addr(exported));
             prefix_types_in_node(addr(child), module_prefix, addr(exported));
         } elif equals_c(child.node_type, "Model") {
             val original_name: string = child.data.model_node.name;
-            
+
             if check_symbol_exists_in_program(program, original_name) {
                 print "error: imported symbol '";
                 print original_name;
@@ -716,7 +720,7 @@ def merge_imported_module(program: ref ASTNode, imported: ref ASTNode, use_modul
                     C.exit(1);
                 }
             }
-            
+
             register_imported_symbol(original_name);
             prefix_model_node(addr(child), module_prefix);
             val prefixed_name: string = child.data.model_node.name;
@@ -831,6 +835,92 @@ pub def process_imports(ast: ref ASTNode, base_dir: string, is_axec: bool, curre
 
             mut import_ast: ASTNode = parse(addr(toks), import_is_axec, false, use_mod, module_path);
             val import_base: string = get_dir_from_path(module_path);
+
+            if !child.data.use_node.import_all && child.data.use_node.imports != nil {
+                val import_children: ref list(ASTNode) = import_ast.children;
+                if import_children != nil {
+                    mut j: i32 = 0;
+                    loop {
+                        if j >= len(deref(import_children)) {
+                            break;
+                        }
+                        val import_child: ASTNode = import_children.data[j];
+
+                        if equals_c(import_child.node_type, "Function") {
+                            val func_name: string = import_child.data.function.name;
+                            mut is_requested: bool = false;
+                            mut k: i32 = 0;
+                            loop {
+                                if k >= len(deref(child.data.use_node.imports)) {
+                                    break;
+                                }
+                                if compare(child.data.use_node.imports*.data[k], func_name) == 0{
+                                    is_requested = true;
+                                    break;
+                                }
+                                k++;
+                            }
+                            if is_requested and !import_child.data.function.is_public {
+                                if !has_prefix(use_mod, str("std.")) {
+                                    print "error: cannot import non-public function '";
+                                    print func_name;
+                                    print "' from module '";
+                                    print use_mod;
+                                    println "'";
+                                    unsafe {
+                                        C.exit(1);
+                                    }
+                                }
+                            }
+                        } elif equals_c(import_child.node_type, "Model") {
+                            val model_name: string = import_child.data.model_node.name;
+                            mut is_requested: bool = false;
+                            mut k: i32 = 0;
+                            loop {
+                                if k >= len(deref(child.data.use_node.imports)) {
+                                    break;
+                                }
+                                if compare(child.data.use_node.imports*.data[k], model_name) == 0{
+                                    is_requested = true;
+                                    break;
+                                }
+                                k++;
+                            }
+
+                            if is_requested and !import_child.data.model_node.is_public {
+                                if has_prefix(use_mod, str("std.")) {
+                                    // Temporary: Allow it to maintain compatibility
+                                } else {
+                                    print "error: cannot import non-public model '";
+                                    print model_name;
+                                    print "' from module '";
+                                    print use_mod;
+                                    println "'";
+                                    unsafe {
+                                        C.exit(1);
+                                    }
+                                }
+                            }
+                        } elif equals_c(import_child.node_type, "Enum") {
+                            val enum_name: string = import_child.data.enum_node.name;
+                            mut is_requested: bool = false;
+                            mut k: i32 = 0;
+                            loop {
+                                if k >= len(deref(child.data.use_node.imports)) {
+                                    break;
+                                }
+                                if compare(child.data.use_node.imports*.data[k], enum_name) == 0{
+                                    is_requested = true;
+                                    break;
+                                }
+                                k++;
+                            }
+                        }
+
+                        j++;
+                    }
+                }
+            }
 
             import_ast = process_imports(addr(import_ast), import_base, import_is_axec, module_path, false, use_mod);
 
