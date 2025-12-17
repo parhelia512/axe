@@ -1061,6 +1061,25 @@ pub def add_child_to_ast(ast: ref ASTNode, child: ASTNode) {
     }
 }
 
+/// Check for consecutive & or | tokens which would represent && or || in source
+def validate_consecutive_operators(ctx: ref ParserContext) {
+    if ctx.pos + 1 < len(ctx.tokens) {
+        val current_token: Token = ctx.tokens.data[ctx.pos];
+        val next_token: Token = ctx.tokens.data[ctx.pos + 1];
+        if current_token.token_type == TokenType.OPERATOR and next_token.token_type == TokenType.OPERATOR {
+            if equals_c(current_token.value, "&") and equals_c(next_token.value, "&") {
+                val err: string = format_error(ctx, str("&& operator is not allowed, use 'and' instead"));
+                enforce_raw(false, err.data);
+                quit(1);
+            } elif equals_c(current_token.value, "|") and equals_c(next_token.value, "|") {
+                val err: string = format_error(ctx, str("|| operator is not allowed, use 'or' instead"));
+                enforce_raw(false, err.data);
+                quit(1);
+            }
+        }
+    }
+}
+
 /// Parse the tokens into an AST
 pub def parse(tokens: ref list(Token), is_axec: bool, check_entry_point: bool, current_module: string, filename: string): ASTNode {
     mut ctx: ParserContext;
@@ -3567,11 +3586,12 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         val condition_start: i32 = ctx.pos;
         mut condition: string = str("");
         mut paren_depth: i32 = 0;
-        
+
         loop {
             if ctx.pos >= len(ctx.tokens) {
                 break;
             }
+            validate_consecutive_operators(ctx);
             val t: Token = peek(ctx);
             
             if t.token_type == TokenType.LPAREN {
@@ -3665,6 +3685,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             if ctx.pos >= len(ctx.tokens) {
                 break;
             }
+            validate_consecutive_operators(ctx);
             val t: Token = peek(ctx);
             if t.token_type == TokenType.SEMICOLON {
                 break;
@@ -3858,6 +3879,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             if ctx.pos >= len(ctx.tokens) {
                 break;
             }
+            validate_consecutive_operators(ctx);
             val t: Token = peek(ctx);
             if t.token_type == TokenType.LBRACE {
                 break;
@@ -3972,6 +3994,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 if ctx.pos >= len(ctx.tokens) {
                     break;
                 }
+                validate_consecutive_operators(ctx);
                 val t_el: Token = peek(ctx);
                 if t_el.token_type == TokenType.LBRACE {
                     break;
@@ -6233,6 +6256,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     debug_print_raw "\n[DEBUG]   reached end of tokens while collecting RHS";
                     break;
                 }
+                validate_consecutive_operators(ctx);
                 val t: Token = peek(ctx);
                 if t.token_type == TokenType.SEMICOLON {
                     debug_print_raw "\n[DEBUG]   encountered ';' terminating RHS";

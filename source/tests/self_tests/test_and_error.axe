@@ -1,0 +1,5 @@
+def main() {
+    if true && true {
+        println("This should error because '&&' is not allowed.");
+    }
+}
