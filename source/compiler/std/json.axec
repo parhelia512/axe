@@ -4,12 +4,12 @@ use std.string (
 
 use external("yyjson.h");
 
-val JSON_TYPE_NULL: i32 = 0;
-val JSON_TYPE_BOOL: i32 = 1;
-val JSON_TYPE_NUM: i32 = 2;
-val JSON_TYPE_STR: i32 = 3;
-val JSON_TYPE_ARR: i32 = 4;
-val JSON_TYPE_OBJ: i32 = 5;
+pub val JSON_TYPE_NULL: i32 = 0;
+pub val JSON_TYPE_BOOL: i32 = 1;
+pub val JSON_TYPE_NUM: i32 = 2;
+pub val JSON_TYPE_STR: i32 = 3;
+pub val JSON_TYPE_ARR: i32 = 4;
+pub val JSON_TYPE_OBJ: i32 = 5;
 
 extern def yyjson_read(json: char*, size: size_t, flags: i32): char*;
 extern def yyjson_doc_free(doc: char*);
@@ -43,7 +43,7 @@ pub def json_get_root(doc: ref char): ref char {
 }
 
 /// Check if a value is null
-def is_null(value: ref char): bool {
+pub def is_null(value: ref char): bool {
     mut result: bool = false;
     if value != nil {
         result = yyjson_is_null(cast[ref yyjson_val](value));
@@ -52,7 +52,7 @@ def is_null(value: ref char): bool {
 }
 
 /// Check if a value is a boolean
-def is_bool(value: ref char): bool {
+pub def json_is_bool(value: ref char): bool {
     mut result: bool = false;
     if value != nil {
         result = yyjson_is_bool(cast[ref yyjson_val](value));
@@ -61,7 +61,7 @@ def is_bool(value: ref char): bool {
 }
 
 /// Check if a value is a number
-def is_num(value: ref char): bool {
+pub def json_is_num(value: ref char): bool {
     mut result: bool = false;
     if value != nil {
         result = yyjson_is_num(cast[ref yyjson_val](value));
@@ -70,7 +70,7 @@ def is_num(value: ref char): bool {
 }
 
 /// Check if a value is a string
-def is_str(value: ref char): bool {
+pub def json_is_str(value: ref char): bool {
     mut result: bool = false;
     if value != nil {
         result = yyjson_is_str(cast[ref yyjson_val](value));
@@ -81,7 +81,7 @@ def is_str(value: ref char): bool {
 extern def yyjson_is_arr(value: ref char): bool;
 
 /// Check if a value is an array
-def is_array(value: ref char): bool {
+pub def json_is_array(value: ref char): bool {
     mut result: bool = false;
     if value != nil {
         result = yyjson_is_arr(cast[ref yyjson_val](value));
@@ -92,7 +92,7 @@ def is_array(value: ref char): bool {
 extern def yyjson_is_obj(value: ref char): bool;
 
 /// Check if a value is an object
-def is_object(value: ref char): bool {
+pub def json_is_object(value: ref char): bool {
     mut result: bool = false;
     if value != nil {
         result = yyjson_is_obj(cast[ref yyjson_val](value));
@@ -103,7 +103,7 @@ def is_object(value: ref char): bool {
 extern def yyjson_get_bool(value: ref char): bool;
 
 /// Get boolean value
-def get_bool(value: ref char): bool {
+pub def json_get_bool(value: ref char): bool {
     mut result: bool = false;
     if value != nil {
         result = yyjson_get_bool(cast[ref yyjson_val](value));
@@ -114,7 +114,7 @@ def get_bool(value: ref char): bool {
 extern def yyjson_get_int(value: ref char): i32;
 
 /// Get integer value
-def get_int(value: ref char): i32 {
+pub def json_get_int(value: ref char): i32 {
     mut result: i32 = 0;
     if value != nil {
         result = yyjson_get_int(cast[ref yyjson_val](value));
@@ -125,7 +125,7 @@ def get_int(value: ref char): i32 {
 extern def yyjson_get_sint(value: ref char): i64;
 
 /// Get 64-bit integer value
-def get_int64(value: ref char): i64 {
+pub def json_get_int64(value: ref char): i64 {
     mut result: i64 = 0;
     if result != nil {
         result = yyjson_get_sint(cast[ref yyjson_val](value));
@@ -136,7 +136,7 @@ def get_int64(value: ref char): i64 {
 extern def yyjson_get_real(value: ref char): f64;
 
 /// Get floating point value
-def get_real(value: ref char): f64 {
+pub def json_get_real(value: ref char): f64 {
     mut result: f64 = 0.0;
     if value != nil {
         result = yyjson_get_real(cast[ref yyjson_val](value));
@@ -149,7 +149,7 @@ extern def yyjson_get_len(value: ref char): usize;
 extern def yyjson_arr_get_first(arr: ref char): ref char;
 
 /// Get string value
-def get_str(value: ref char): string {
+pub def json_get_str(value: ref char): string {
     mut result: string;
 
     result.data = nil;
@@ -173,7 +173,7 @@ def get_str(value: ref char): string {
 }
 
 /// Get the length of an array or object
-def get_len(value: ref char): usize {
+pub def json_get_len(value: ref char): usize {
     mut result: usize = 0;
     if value != nil {
         result = yyjson_get_len(cast[ref yyjson_val](value));
@@ -182,7 +182,7 @@ def get_len(value: ref char): usize {
 }
 
 /// Get a value from an object by key
-def obj_get(obj: ref char, key: string): ref char {
+pub def json_obj_get(obj: ref char, key: string): ref char {
     mut result: ref char = nil;
     if obj != nil && key.data != nil {
         result = yyjson_obj_get(cast[ref yyjson_val](obj), key.data);
@@ -191,7 +191,7 @@ def obj_get(obj: ref char, key: string): ref char {
 }
 
 /// Get a value from an array by index
-def arr_get(arr: ref char, idx: usize): ref char {
+pub def json_arr_get(arr: ref char, idx: usize): ref char {
     mut result: ref char = nil;
     if arr != nil {
         result = yyjson_arr_get(cast[ref yyjson_val](arr), idx);
@@ -200,7 +200,7 @@ def arr_get(arr: ref char, idx: usize): ref char {
 }
 
 /// Get the first element in an array
-def arr_get_first(arr: ref char): ref char {
+pub def json_arr_get_first(arr: ref char): ref char {
     mut result: ref char = nil;
     if arr != nil {
         result = yyjson_arr_get_first(cast[ref yyjson_val](arr));
@@ -209,7 +209,7 @@ def arr_get_first(arr: ref char): ref char {
 }
 
 /// Get the last element in an array
-def arr_get_last(arr: ref char): ref char {
+pub def json_arr_get_last(arr: ref char): ref char {
     mut result: ref char = nil;
     if arr != nil {
         result = yyjson_arr_get_last(cast[ref yyjson_val](arr));
@@ -218,7 +218,7 @@ def arr_get_last(arr: ref char): ref char {
 }
 
 /// Serialize a JSON document to a string
-def stringify(doc: ref char): string {
+pub def stringify(doc: ref char): string {
     mut result: string;
     result.data = nil;
     result.len = 0;
@@ -236,7 +236,7 @@ def stringify(doc: ref char): string {
 }
 
 /// Serialize a JSON value to a string
-def stringify_val(value: ref char): string {
+pub def stringify_val(value: ref char): string {
     mut result: string;
 
     result.data = nil;
@@ -256,7 +256,7 @@ def stringify_val(value: ref char): string {
 }
 
 /// Serialize with pretty formatting
-def stringify_pretty(doc: ref char): string {
+pub def stringify_pretty(doc: ref char): string {
     mut result: string;
     result.data = nil;
     result.len = 0;
@@ -277,7 +277,7 @@ def stringify_pretty(doc: ref char): string {
 }
 
 /// Read JSON from a file
-def read_file(path: string): ref char {
+pub def read_json_file(path: string): ref char {
     mut doc: ref char = nil;
     if path.data != nil {
         doc = cast[ref char](yyjson_read_file(path.data, 0, nil, nil));
@@ -286,7 +286,7 @@ def read_file(path: string): ref char {
 }
 
 /// Write JSON to a file
-def write_file(path: string, doc: ref char): bool {
+pub def write_json_file(path: string, doc: ref char): bool {
     mut success: bool = false;
     if path.data != nil and doc != nil {
         success = yyjson_write_file(path.data, cast[ref yyjson_doc](doc), 0, nil, nil);
@@ -303,27 +303,27 @@ test {
     if doc != nil {
         mut root: ref char = json_get_root(doc);
         assert root != nil, "Should get root value";
-        assert is_object(root), "Root should be an object";
+        assert json_is_object(root), "Root should be an object";
         
-        mut name_val: ref char = obj_get(root, string.create("name"));
+        mut name_val: ref char = json_obj_get(root, string.create("name"));
         assert name_val != nil, "Should find 'name' key";
-        assert is_str(name_val), "name should be a string";
+        assert json_is_str(name_val), "name should be a string";
         
-        mut name: string = get_str(name_val);
+        mut name: string = json_get_str(name_val);
         assert name.len > 0, "Should get string value";
         
-        mut age_val: ref char = obj_get(root, string.create("age"));
+        mut age_val: ref char = json_obj_get(root, string.create("age"));
         assert age_val != nil, "Should find 'age' key";
-        assert is_num(age_val), "age should be a number";
+        assert json_is_num(age_val), "age should be a number";
         
-        mut age: i32 = get_int(age_val);
+        mut age: i32 = json_get_int(age_val);
         assert age == 30, "age should be 30";
         
-        mut active_val: ref char = obj_get(root, string.create("active"));
+        mut active_val: ref char = json_obj_get(root, string.create("active"));
         assert active_val != nil, "Should find 'active' key";
-        assert is_bool(active_val), "active should be a boolean";
+        assert json_is_bool(active_val), "active should be a boolean";
         
-        mut active: bool = get_bool(active_val);
+        mut active: bool = json_get_bool(active_val);
         assert active, "active should be true";
         
         free_json_doc(doc);
@@ -336,14 +336,14 @@ test {
     
     if arr_doc != nil {
         mut arr_root: ref char = json_get_root(arr_doc);
-        assert is_array(arr_root), "Root should be an array";
+        assert json_is_array(arr_root), "Root should be an array";
         
-        mut len: usize = get_len(arr_root);
+        mut len: usize = json_get_len(arr_root);
         assert len == 5, "Array should have 5 elements";
         
-        mut first: ref char = arr_get(arr_root, cast[usize](0));
-        assert is_num(first), "First element should be a number";
-        assert get_int(first) == 1, "First element should be 1";
+        mut first: ref char = json_arr_get(arr_root, cast[usize](0));
+        assert json_is_num(first), "First element should be a number";
+        assert json_get_int(first) == 1, "First element should be 1";
         
         free_json_doc(arr_doc);
     }
