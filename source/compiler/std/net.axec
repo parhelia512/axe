@@ -464,25 +464,25 @@ def download_file(url: string, output_path: string): bool {
 def url_encode(input: string): string {
     mut result: string;
     
-    raw {
-        result.data = NULL;
-        result.len = 0;
-        result.cap = 0;
-        
-        CURL *curl = curl_easy_init();
-        if (curl) {
-            char *encoded = curl_easy_escape(curl, input.data, input.len);
-            if (encoded) {
-                size_t len = strlen(encoded);
-                result.data = (char*)malloc(len + 1);
-                if (result.data) {
-                    memcpy(result.data, encoded, len + 1);
+    result.data = nil;
+    result.len = 0;
+    result.cap = 0;
+
+    unsafe {
+        mut curl: ref CURL = C.curl_easy_init();
+        if curl != nil {
+            mut encoded: ref char = C.curl_easy_escape(curl, input.data, input.len);
+            if encoded != nil {
+                val len: usize = C.strlen(encoded);
+                result.data = cast[ref char](C.malloc(len + 1));
+                if result.data != nil {
+                    C.memcpy(result.data, encoded, len + 1);
                     result.len = len;
                     result.cap = len + 1;
                 }
-                curl_free(encoded);
+                C.curl_free(encoded);
             }
-            curl_easy_cleanup(curl);
+            C.curl_easy_cleanup(curl);
         }
     }
     
