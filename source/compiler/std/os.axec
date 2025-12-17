@@ -301,15 +301,19 @@ platform posix {
     extern def readdir(dirp: usize): usize;
     extern def closedir(dirp: usize): i32;
     extern def stat(pathname: ref char, statbuf: usize): i32;
+}
 
-    def dirent_d_name(entry: usize): ref char {
+def dirent_d_name(entry: usize): ref char {
+    platform posix {
         unsafe {
             val d: ref dirent = entry;
             return d*.d_name;
         }
     }
+}
 
-    def stat_is_dir(st: usize): i32 {
+def stat_is_dir(st: usize): i32 {
+    platform posix {
         unsafe {
             val sb: ref $(stat) = cast[ref struct stat](st);
             return C.S_ISDIR(sb.st_mode);
@@ -323,15 +327,19 @@ platform windows {
     extern def _findfirst(filespec: ref char, fileinfo: usize): isize;
     extern def _findnext(handle: isize, fileinfo: usize): i32;
     extern def _findclose(handle: isize): i32;
+}
 
-    def finddata_name(data: usize): ref char {
+def finddata_name(data: usize): ref char {
+    platform windows {
         unsafe {
             val info: ref _finddata_t = data;
             return info*.name;
         }
     }
+}
 
-    def finddata_is_dir(data: usize): i32 {
+def finddata_is_dir(data: usize): i32 {
+    platform windows {
         unsafe {
             val info: ref _finddata_t = data;
             return (info*.attrib & _A_SUBDIR) != 0;
@@ -478,8 +486,8 @@ pub def rm_dir_recursive(path: string): bool {
     return ok;
 }
 
-platform posix {
-    def stat_is_reg(st: usize): i32 {
+def stat_is_reg(st: usize): i32 {
+    platform posix {
         unsafe {
             val sb: ref $(stat) = cast[ref struct stat](st);
             return C.S_ISREG(sb.st_mode);
