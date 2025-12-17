@@ -161,11 +161,12 @@ def print_ast_node(node: ref ASTNode, prefix: string, is_last: bool) {
     }
 
     mut line: string = str("");
-        if is_last {
-            line = concat(prefix, str("└─ "));
-        } else {
-            line = concat(prefix, str("├─ "));
-        }
+    
+    if is_last {
+        line = concat(prefix, str("└─ "));
+    } else {
+        line = concat(prefix, str("├─ "));
+    }
 
     println(concat(line, node.node_type));
 
