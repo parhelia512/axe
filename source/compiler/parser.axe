@@ -7397,6 +7397,17 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             node.node_type = str("Use");
             node.data.use_node.module_name = module_name;
             node.data.use_node.import_all = true;
+            if StringBoolMap.contains(addr(g_imported_modules), module_name) {
+                print ctx.filename;
+                print ":";
+                print(i32_to_string(token.line));
+                print ": error: duplicate use statement for '";
+                print module_name;
+                println "'.";
+                quit(1);
+            }
+            mut arena: Arena = Arena.create(256);
+            StringBoolMap.set(addr(g_imported_modules), addr(arena), module_name, true);
             return node;
         }
         
@@ -7455,6 +7466,18 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             }
         }
         
+        if StringBoolMap.contains(addr(g_imported_modules), module_name) {
+            print ctx.filename;
+            print ":";
+            print(i32_to_string(token.line));
+            print ": error: duplicate use statement for '";
+            print module_name;
+            println "'.";
+            quit(1);
+        }
+        mut arena2: Arena = Arena.create(256);
+        StringBoolMap.set(addr(g_imported_modules), addr(arena2), module_name, true);
+
         node.data.use_node.import_all = false;
         return node;
     }
