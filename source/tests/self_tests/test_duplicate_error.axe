@@ -1,0 +1,6 @@
+use std.io;
+use std.io;
+
+def main() {
+    println "hi";
+}
