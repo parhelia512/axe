@@ -616,9 +616,46 @@ def infer_expression_type(expr: string): string {
             val br_sq_end: i32 = find_char_from(func_name, ']', cast[usize](br_sq));
             if br_sq_end > br_sq {
                 val base_fn: string = strip(substring_se(func_name, 0, br_sq));
-                val type_arg: string = strip(substring_se(func_name, br_sq + 1, br_sq_end));
-                mut mangled: string = concat(base_fn, str("__T_"));
-                mangled = concat(mangled, type_arg);
+                val type_arg_raw: string = strip(substring_se(func_name, br_sq + 1, br_sq_end));
+                mut mangled: string = base_fn;
+                mut parts: list(string);
+                mut sbt: StringBuilder = StringBuilder.init(64);
+                mut pi: i32 = 0;
+                loop {
+                    if pi >= str_len(type_arg_raw) { break; }
+                    val chp: char = get_char(type_arg_raw, pi);
+                    if chp == ',' {
+                        append(parts, strip(StringBuilder.to_string(addr(sbt))));
+                        sbt = StringBuilder.init(64);
+                    } else {
+                        StringBuilder.append_char(addr(sbt), chp);
+                    }
+                    pi++;
+                }
+                val lastp: string = StringBuilder.to_string(addr(sbt));
+                if str_len(strip(lastp)) > 0 { append(parts, strip(lastp)); }
+                StringBuilder.destroy(addr(sbt));
+
+                if len(parts) == 1 {
+                    mangled = concat(mangled, str("__T_"));
+                    mangled = concat(mangled, sanitize_c_identifier(parts.data[0]));
+                } elif len(parts) == 2 {
+                    mangled = concat(mangled, str("__T2_"));
+                    mangled = concat(mangled, sanitize_c_identifier(parts.data[1]));
+                    mangled = concat(mangled, str("__T_"));
+                    mangled = concat(mangled, sanitize_c_identifier(parts.data[0]));
+                } else {
+                    mut first: bool = true;
+                    mut idxp: i32 = 0;
+                    loop {
+                        if idxp >= len(parts) { break; }
+                        if !first { mangled = concat(mangled, str("__")); }
+                        mangled = concat(mangled, sanitize_c_identifier(parts.data[idxp]));
+                        first = false;
+                        idxp++;
+                    }
+                }
+
                 lookup_name = mangled;
             }
         }
@@ -647,9 +684,23 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
         return;
     }
 
-    // Skip validation for builtin functions as they are polymorphic or handled specially
     if is_builtin_function(func_name) {
         return;
+    }
+
+    if find_char_from(func_name, '"', cast[usize](0)) >= 0 or find_char_from(func_name, ',', cast[usize](0)) >= 0 {
+        return;
+    }
+
+    if find_char_from(func_name, '&', cast[usize](0)) >= 0 {
+        return;
+    }
+
+    if has_suffix(func_name, str("]")) and find_char_from(func_name, '[', cast[usize](0)) < 0 {
+        val maybe_type: string = strip(replace_all(func_name, str("]"), str("")));
+        if str_len(maybe_type) > 0 and (is_builtin_type(maybe_type) or StringStringMap.contains(addr(g_model_names), maybe_type) or is_symbol_imported(maybe_type)) {
+            return;
+        }
     }
     
     mut arg_list: list(string);
@@ -725,6 +776,55 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
     mut lookup_name: string = func_name;
     if StringStringMap.contains(addr(g_function_prefixes), func_name) {
         lookup_name = StringStringMap.get(addr(g_function_prefixes), func_name);
+    }
+
+    val br_sq_v: i32 = find_char_from(func_name, '[', cast[usize](0));
+    if br_sq_v > 0 {
+        val br_sq_end_v: i32 = find_char_from(func_name, ']', cast[usize](br_sq_v));
+        if br_sq_end_v > br_sq_v {
+            val base_fn_v: string = strip(substring_se(func_name, 0, br_sq_v));
+            val type_arg_raw_v: string = strip(substring_se(func_name, br_sq_v + 1, br_sq_end_v));
+            mut mangled_v: string = base_fn_v;
+            mut parts_v: list(string);
+            mut sbtv: StringBuilder = StringBuilder.init(64);
+            mut pvi: i32 = 0;
+            loop {
+                if pvi >= str_len(type_arg_raw_v) { break; }
+                val chp_v: char = get_char(type_arg_raw_v, pvi);
+                if chp_v == ',' {
+                    append(parts_v, strip(StringBuilder.to_string(addr(sbtv))));
+                    sbtv = StringBuilder.init(64);
+                } else {
+                    StringBuilder.append_char(addr(sbtv), chp_v);
+                }
+                pvi++;
+            }
+            val lastpv: string = StringBuilder.to_string(addr(sbtv));
+            if str_len(strip(lastpv)) > 0 { append(parts_v, strip(lastpv)); }
+            StringBuilder.destroy(addr(sbtv));
+
+            if len(parts_v) == 1 {
+                mangled_v = concat(mangled_v, str("__T_"));
+                mangled_v = concat(mangled_v, sanitize_c_identifier(parts_v.data[0]));
+            } elif len(parts_v) == 2 {
+                mangled_v = concat(mangled_v, str("__T2_"));
+                mangled_v = concat(mangled_v, sanitize_c_identifier(parts_v.data[1]));
+                mangled_v = concat(mangled_v, str("__T_"));
+                mangled_v = concat(mangled_v, sanitize_c_identifier(parts_v.data[0]));
+            } else {
+                mut first_v: bool = true;
+                mut idxpv: i32 = 0;
+                loop {
+                    if idxpv >= len(parts_v) { break; }
+                    if !first_v { mangled_v = concat(mangled_v, str("__")); }
+                    mangled_v = concat(mangled_v, sanitize_c_identifier(parts_v.data[idxpv]));
+                    first_v = false;
+                    idxpv++;
+                }
+            }
+
+            lookup_name = mangled_v;
+        }
     }
     
     if has_prefix(func_name, str("cast")) {
@@ -2313,7 +2413,7 @@ def rewrite_generic_calls(expr: string): string {
                 }
                 
                 val type_end: i32 = k;
-                val type_arg: string = strip(substring_se(expr, type_start, type_end));
+                val type_arg_raw: string = strip(substring_se(expr, type_start, type_end));
                 
                 if k < expr_len and get_char(expr, k) == ']' {
                     k = k + 1;
@@ -2335,9 +2435,56 @@ def rewrite_generic_calls(expr: string): string {
                              base_ident = StringStringMap.get(addr(g_function_prefixes), ident);
                          }
                          
+                        mut parts: list(string);
+                        mut sbt: StringBuilder = StringBuilder.init(64);
+                        mut pidx: i32 = 0;
+                        mut depth_p: i32 = 0;
+                        mut in_p_str: bool = false;
+                        mut in_p_char: bool = false;
+                        loop {
+                            if pidx >= str_len(type_arg_raw) { break; }
+                            val pc: char = get_char(type_arg_raw, pidx);
+                            if pc == '"' and !in_p_char and !is_escaped_quote(type_arg_raw, pidx) {
+                                in_p_str = !in_p_str;
+                                StringBuilder.append_char(addr(sbt), pc);
+                            } elif pc == '\'' and !in_p_str and !is_escaped_quote(type_arg_raw, pidx) {
+                                in_p_char = !in_p_char;
+                                StringBuilder.append_char(addr(sbt), pc);
+                            } elif !in_p_str and !in_p_char {
+                                if pc == '(' { depth_p = depth_p + 1; StringBuilder.append_char(addr(sbt), pc); }
+                                elif pc == ')' { depth_p = depth_p - 1; StringBuilder.append_char(addr(sbt), pc); }
+                                elif pc == ',' and depth_p == 0 {
+                                    append(parts, strip(StringBuilder.to_string(addr(sbt))));
+                                    sbt = StringBuilder.init(64);
+                                } else { StringBuilder.append_char(addr(sbt), pc); }
+                            } else { StringBuilder.append_char(addr(sbt), pc); }
+                            pidx++;
+                        }
+                        val lastp: string = StringBuilder.to_string(addr(sbt));
+                        if str_len(strip(lastp)) > 0 { append(parts, strip(lastp)); }
+                        StringBuilder.destroy(addr(sbt));
+
                         StringBuilder.append(addr(sb), base_ident);
-                        StringBuilder.append_c(addr(sb), "__T_");
-                        StringBuilder.append(addr(sb), sanitize_c_identifier(type_arg));
+                        if len(parts) == 1 {
+                            StringBuilder.append_c(addr(sb), "__T_");
+                            StringBuilder.append(addr(sb), sanitize_c_identifier(parts.data[0]));
+                        } elif len(parts) == 2 {
+                            StringBuilder.append_c(addr(sb), "__T2_");
+                            StringBuilder.append(addr(sb), sanitize_c_identifier(parts.data[1]));
+                            StringBuilder.append_c(addr(sb), "__T_");
+                            StringBuilder.append(addr(sb), sanitize_c_identifier(parts.data[0]));
+                        } else {
+                            mut first_p: bool = true;
+                            mut ip: i32 = 0;
+                            loop {
+                                if ip >= len(parts) { break; }
+                                if !first_p { StringBuilder.append_c(addr(sb), "__"); }
+                                StringBuilder.append(addr(sb), sanitize_c_identifier(parts.data[ip]));
+                                first_p = false;
+                                ip++;
+                            }
+                        }
+
                         i = k;
                         continue;
                     }
@@ -2593,57 +2740,89 @@ def rewrite_generic_calls(expr: string): string {
                 }
 
                 if is_generic_match {
-                    mut arg_start: i32 = k + 1;
+                    val args_paren_start: i32 = k;
+                    mut v_paren_depth: i32 = 0;
+                    mut v_in_str: bool = false;
+                    mut v_in_char: bool = false;
+                    mut v_end_idx: i32 = -1;
+                    mut vpos: i32 = args_paren_start;
                     loop {
-                        if arg_start >= expr_len { break; }
-                        val wc: char = get_char(expr, arg_start);
-                        if wc != ' ' and wc != '\t' and wc != '\n' { break; }
-                        arg_start++;
-                    }
-                    
-                    mut inferred_type: string = str("");
-                    if arg_start < expr_len {
-                        val first_ch: char = get_char(expr, arg_start);
-                        if first_ch == '"' {
-                            inferred_type = str("ref char");
-                        } elif first_ch == '-' or (first_ch >= '0' and first_ch <= '9') {
-                            mut has_decimal: bool = false;
-                            mut scan_pos: i32 = arg_start;
-                            loop {
-                                if scan_pos >= expr_len { break; }
-                                val sc: char = get_char(expr, scan_pos);
-                                if sc == '.' { has_decimal = true; break; }
-                                if sc == ',' or sc == ')' or sc == ' ' or sc == '\t' { break; }
-                                scan_pos++;
-                            }
-                            if has_decimal { inferred_type = str("f32"); }
-                            else { inferred_type = str("i32"); }
-                        } elif is_ident_start(first_ch) {
-                            mut var_end: i32 = arg_start;
-                            loop {
-                                if var_end >= expr_len { break; }
-                                val vc: char = get_char(expr, var_end);
-                                if !is_token_char(vc) { break; }
-                                var_end++;
-                            }
-                            val arg_var_name: string = substring_se(expr, arg_start, var_end);
-                            if StringStringMap.contains(addr(g_var_types), arg_var_name) {
-                                inferred_type = StringStringMap.get(addr(g_var_types), arg_var_name);
+                        if vpos >= expr_len { break; }
+                        val vc: char = get_char(expr, vpos);
+                        if vc == '"' and !v_in_char and !is_escaped_quote(expr, vpos) {
+                            v_in_str = !v_in_str;
+                        } elif vc == '\'' and !v_in_str and !is_escaped_quote(expr, vpos) {
+                            v_in_char = !v_in_char;
+                        } elif !v_in_str and !v_in_char {
+                            if vc == '(' { v_paren_depth = v_paren_depth + 1; }
+                            elif vc == ')' {
+                                v_paren_depth = v_paren_depth - 1;
+                                if v_paren_depth == 0 { v_end_idx = vpos; break; }
                             }
                         }
+                        vpos++;
                     }
-                    
-                    if str_len(inferred_type) > 0 {
-                        mut base_ident2: string = ident;
-                        if StringStringMap.contains(addr(g_function_prefixes), ident) {
-                            base_ident2 = StringStringMap.get(addr(g_function_prefixes), ident);
+
+                    if v_end_idx > args_paren_start {
+                        val raw_args: string = strip(substring_se(expr, args_paren_start + 1, v_end_idx));
+                        mut arg_parts: list(string);
+                        mut sbp: StringBuilder = StringBuilder.init(256);
+                        mut depth_p: i32 = 0;
+                        mut in_sbp_str: bool = false;
+                        mut in_sbp_char: bool = false;
+                        mut pi2: i32 = 0;
+                        loop {
+                            if pi2 >= str_len(raw_args) { break; }
+                            val cc: char = get_char(raw_args, pi2);
+                            if cc == '"' and !in_sbp_char and !is_escaped_quote(raw_args, pi2) {
+                                in_sbp_str = !in_sbp_str;
+                                StringBuilder.append_char(addr(sbp), cc);
+                            } elif cc == '\'' and !in_sbp_str and !is_escaped_quote(raw_args, pi2) {
+                                in_sbp_char = !in_sbp_char;
+                                StringBuilder.append_char(addr(sbp), cc);
+                            } elif !in_sbp_str and !in_sbp_char {
+                                if cc == '(' { depth_p = depth_p + 1; StringBuilder.append_char(addr(sbp), cc); }
+                                elif cc == ')' { depth_p = depth_p - 1; StringBuilder.append_char(addr(sbp), cc); }
+                                elif cc == ',' and depth_p == 0 {
+                                    append(arg_parts, strip(StringBuilder.to_string(addr(sbp))));
+                                    sbp = StringBuilder.init(256);
+                                } else { StringBuilder.append_char(addr(sbp), cc); }
+                            } else {
+                                StringBuilder.append_char(addr(sbp), cc);
+                            }
+                            pi2++;
                         }
-                    
-                        StringBuilder.append(addr(sb), base_ident2);
-                        StringBuilder.append_c(addr(sb), "__T_");
-                        StringBuilder.append(addr(sb), sanitize_c_identifier(inferred_type));
-                        i = k;
-                        continue;
+                        val lastp2: string = StringBuilder.to_string(addr(sbp));
+                        if str_len(strip(lastp2)) > 0 { append(arg_parts, strip(lastp2)); }
+                        StringBuilder.destroy(addr(sbp));
+
+                        mut type1: string = str("");
+                        mut type2: string = str("");
+                        if len(arg_parts) > 0 {
+                            type1 = infer_expression_type(arg_parts.data[0]);
+                        }
+                        if len(arg_parts) > 1 {
+                            type2 = infer_expression_type(arg_parts.data[1]);
+                        }
+
+                        if str_len(type1) > 0 or str_len(type2) > 0 {
+                            mut base_ident2: string = ident;
+                            if StringStringMap.contains(addr(g_function_prefixes), ident) {
+                                base_ident2 = StringStringMap.get(addr(g_function_prefixes), ident);
+                            }
+                            StringBuilder.append(addr(sb), base_ident2);
+                            if str_len(type2) > 0 and str_len(type1) > 0 {
+                                StringBuilder.append_c(addr(sb), "__T2_");
+                                StringBuilder.append(addr(sb), sanitize_c_identifier(type2));
+                                StringBuilder.append_c(addr(sb), "__T_");
+                                StringBuilder.append(addr(sb), sanitize_c_identifier(type1));
+                            } elif str_len(type1) > 0 {
+                                StringBuilder.append_c(addr(sb), "__T_");
+                                StringBuilder.append(addr(sb), sanitize_c_identifier(type1));
+                            }
+                            i = k;
+                            continue;
+                        }
                     }
                 }
             }
@@ -9128,6 +9307,44 @@ pub def generate_c(ast: ref ASTNode): string {
             emitted_name = StringStringMap.get(addr(g_function_prefixes), func_name);
         }
 
+        if call_args != nil and len(deref(call_args)) > 0 {
+            mut is_generic_em: bool = StringBoolMap.contains(addr(g_generic_functions), emitted_name);
+            if !is_generic_em {
+                if StringBoolMap.contains(addr(g_generic_functions), func_name) {
+                    is_generic_em = true;
+                } elif StringStringMap.contains(addr(g_function_prefixes), func_name) {
+                    val pref_fn: string = StringStringMap.get(addr(g_function_prefixes), func_name);
+                    if StringBoolMap.contains(addr(g_generic_functions), pref_fn) {
+                        is_generic_em = true;
+                    }
+                }
+            }
+
+            if is_generic_em and find_substr(emitted_name, str("__T_")) < 0 and find_substr(emitted_name, str("__T2_")) < 0 {
+                mut inferred1: string = str("");
+                mut inferred2: string = str("");
+                if len(deref(call_args)) > 0 {
+                    inferred1 = infer_expression_type(call_args.data[0]);
+                }
+                if len(deref(call_args)) > 1 {
+                    inferred2 = infer_expression_type(call_args.data[1]);
+                }
+                if str_len(inferred1) > 0 or str_len(inferred2) > 0 {
+                    mut newname: string = emitted_name;
+                    if str_len(inferred2) > 0 and str_len(inferred1) > 0 {
+                        newname = concat(newname, str("__T2_"));
+                        newname = concat(newname, sanitize_c_identifier(inferred2));
+                        newname = concat(newname, str("__T_"));
+                        newname = concat(newname, sanitize_c_identifier(inferred1));
+                    } elif str_len(inferred1) > 0 {
+                        newname = concat(newname, str("__T_"));
+                        newname = concat(newname, sanitize_c_identifier(inferred1));
+                    }
+                    emitted_name = newname;
+                }
+            }
+        }
+
         mut sb_call: StringBuilder = StringBuilder.init(512);
         StringBuilder.append(addr(sb_call), emitted_name);
         StringBuilder.append_char(addr(sb_call), '(');
@@ -9155,12 +9372,7 @@ pub def generate_c(ast: ref ASTNode): string {
         StringBuilder.append_c(addr(sb_call), ");\n");
         mut final_call: string = StringBuilder.to_string(addr(sb_call));
         StringBuilder.destroy(addr(sb_call));
-        
-        // Final pass: if this shit is a generic function call that hasn't been specialized (implicit call),
-        // try to specialize it now
-        if StringBoolMap.contains(addr(g_generic_functions), emitted_name) {
-            final_call = rewrite_generic_calls(final_call);
-        }
+        final_call = rewrite_generic_calls(final_call);
         
         return final_call;
     }
