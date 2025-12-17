@@ -980,12 +980,12 @@ def send_http_response(client: Socket, status_code: i32, content_type: string, b
     mut response_str: string = create_http_response(status_code, content_type, body);
     mut success: bool = socket_send(client, response_str);
     
-    raw {
-        if (response_str.data != NULL) {
-            free(response_str.data);
+    if response_str.data != nil {
+        unsafe {
+            C.free(response_str.data);
         }
     }
-    
+
     return success;
 }
 
