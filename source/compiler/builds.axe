@@ -616,7 +616,7 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
             compile_cmd = concat_c(compile_cmd, " -lnormaliz -liphlpapi -lsecur32 -lbcrypt");
         }
         platform posix {
-            compile_cmd = concat_c(compile_cmd, " -lcurl -lssl -lcrypto -lz");
+            compile_cmd = concat_c(compile_cmd, " -lcurl -lz");
         }
     }
     

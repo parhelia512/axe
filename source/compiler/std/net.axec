@@ -43,34 +43,34 @@ model MemoryStruct {
 /// Internal write callback function for curl - grows buffer as needed
 def write_callback(contents: ref char, size: usize, nmemb: usize, userp: ref char): usize {
     mut realsize: usize = 0;
-    raw {
-        realsize = size * nmemb;
-        MemoryStruct *mem = (MemoryStruct *)userp;
-        
-        char *ptr = (char*)realloc(mem->memory, mem->size + realsize + 1);
-        if (ptr == NULL) {
+    realsize = size * nmemb;
+    mut mem: ref MemoryStruct = cast[ref MemoryStruct](userp);
+    unsafe {
+        mut ptr: ref char = cast[ref char](C.realloc(mem*.memory, mem*.size + realsize + 1));
+        if ptr == nil {
             return 0;
         }
-        
-        mem->memory = ptr;
-        memcpy(&(mem->memory[mem->size]), contents, realsize);
-        mem->size += realsize;
-        mem->memory[mem->size] = 0;
+
+        mem*.memory = ptr;
+        C.memcpy(addr(mem*.memory[mem*.size]), contents, realsize);
+        mem*.size += realsize;
+        mem*.memory[mem*.size] = 0;
     }
     return realsize;
 }
 
 /// Initialize the cURL library globally
 def curl_init() {
-    raw {
-        curl_global_init(CURL_GLOBAL_ALL);
+    foreign {CURL_GLOBAL_ALL};
+    unsafe {
+        C.curl_global_init(CURL_GLOBAL_ALL);
     }
 }
 
 /// Cleanup the cURL library globally
 def curl_cleanup() {
-    raw {
-        curl_global_cleanup();
+    unsafe {
+        C.curl_global_cleanup();
     }
 }
 
