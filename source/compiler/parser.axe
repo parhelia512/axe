@@ -5599,6 +5599,22 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 scan_expression_for_usage(args_str2);
                 scan_function_args_for_ref_params(args_str2);
 
+                if equals_c(ident_name, "C") {
+                    mut call_repr: string = concat(str("C."), member_name);
+                    call_repr = concat(call_repr, str("("));
+                    call_repr = concat(call_repr, args_str2);
+                    call_repr = concat(call_repr, str(")"));
+                    if g_inside_unsafe_block == 0 {
+                        print ctx.filename;
+                        print ":";
+                        print(i32_to_string(current_line(ctx)));
+                        print ": error: C interop function ";
+                        print member_name;
+                        println " can only be used inside unsafe blocks.";
+                        quit(1);
+                    }
+                }
+
                 node.node_type = str("FunctionCall");
                 mut full_name: string = ident_name;
 

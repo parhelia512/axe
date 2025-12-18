@@ -176,28 +176,32 @@ pub def read_file(path: string): string {
 
     foreign {SEEK_END, SEEK_SET};
 
-    C.fseek(f, 0, SEEK_END);
-    val size: usize = C.ftell(f);
-    C.fseek(f, 0, SEEK_SET);
-    mut buf: ref char = cast[ref char](C.malloc(size + 1));
+    unsafe {
+        C.fseek(f, 0, SEEK_END);
+        val size: usize = C.ftell(f);
+        C.fseek(f, 0, SEEK_SET);
+        mut buf: ref char = cast[ref char](C.malloc(size + 1));
 
-    C.fread(buf, 1, size, f);
-    buf[size] = '\0';
-    C.fclose(f);
+        C.fread(buf, 1, size, f);
+        buf[size] = '\0';
+        C.fclose(f);
 
-    return string.create(buf);
+        return string.create(buf);
+    }
 }
 
 /// Write a string to a file, replacing its contents.
 /// Returns true on success.
 pub def write_file(path: string, contents: string): bool {
     foreign {FILE};
-    mut f: ref FILE = C.fopen(path.data, "wb");
-    if !f {
-        return false;
+    unsafe {
+        mut f: ref FILE = C.fopen(path.data, "wb");
+        if !f {
+            return false;
+        }
+        C.fwrite(contents.data, 1, contents.len, f);
+        C.fclose(f);
     }
-    C.fwrite(contents.data, 1, contents.len, f);
-    C.fclose(f);
     return true;
 }
 
@@ -412,7 +416,9 @@ pub def rm_dir_recursive(path: string): bool {
                     break;
                 }
             }
-            C.closedir(d);
+            unsafe {
+                C.closedir(d);
+            }
         }
         
         if r == 0 {
@@ -539,8 +545,9 @@ pub def collect_files_recursive(path: string, result: ref StringList, arena: ref
             free(statbuf);
             free(buf);
         }
-
-        C.closedir(d);
+        unsafe {
+            C.closedir(d);
+        }
     }
 
     platform windows {
