@@ -1,0 +1,9 @@
+[entry]
+def hello() {
+    print("this");
+}
+
+[entry]
+def hi() {
+    print("should fail");
+}
