@@ -115,6 +115,9 @@ mut g_extern_functions: StringBoolMap;
 /// Track overloaded functions (to skip validation as they don't have a single signature)
 mut g_overloads: StringBoolMap;
 
+/// Track overload type mappings (function_name -> "type1,type2,type3,...")
+mut g_overload_type_mappings: StringStringMap;
+
 /// Current source file name for #line directives
 mut g_current_source_file: string;
 
@@ -239,6 +242,7 @@ pub def initialize_renderer() {
     g_function_param_types = deref(StringStringMap.create(addr(arena), 256));
     g_extern_functions = deref(StringBoolMap.create(addr(arena), 128));
     g_overloads = deref(StringBoolMap.create(addr(arena), 128));
+    g_overload_type_mappings = deref(StringStringMap.create(addr(arena), 128));
     g_emitted_prototypes = deref(StringBoolMap.create(addr(arena), 1024));
     g_emit_line_directives = false;
     g_current_source_file = str("");
@@ -964,12 +968,90 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
     }
     
     if !StringStringMap.contains(addr(g_function_param_types), lookup_name) {
-        if StringBoolMap.contains(addr(g_overloads), lookup_name)
-            or StringBoolMap.contains(addr(g_extern_functions), lookup_name)
+        if StringBoolMap.contains(addr(g_extern_functions), lookup_name)
             or StringBoolMap.contains(addr(g_generic_functions), lookup_name)
             or StringBoolMap.contains(addr(g_emitted_prototypes), lookup_name)
             or StringBoolMap.contains(addr(g_function_prefixes), lookup_name)
             or equals_c(lookup_name, "len_v") {
+            return;
+        }
+
+        if StringBoolMap.contains(addr(g_overloads), lookup_name) {
+            if len(arg_list) > 0 {
+                val i2: i32 = 0;
+                val arg_expr: string = arg_list.data[i2];
+                val inferred_type: string = infer_expression_type(arg_expr);
+
+                if str_len(inferred_type) > 0 and !equals_c(inferred_type, "T") {
+                    if StringStringMap.contains(addr(g_overload_type_mappings), lookup_name) {
+                        val allowed_types_str: string = StringStringMap.get(addr(g_overload_type_mappings), lookup_name);
+
+                        mut allowed_types: list(string);
+                        mut sb_type: StringBuilder = StringBuilder.init(128);
+                        mut j: usize = 0;
+                        loop {
+                            if j >= str_len(allowed_types_str) {
+                                break;
+                            }
+                            val ch: char = get_char(allowed_types_str, cast[i32](j));
+                            if ch == ',' {
+                                val built_type: string = StringBuilder.to_string(addr(sb_type));
+                                if str_len(strip(built_type)) > 0 {
+                                    append(allowed_types, strip(built_type));
+                                }
+                                sb_type = StringBuilder.init(128);
+                            } else {
+                                StringBuilder.append_char(addr(sb_type), ch);
+                            }
+                            j++;
+                        }
+
+                        val final_type: string = StringBuilder.to_string(addr(sb_type));
+                        if str_len(strip(final_type)) > 0 {
+                            append(allowed_types, strip(final_type));
+                        }
+
+                        mut found: bool = false;
+                        mut k: i32 = 0;
+                        loop {
+                            if k >= len(allowed_types) {
+                                break;
+                            }
+                            if compare(allowed_types.data[k], inferred_type) == 0 {
+                                found = true;
+                                break;
+                            }
+                            k++;
+                        }
+
+                        if !found {
+                            print(get_short_filename(g_current_source_file));
+                            print ":";
+                            print(i32_to_string(g_current_line));
+                            print ": error: overload '";
+                            print func_name;
+                            print "' does not support type '";
+                            print inferred_type;
+                            print "', allowed types are: ";
+                            mut print_idx: i32 = 0;
+                            loop {
+                                if print_idx >= len(allowed_types) {
+                                    break;
+                                }
+                                if print_idx > 0 {
+                                    print ", ";
+                                }
+                                print(replace_all(allowed_types.data[print_idx], str("__"), str(".")));
+                                print_idx++;
+                            }
+                            println "";
+                            unsafe {
+                                C.exit(1);
+                            }
+                        }
+                    }
+                }
+            }
             return;
         }
     }
@@ -1182,6 +1264,27 @@ def collect_function_signatures(node: ref ASTNode, arena: ref Arena, prefix: str
     if equals_c(node.node_type, "Overload") {
         val func_name: string = node.data.overload_node.name;
         StringBoolMap.set(addr(g_overloads), arena, func_name, true);
+
+        val type_names_ref: ref list(string) = node.data.overload_node.type_names;
+        if type_names_ref != nil {
+            mut type_list_sb: StringBuilder = StringBuilder.init(256);
+            mut i_type: i32 = 0;
+            val count: i32 = len(deref(type_names_ref));
+            loop {
+                if i_type >= count {
+                    break;
+                }
+                val type_name: string = type_names_ref.data[i_type];
+                if i_type > 0 {
+                    StringBuilder.append_c(addr(type_list_sb), ",");
+                }
+                StringBuilder.append(addr(type_list_sb), type_name);
+                i_type = i_type + 1;
+            }
+            val type_list_str: string = StringBuilder.to_string(addr(type_list_sb));
+            StringStringMap.set(addr(g_overload_type_mappings), arena, func_name, type_list_str);
+            StringBuilder.destroy(addr(type_list_sb));
+        }
     }
     
     if equals_c(node.node_type, "Model") {
