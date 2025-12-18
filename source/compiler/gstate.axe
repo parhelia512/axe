@@ -24,7 +24,7 @@ pub mut library_paths: ref StringList = nil;
 pub mut link_libraries: ref StringList = nil;
 
 /// Print a debug message
-overload debug_print(x: generic) {
+pub overload debug_print(x: generic) {
     string => debug_print_str;
     char*  => debug_print_raw;
     i32    => debug_print_int;
