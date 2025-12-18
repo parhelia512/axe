@@ -942,7 +942,7 @@ def extract_function_name(expr: string): string {
                 }
                 val wch: char = get_char(expr, j);
                 if wch == ' ' or wch == '\t' or wch == '\n' {
-                    j = j + 1;
+                    j++;
                 } else {
                     break;
                 }
