@@ -1,0 +1,9 @@
+use std.io;
+use std.string;
+
+def main() {
+    val words: list(string) = [str("Enjoy"), str("Rosetta"), str("Code")];
+    parallel for mut x = 0 to words.len {
+        println(words.data[x]);
+    }
+}
