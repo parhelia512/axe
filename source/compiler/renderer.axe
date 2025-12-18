@@ -8567,7 +8567,25 @@ pub def generate_c(ast: ref ASTNode): string {
                         }
                     }
 
-                    if !is_numeric_literal {
+                    if equals_c(inferred_init, "ref void") {
+                        if !(has_prefix(type_name, str("ref ")) or has_suffix(type_name, str("*"))) {
+                            print(get_short_filename(g_current_source_file));
+                            print(":");
+                            print(i32_to_string(g_current_line));
+                            print(": error: type mismatch in declaration '");
+                            print(var_name);
+                            print("': expected type '");
+                            print(type_name);
+                            print("' but initializer has type '");
+                            print(inferred_init);
+                            println("'");
+                            unsafe {
+                                C.exit(1);
+                            }
+                        }
+                    }
+
+                    if !is_numeric_literal and !equals_c(inferred_init, "ref void") {
                         val mapped_inferred: string = map_axe_type_to_c(inferred_init);
                         val mapped_expected: string = map_axe_type_to_c(type_name);
 

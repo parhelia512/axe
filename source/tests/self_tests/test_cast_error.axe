@@ -1,0 +1,7 @@
+use std.io;
+
+def main() {
+    val n: i32 = 6;
+    val f: f32 = n;
+    println(f);
+}
