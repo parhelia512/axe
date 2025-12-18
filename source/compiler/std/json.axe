@@ -162,7 +162,9 @@ pub def json_get_str(value: ref char): string {
             mut length: usize = yyjson_get_len(cast[ref yyjson_val](value));
             result.data = cast[ref char](C.malloc(length + 1));
             if result.data != nil {
-                C.memcpy(result.data, str, length);
+                unsafe {
+                    C.memcpy(result.data, str, length);
+                }
                 result.data[length] = '\0';
                 result.len = length;
                 result.cap = length + 1;
@@ -254,6 +256,10 @@ pub def stringify_val(value: ref char): string {
     }
     return result;
 }
+
+extern def yyjson_write(doc: ref yyjson_doc, flags: i32, out_len: ref usize): ref char;
+extern def yyjson_val_write(val: ref yyjson_val, flags: i32, out_len: ref usize): ref char;
+extern def yyjson_write_file(path: char*, doc: ref yyjson_doc, flags: i32, alloc: ref yyjson_alc, write_opts: ref yyjson_write_opts): bool;
 
 /// Serialize with pretty formatting
 pub def stringify_pretty(doc: ref char): string {
