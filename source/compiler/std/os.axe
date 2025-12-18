@@ -310,7 +310,7 @@ platform posix {
 def dirent_d_name(entry: usize): ref char {
     platform posix {
         unsafe {
-            val d: ref dirent = entry;
+            val d: ref dirent = cast[ref dirent](entry);
             return d*.d_name;
         }
     }
@@ -336,7 +336,7 @@ platform windows {
 def finddata_name(data: usize): ref char {
     platform windows {
         unsafe {
-            val info: ref _finddata_t = data;
+            val info: ref _finddata_t = cast[ref _finddata_t](data);
             return info*.name;
         }
     }
@@ -345,7 +345,7 @@ def finddata_name(data: usize): ref char {
 def finddata_is_dir(data: usize): i32 {
     platform windows {
         unsafe {
-            val info: ref _finddata_t = data;
+            val info: ref _finddata_t = cast[ref _finddata_t](data);
             return (info*.attrib & _A_SUBDIR) != 0;
         }
     }
@@ -676,6 +676,9 @@ platform macos {
     extern def _NSGetExecutablePath(buf: ref char, bufsize: ref u32): i32;
 }
 
+extern def GetModuleFileNameA(hModule: ref void, lpFilename: ref char, nSize: u32): u32;
+extern def readlink(pathname: ref char, buf: ref char, bufsiz: usize): isize;
+
 /// Get the path to the currently running executable
 pub def get_executable_path(): string {
     mut out: string = str("");
@@ -683,7 +686,6 @@ pub def get_executable_path(): string {
     
     platform windows {
         unsafe {
-            extern def GetModuleFileNameA(hModule: ref void, lpFilename: ref char, nSize: u32): u32;
             val len: u32 = GetModuleFileNameA(nil, buffer, 2048);
             if len > 0 {
                 out = str(addr(buffer));
@@ -703,7 +705,6 @@ pub def get_executable_path(): string {
     
     platform linux {
         unsafe {
-            extern def readlink(pathname: ref char, buf: ref char, bufsiz: usize): isize;
             val len: isize = readlink("/proc/self/exe", buffer, 2047);
             if len > 0 {
                 buffer[len] = 0;
@@ -724,7 +725,7 @@ pub def get_executable_dir(): string {
     
     mut last_sep: i32 = -1;
     mut i: i32 = 0;
-    val n: i32 = str_len(exe_path);
+    val n: i32 = cast[i32](str_len(exe_path));
     loop {
         if i >= n {
             break;

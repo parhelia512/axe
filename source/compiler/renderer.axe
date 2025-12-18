@@ -342,7 +342,7 @@ def is_all_upper_or_underscore(name: string): bool {
     }
     
     mut i: i32 = 0;
-    val n: i32 = str_len(name);
+    val n: i32 = cast[i32](str_len(name));
     loop {
         if i >= n {
             break;
@@ -778,6 +778,14 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
         return;
     }
 
+    if (find_char_from(func_name, ' ', cast[usize](0)) >= 0) 
+        or (find_char_from(func_name, '\t', cast[usize](0)) >= 0) 
+        or (find_char_from(func_name, '\n', cast[usize](0)) >= 0) 
+        or (find_char_from(func_name, ')', cast[usize](0)) >= 0) 
+        or (find_char_from(func_name, ']', cast[usize](0)) >= 0) {
+        return;
+    }
+
     if has_suffix(func_name, str("]")) and find_char_from(func_name, '[', cast[usize](0)) < 0 {
         val maybe_type: string = strip(replace_all(func_name, str("]"), str("")));
         if str_len(maybe_type) > 0 and (is_builtin_type(maybe_type) or StringStringMap.contains(addr(g_model_names), maybe_type) or is_symbol_imported(maybe_type)) {
@@ -840,7 +848,12 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
         
         // First check if this argument itself is a function call
 
-        val is_string_lit: bool = has_prefix(arg_expr, str("\"")) or has_prefix(arg_expr, str("'"));
+        mut is_string_lit: bool = false;
+        if has_prefix(arg_expr, str("\"")) {
+            is_string_lit = true;
+        } elif has_prefix(arg_expr, str("'")) {
+            is_string_lit = true;
+        }
         val arg_paren: i32 = find_char_from(arg_expr, '(', cast[usize](0));
 
         if !is_string_lit and arg_paren > 0 {
@@ -1461,8 +1474,8 @@ def is_escaped_quote(expr: string, pos: i32): bool {
 /// Replace a keyword with another string, but only when it's a standalone word
 /// (not part of a larger identifier) and not inside a string literal.
 def replace_keyword_outside_strings(expr: string, keyword: string, replacement: string): string {
-    val expr_len: i32 = str_len(expr);
-    val kw_len: i32 = str_len(keyword);
+    val expr_len: i32 = cast[i32](str_len(expr));
+    val kw_len: i32 = cast[i32](str_len(keyword));
     if expr_len == 0 or kw_len == 0 {
         return expr;
     }
@@ -1768,7 +1781,7 @@ def rewrite_pointer_member_accesses(expr: string): string {
 def register_function_prefix(full_name: string) {
     mut last_sep: i32 = -1;
     mut j: i32 = 0;
-    val n: i32 = str_len(full_name);
+    val n: i32 = cast[i32](str_len(full_name));
     loop {
         if j + 1 >= n {
             break;
@@ -2389,7 +2402,7 @@ def rewrite_ref_member_access(expr: string): string {
 def sanitize_c_identifier(name: string): string {
     mut sb: StringBuilder = StringBuilder.init(str_len(name) + 16);
     mut i: i32 = 0;
-    val len: i32 = str_len(name);
+    val len: i32 = cast[i32](str_len(name));
     loop {
         if i >= len { break; }
         val ch: char = get_char(name, i);
@@ -2744,7 +2757,7 @@ def rewrite_generic_calls(expr: string): string {
                 if !is_generic_match {
                     mut last_sep: i32 = -1;
                     mut ji: i32 = 0;
-                    val ilen: i32 = str_len(ident);
+                    val ilen: i32 = cast[i32](str_len(ident));
                     loop {
                         if ji + 1 >= ilen { break; }
                         val c1: char = get_char(ident, ji);
@@ -3694,7 +3707,7 @@ def format_model_field_type(field_type: string): string {
     
     mut pointer_suffix: string = str("");
     loop {
-        val len: i32 = str_len(trimmed);
+        val len: i32 = cast[i32](str_len(trimmed));
         if len == 0 {
             break;
         }
@@ -5766,7 +5779,7 @@ def generate_function_prototype(ast: ref ASTNode): string {
     mut func_name: string = func_name_raw;
     mut sep: i32 = -1;
     mut i: i32 = 0;
-    val n: i32 = str_len(func_name);
+    val n: i32 = cast[i32](str_len(func_name));
     loop {
         if i + 1 >= n {
             break;
@@ -5784,7 +5797,7 @@ def generate_function_prototype(ast: ref ASTNode): string {
         val method_part: string = substring_se(func_name, sep + 2, n);
         mut has_inner_sep: bool = false;
         mut j: i32 = 0;
-        val mlen: i32 = str_len(model_part);
+        val mlen: i32 = cast[i32](str_len(model_part));
         loop {
             if j + 1 >= mlen {
                 break;
@@ -6403,7 +6416,7 @@ pub def generate_c(ast: ref ASTNode): string {
                     mut base: string = cname;
                     mut last_sep: i32 = -1;
                     mut bi: i32 = 0;
-                    val nlen: i32 = str_len(cname);
+                    val nlen: i32 = cast[i32](str_len(cname));
                     loop {
                         if bi + 1 >= nlen {
                             break;
@@ -7104,7 +7117,7 @@ pub def generate_c(ast: ref ASTNode): string {
 
                             mut constraint_idx2: i32 = 0;
                             mut constraint_start2: i32 = 0;
-                            val constraint_len2: i32 = str_len(constraint_str2);
+                            val constraint_len2: i32 = cast[i32](str_len(constraint_str2));
                             loop {
                                 if constraint_idx2 > constraint_len2 { break; }
                                 mut is_sep2: bool = false;
@@ -7135,7 +7148,7 @@ pub def generate_c(ast: ref ASTNode): string {
                             mut spec_arena: Arena = Arena.create(256);
                             mut tm_idx2: i32 = 0;
                             mut tm_start2: i32 = 0;
-                            val tm_len2: i32 = str_len(constraint_str2);
+                            val tm_len2: i32 = cast[i32](str_len(constraint_str2));
                             mut type_mapping2: StringStringMap = deref(StringStringMap.create(addr(spec_arena), 8));
                             loop {
                                 if tm_idx2 > tm_len2 { break; }
@@ -7883,7 +7896,7 @@ pub def generate_c(ast: ref ASTNode): string {
                 StringBuilder.append(addr(sb_spec_name), base_name_for_spec);
                 mut constraint_idx: i32 = 0;
                 mut constraint_start: i32 = 0;
-                val constraint_len: i32 = str_len(constraint_str);
+                val constraint_len: i32 = cast[i32](str_len(constraint_str));
                 
                 loop {
                     if constraint_idx > constraint_len {
@@ -7929,7 +7942,7 @@ pub def generate_c(ast: ref ASTNode): string {
                 mut type_mapping: StringStringMap = deref(StringStringMap.create(addr(gen_arena), 16));
                 mut tm_idx: i32 = 0;
                 mut tm_start: i32 = 0;
-                val tm_len: i32 = str_len(constraint_str);
+                val tm_len: i32 = cast[i32](str_len(constraint_str));
                 
                 loop {
                     if tm_idx > tm_len {
@@ -8112,7 +8125,7 @@ pub def generate_c(ast: ref ASTNode): string {
         if !equals_c(func_name, "main") {
             mut sep2: i32 = -1;
             mut i2: i32 = 0;
-            val n2: i32 = str_len(func_name);
+            val n2: i32 = cast[i32](str_len(func_name));
 
             loop {
                 if i2 + 1 >= n2 {
@@ -8131,8 +8144,7 @@ pub def generate_c(ast: ref ASTNode): string {
                 val method_part2: string = substring_se(func_name, sep2 + 2, n2);
                 mut has_inner_sep2: bool = false;
                 mut j2: i32 = 0;
-                val mlen2: i32 = str_len(model_part2);
-
+                val mlen2: i32 = cast[i32](str_len(model_part2));
                 loop {
                     if j2 + 1 >= mlen2 {
                         break;
@@ -8524,6 +8536,60 @@ pub def generate_c(ast: ref ASTNode): string {
         // MemberAccess nodes can determine whether the base object should
         // use '.' or '->' in generated C.
         if str_len(var_name) > 0 and str_len(type_name) > 0 {
+            if str_len(initializer) > 0 {
+                val trimmed_init: string = strip(initializer);
+                mut is_numeric_literal: bool = false;
+                if str_len(trimmed_init) > 0 {
+                    val c0: char = get_char(trimmed_init, 0);
+                    if c0 >= '0' and c0 <= '9' {
+                        is_numeric_literal = true;
+                    } elif c0 == '-' and str_len(trimmed_init) > 1 {
+                        val c1: char = get_char(trimmed_init, 1);
+                        if (c1 >= '0' and c1 <= '9') or c1 == '.' {
+                            is_numeric_literal = true;
+                        }
+                    }
+                }
+
+                val inferred_init: string = infer_expression_type(trimmed_init);
+                if str_len(inferred_init) > 0 and !equals_c(inferred_init, "auto") {
+                    if has_prefix(inferred_init, str("ref ")) and !has_prefix(type_name, str("ref ")) {
+                        print(get_short_filename(g_current_source_file));
+                        print(":");
+                        print(i32_to_string(g_current_line));
+                        print(": error: cannot initialize non-ref variable '");
+                        print(var_name);
+                        print("' with address: initializer has type '");
+                        print(inferred_init);
+                        println("'");
+                        unsafe {
+                            C.exit(1);
+                        }
+                    }
+
+                    if !is_numeric_literal {
+                        val mapped_inferred: string = map_axe_type_to_c(inferred_init);
+                        val mapped_expected: string = map_axe_type_to_c(type_name);
+
+                        if compare(mapped_inferred, mapped_expected) != 0 {
+                            print(get_short_filename(g_current_source_file));
+                            print(":");
+                            print(i32_to_string(g_current_line));
+                            print(": error: type mismatch in declaration '");
+                            print(var_name);
+                            print("': expected type '");
+                            print(type_name);
+                            print("' but initializer has type '");
+                            print(inferred_init);
+                            println("'");
+                            unsafe {
+                                C.exit(1);
+                            }
+                        }
+                    }
+                }
+            }
+
             mut decl_arena: Arena = Arena.create(2560);
             StringStringMap.set(addr(g_var_types), addr(decl_arena), var_name, type_name);
 
@@ -10427,7 +10493,7 @@ pub def generate_c(ast: ref ASTNode): string {
         mut base_enum_name: string = enum_name;
         mut last_sep_enum: i32 = -1;
         mut ei: i32 = 0;
-        val elen: i32 = str_len(enum_name);
+        val elen: i32 = cast[i32](str_len(enum_name));
         loop {
             if ei + 1 >= elen {
                 break;

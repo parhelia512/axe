@@ -137,7 +137,7 @@ def is_all_digits(s: string): bool {
 def expand_macros_in_expression(expr: string): string {
     mut result: StringBuilder = StringBuilder.init(512);
     mut i: i32 = 0;
-    val expr_len: i32 = str_len(expr);
+    val expr_len: i32 = cast[i32](str_len(expr));
     
     loop {
         if i >= expr_len {
@@ -852,7 +852,7 @@ def check_null_usage(ctx: ref ParserContext, ident: string) {
 /// Check if an expression contains a function call (identifier followed by '(')
 def has_function_call_in_expression(expr: string): bool {
     mut i: i32 = 0;
-    val expr_len: i32 = str_len(expr);
+    val expr_len: i32 = cast[i32](str_len(expr));
     
     loop {
         if i >= expr_len {
@@ -909,7 +909,7 @@ def has_function_call_in_expression(expr: string): bool {
 /// Extract the function name from an expression that contains a function call
 def extract_function_name(expr: string): string {
     mut i: i32 = 0;
-    val expr_len: i32 = str_len(expr);
+    val expr_len: i32 = cast[i32](str_len(expr));
     
     loop {
         if i >= expr_len {
@@ -965,7 +965,7 @@ def extract_function_name(expr: string): string {
 
 /// Check if a type string contains raw pointer syntax (e.g., "char*", "int*")
 def has_pointer_syntax(type_str: string): bool {
-    val len: i32 = str_len(type_str);
+    val len: i32 = cast[i32](str_len(type_str));
     if len == 0 {
         return false;
     }
@@ -2444,8 +2444,8 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
             return;
         }
 
-        mut heap_params: ref list(string) = nil;
-        mut heap_body: ref list(Token) = nil;
+        mut heap_params: ref list(string);
+        mut heap_body: ref list(Token);
         
         unsafe {
             val params_size: usize = C.sizeof(list(string));

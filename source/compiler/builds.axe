@@ -70,7 +70,7 @@ def filter_and_print_errors(output: string) {
 
 /// Detect if a name already has a module-style "__" prefix.
 def has_double_underscore(name: string): bool {
-    val nlen: i32 = str_len(name);
+    val nlen: i32 = cast[i32](str_len(name));
     mut k: i32 = 0;
     loop {
         if k + 1 >= nlen {
@@ -157,7 +157,7 @@ def prefix_root_functions(node: ref ASTNode, mprefix: string) {
 /// If identifier starts with a digit, prepend an underscore
 /// Replace special characters with '_'
 def to_c_identifier(identifier: string): string {
-    val len: i32 = str_len(identifier);
+    val len: i32 = cast[i32](str_len(identifier));
     mut sb: StringBuilder = StringBuilder.init(len + 1);
     
     if is_digit(cast[i32](get_char(identifier, 0))) {
@@ -360,7 +360,7 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
     reset_processed_modules();
 
     mut base_dir: string = str(".");
-    val lenf: i32 = str_len(filename);
+    val lenf: i32 = cast[i32](str_len(filename));
     mut idx: i32 = lenf - 1;
 
     loop {
@@ -399,7 +399,7 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
 
     mut dir_name: string = str("");
     mut file_stem: string = str("");
-    val flen: i32 = str_len(filename);
+    val flen: i32 = cast[i32](str_len(filename));
     mut last_dot: i32 = -1;
     mut i_ext: i32 = flen - 1;
 
@@ -759,7 +759,7 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
 
 /// Replace file extension
 def replace_extension(filename: string, new_ext: string): string {
-    val len: i32 = str_len(filename);
+    val len: i32 = cast[i32](str_len(filename));
     mut i: i32 = len - 1;
     
     loop {
