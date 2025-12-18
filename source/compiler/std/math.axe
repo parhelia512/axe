@@ -41,7 +41,7 @@ pub def int_to_float(x: i32): f64 {
 
 /// Floor of the number.
 pub def floor(x: f64): f64 {
-    val xi: i32 = x;
+    val xi: i32 = cast[i32](x);
     if x < 0.0 and (x - xi) != 0.0 {
         return (xi - 1);
     } else {
@@ -51,8 +51,8 @@ pub def floor(x: f64): f64 {
 
 /// Ceiling of the number.
 pub def ceil(x: f64): f64 {
-    val xi: i32 = x;     
-    val xf: f64 = xi;  
+    val xi: i32 = cast[i32](x);
+    val xf: f64 = cast[f64](xi);
     if x > 0.0 and (x - xf) != 0.0 {
         val next: i32 = xi + 1;
         return next;

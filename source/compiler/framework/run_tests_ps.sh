@@ -70,6 +70,38 @@ $file"
     rm -f "$tmpfile"
 done
 
+STD_DIR="./std"
+if [ -d "$STD_DIR" ]; then
+    echo ""
+    echo "Compiling standard library files in $STD_DIR..."
+
+    tmpfile=$(mktemp) || exit 1
+    find "$STD_DIR" -type f -name "*.axe" | sort > "$tmpfile"
+
+    while IFS= read -r file; do
+        total=$((total + 1))
+        echo "------------------------------"
+        echo "Compiling $file"
+
+        ./axc "$file"
+        exit_code=$?
+
+        if [ $exit_code -ne 0 ]; then
+            echo "${RED}FAILED: $file${RESET}"
+            failed=$((failed + 1))
+            failed_files="$failed_files
+$file"
+        else
+            echo "${GREEN}OK: $file${RESET}"
+            passed=$((passed + 1))
+        fi
+    done < "$tmpfile"
+
+    rm -f "$tmpfile"
+else
+    echo "${YELLOW}Std folder not found at $STD_DIR; skipping std compilation${RESET}"
+fi
+
 echo ""
 echo "Summary: Total=$total Passed=$passed Failed=$failed"
 
