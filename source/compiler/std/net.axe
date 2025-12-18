@@ -792,23 +792,27 @@ pub def socket_send(socket: Socket, data: string): bool {
 /// Close a socket
 pub def socket_close(socket: Socket) {
     if socket.is_valid {
-        platform windows {
-            C.closesocket(cast[SOCKET](socket.fd));
-        }
-        platform posix {
-            C.close(socket.fd);
+        unsafe {
+            platform windows {
+                C.closesocket(cast[SOCKET](socket.fd));
+            }
+            platform posix {
+                C.close(socket.fd);
+            }
         }
     }
 }
 
 /// Close the server socket
 pub def server_close(server: WebServer) {
-    if server.socket.is_valid {
-        platform windows {
-            C.closesocket(cast[SOCKET](server.socket.fd));
-        }
-        platform posix {
-            C.close(server.socket.fd);
+    unsafe {
+        if server.socket.is_valid {
+            platform windows {
+                C.closesocket(cast[SOCKET](server.socket.fd));
+            }
+            platform posix {
+                C.close(server.socket.fd);
+            }
         }
     }
 }
