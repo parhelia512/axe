@@ -234,7 +234,12 @@ def has_entry_tag(tags: ref list(string)): bool {
 }
 
 /// Recursively count entry points (main or [entry]) and test blocks
-def count_entry_points(node: ref ASTNode, main_count: ref i32, custom_entry_count: ref i32, test_count: ref i32) {
+def count_entry_points(
+    node: ref ASTNode,
+    main_count: ref i32,
+    custom_entry_count: ref i32,
+    test_count: ref i32
+) {
     if node == nil { return; }
 
     val nt: string = node.node_type;
