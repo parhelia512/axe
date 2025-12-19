@@ -6260,8 +6260,6 @@ pub def generate_c(ast: ref ASTNode): string {
     g_current_source_file = ast.source_file;
 
     val node_type: string = ast.node_type;
-
-
     mut result: string = str("");
     mut arena: Arena = Arena.create(1024);
 
