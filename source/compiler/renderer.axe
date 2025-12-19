@@ -1878,7 +1878,9 @@ def rewrite_pointer_member_accesses(expr: string): string {
                         }
 
                         if has_prefix(t, str("ref ")) or has_suffix(t, str("*")) {
-                            is_pointer = true;
+                            if !has_suffix(t, str("[999]")) {
+                                is_pointer = true;
+                            }
                         }
                     }
 
@@ -2080,28 +2082,17 @@ def map_axe_type_to_c(axe_type: string): string {
     
     if has_suffix(result, str("[999]")) {
         val element_type: string = strip(substring_se(result, 0, str_len(result) - 5));
-        if has_prefix(element_type, str("ref ")) {
-            val base_elem: string = strip(substr(element_type, 4, str_len(element_type) - 4));
-            val mapped_elem: string = map_axe_type_to_c(base_elem);
-            add_list_element(mapped_elem);
-            mut sb_struct: StringBuilder = StringBuilder.init(str_len(mapped_elem) + 10);
-            StringBuilder.append_c(addr(sb_struct), "__list_");
-            StringBuilder.append(addr(sb_struct), mapped_elem);
-            StringBuilder.append_c(addr(sb_struct), "_t*");
-            val struct_name: string = StringBuilder.to_string(addr(sb_struct));
-            StringBuilder.destroy(addr(sb_struct));
-            return struct_name;
-        } else {
-            val mapped_elem: string = map_axe_type_to_c(element_type);
-            add_list_element(mapped_elem);
-            mut sb_struct: StringBuilder = StringBuilder.init(str_len(mapped_elem) + 10);
-            StringBuilder.append_c(addr(sb_struct), "__list_");
-            StringBuilder.append(addr(sb_struct), mapped_elem);
-            StringBuilder.append_c(addr(sb_struct), "_t");
-            val struct_name: string = StringBuilder.to_string(addr(sb_struct));
-            StringBuilder.destroy(addr(sb_struct));
-            return struct_name;
-        }
+        val mapped_elem: string = map_axe_type_to_c(element_type);
+        add_list_element(mapped_elem);
+        val sanitized: string = sanitize_list_element_name(mapped_elem);
+        
+        mut sb_struct: StringBuilder = StringBuilder.init(str_len(sanitized) + 10);
+        StringBuilder.append_c(addr(sb_struct), "__list_");
+        StringBuilder.append(addr(sb_struct), sanitized);
+        StringBuilder.append_c(addr(sb_struct), "_t");
+        val struct_name: string = StringBuilder.to_string(addr(sb_struct));
+        StringBuilder.destroy(addr(sb_struct));
+        return struct_name;
     }
     
     if has_prefix(result, str("ref ")) {
@@ -2180,7 +2171,9 @@ def is_pointer_type(type_str: string): bool {
         t = strip(substr(t, 4, str_len(t) - 4));
     }
     if has_prefix(t, str("ref ")) or has_suffix(t, str("*")) {
-        return true;
+        if !has_suffix(t, str("[999]")) {
+            return true;
+        }
     }
     return false;
 }
@@ -2491,9 +2484,7 @@ def rewrite_ref_member_access(expr: string): string {
                             base_model_name = str("");
                         } else {
                             if !had_array_access {
-                                if equals_c(field_name, "keys") or equals_c(field_name, "values") or 
-                                   equals_c(field_name, "data") or equals_c(field_name, "items") or
-                                   equals_c(field_name, "elements") or equals_c(field_name, "children") or
+                                if equals_c(field_name, "children") or
                                    equals_c(field_name, "params") or equals_c(field_name, "body") {
                                     is_pointer = true;
                                 } else {
@@ -2504,9 +2495,7 @@ def rewrite_ref_member_access(expr: string): string {
                         }
                     } else {
                         if !had_array_access {
-                            if equals_c(field_name, "keys") or equals_c(field_name, "values") or 
-                               equals_c(field_name, "data") or equals_c(field_name, "items") or
-                               equals_c(field_name, "elements") or equals_c(field_name, "children") or
+                            if equals_c(field_name, "children") or
                                equals_c(field_name, "params") or equals_c(field_name, "body") {
                                 is_pointer = true;
                             } else {
@@ -6193,6 +6182,27 @@ def generate_global_decl(ast: ref ASTNode): string {
     return result;
 }
 
+def discover_types(ast: ref ASTNode) {
+    if ast == nil { return; }
+    
+    if equals_c(ast.node_type, "Declaration") {
+        val type_name: string = ast.data.declaration.type_name;
+        if str_len(type_name) > 0 {
+            map_axe_type_to_c(type_name);
+        }
+    }
+    
+    if ast.children != nil {
+        val children: ref list(ASTNode) = ast.children;
+        mut i: i32 = 0;
+        loop {
+            if i >= len(deref(children)) { break; }
+            discover_types(addr(children.data[i]));
+            i = i + 1;
+        }
+    }
+}
+
 /// Generate C from AST.
 ///
 /// Note: g_current_source_file should be set before calling generate_c.
@@ -6658,6 +6668,19 @@ pub def generate_c(ast: ref ASTNode): string {
                     }
                 }
                 i_more++;
+            }
+
+            discover_types(ast);
+
+            if g_list_elements != nil {
+                val lst_ref_pre: ref StringList = g_list_elements;
+                mut li_pre: i32 = 0;
+                loop {
+                    if li_pre >= lst_ref_pre*.len { break; }
+                    val elemPre: string = StringList.get(lst_ref_pre, li_pre);
+                    val mapped: string = map_axe_type_to_c(elemPre);
+                    li_pre = li_pre + 1;
+                }
             }
 
             mut sb_fwd: StringBuilder = StringBuilder.init(8192);
@@ -8911,15 +8934,7 @@ pub def generate_c(ast: ref ASTNode): string {
                 
                 val processed_elements: string = process_expression(elements_trimmed);
 
-                StringBuilder.append_c(addr(sb_decl), " = ");
-                if has_suffix(mapped_type, str("*")) {
-                    StringBuilder.append_c(addr(sb_decl), "&(");
-                    val value_type: string = strip(substring_se(mapped_type, 0, str_len(mapped_type) - 1));
-                    StringBuilder.append(addr(sb_decl), value_type);
-                    StringBuilder.append_c(addr(sb_decl), ")");
-                }
-
-                StringBuilder.append_c(addr(sb_decl), "{.data = (");
+                StringBuilder.append_c(addr(sb_decl), " = {.data = (");
                 StringBuilder.append(addr(sb_decl), elem_type_c);
                 StringBuilder.append_c(addr(sb_decl), "[]){");
                 StringBuilder.append(addr(sb_decl), processed_elements);
@@ -9358,16 +9373,8 @@ pub def generate_c(ast: ref ASTNode): string {
         } else {
             if StringStringMap.contains(addr(g_var_types), trimmed_obj) {
                 val raw_type: string = StringStringMap.get(addr(g_var_types), trimmed_obj);
-                mut t: string = strip(raw_type);
-
-                if has_prefix(t, str("mut ")) {
-                    t = strip(substr(t, 4, str_len(t) - 4));
-                }
-
-                if !equals_c(t, "string") {
-                    if has_prefix(t, str("ref ")) or has_suffix(t, str("*")) {
-                        is_pointer = true;
-                    }
+                if is_pointer_type(raw_type) {
+                    is_pointer = true;
                 }
             }
         }
