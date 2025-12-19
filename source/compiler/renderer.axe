@@ -8911,7 +8911,15 @@ pub def generate_c(ast: ref ASTNode): string {
                 
                 val processed_elements: string = process_expression(elements_trimmed);
 
-                StringBuilder.append_c(addr(sb_decl), " = {.data = (");
+                StringBuilder.append_c(addr(sb_decl), " = ");
+                if has_suffix(mapped_type, str("*")) {
+                    StringBuilder.append_c(addr(sb_decl), "&(");
+                    val value_type: string = strip(substring_se(mapped_type, 0, str_len(mapped_type) - 1));
+                    StringBuilder.append(addr(sb_decl), value_type);
+                    StringBuilder.append_c(addr(sb_decl), ")");
+                }
+
+                StringBuilder.append_c(addr(sb_decl), "{.data = (");
                 StringBuilder.append(addr(sb_decl), elem_type_c);
                 StringBuilder.append_c(addr(sb_decl), "[]){");
                 StringBuilder.append(addr(sb_decl), processed_elements);
