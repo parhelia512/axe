@@ -106,8 +106,8 @@ def test_generics[T](x: T, y: T): T {
 
 def matrix_multiply(a: ref list(list(i32)), b: ref list(list(i32)), result: ref list(list(i32))) {
     val rows_a: i32 = len(deref(a));
-    val cols_a: i32 = len(deref(a.data[0]));
-    val cols_b: i32 = len(deref(b.data[0]));
+    val cols_a: i32 = len(a.data[0]);
+    val cols_b: i32 = len(b.data[0]);
 
     for mut i = 0; i < rows_a; i++ {
         for mut j = 0; j < cols_b; j++ {

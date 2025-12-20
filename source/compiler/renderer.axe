@@ -5291,7 +5291,11 @@ def rewrite_len_calls(expr: string): string {
         val len_arg: string = strip(substring_se(result, paren_start, paren_end));
         mut is_pointer: bool = false;
         
-        if find_substr(len_arg, str("->")) >= 0 {
+        if has_prefix(len_arg, str("(*")) {
+            is_pointer = false;
+        } elif has_suffix(len_arg, str("]")) {
+            is_pointer = false;
+        } elif find_substr(len_arg, str("->")) >= 0 {
             is_pointer = true;
         } elif find_char_from(len_arg, '.', cast[usize](0)) >= 0 {
             val len_arg_len: i32 = cast[i32](str_len(len_arg));
@@ -5318,7 +5322,13 @@ def rewrite_len_calls(expr: string): string {
                 val first_dot: i32 = find_char_from(len_arg, '.', cast[usize](0));
 
                 if first_dot >= 0 {
-                    val base_var: string = strip(substring_se(len_arg, 0, first_dot));
+                    mut base_var: string = strip(substring_se(len_arg, 0, first_dot));
+                    if has_prefix(base_var, str("(*")) {
+                        base_var = strip(substr(base_var, 2, str_len(base_var) - 2));
+                    }
+                    if has_suffix(base_var, str(")")) {
+                        base_var = strip(substr(base_var, 0, str_len(base_var) - 1));
+                    }
                     
                     if StringStringMap.contains(addr(g_var_types), base_var) {
                         val base_type: string = StringStringMap.get(addr(g_var_types), base_var);
@@ -5328,11 +5338,17 @@ def rewrite_len_calls(expr: string): string {
                         if str_len(field_type) > 0 {
                             if is_pointer_type(field_type) {
                                 is_pointer = true;
+                                if bracket_pos >= 0 {
+                                    is_pointer = false;
+                                }
                             }
                         }
                         
                         if is_pointer_field(model_name, field_name) {
                             is_pointer = true;
+                            if bracket_pos >= 0 {
+                                is_pointer = false;
+                            }
                         }
                     }
                 }
@@ -5349,6 +5365,9 @@ def rewrite_len_calls(expr: string): string {
                 val var_type: string = StringStringMap.get(addr(g_var_types), base_var);
                 if is_pointer_type(var_type) {
                     is_pointer = true;
+                    if bracket_pos >= 0 {
+                        is_pointer = false;
+                    }
                 }
             }
         }
