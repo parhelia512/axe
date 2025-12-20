@@ -170,6 +170,46 @@ pub def read_str(arena: Arena): string {
     return str(buffer);
 }
 
+platform windows {
+    use external("conio.h");
+    extern def _getch(): i32;
+}
+
+opaque { termios };
+
+platform posix {
+    use external("termios.h");
+    use external("unistd.h");
+    
+    extern def tcgetattr(fd: i32, termios_p: ref termios): i32;
+    extern def tcsetattr(fd: i32, optional_actions: i32, termios_p: ref termios): i32;
+}
+
+/// Read a single keypress from stdin without waiting for Enter
+pub def read_key(): i32 {
+    platform windows {
+        unsafe {
+            return _getch();
+        }
+    }
+    platform posix {
+        unsafe {
+            mut oldt: $(termios);
+            mut newt: $(termios);
+            tcgetattr(0, addr(oldt));
+            newt = oldt;
+            
+            foreign {ICANON, ECHO, TCSANOW};
+            newt.c_lflag = newt.c_lflag & ~(ICANON | ECHO);
+
+            tcsetattr(0, TCSANOW, addr(newt));
+            val ch: i32 = C.getchar();
+            tcsetattr(0, TCSANOW, addr(oldt));
+            return ch;
+        }
+    }
+}
+
 test {
     val x: f32 = 3.14159;
     val y: f32 = 2.71828;
@@ -188,4 +228,8 @@ test {
     println "";
     println "Testing println_bool:";
     println_bool(true);
+
+    println "Testing read_key:";
+    val key: i32 = read_key();
+    println_i32(key);
 }
