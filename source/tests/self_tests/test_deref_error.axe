@@ -1,0 +1,8 @@
+use std.io;
+use std.string;
+
+def main() {
+    val x: i32 = 42;
+    val y: i32 = deref(x);
+    println(i32_to_string(y));
+}
