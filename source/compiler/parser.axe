@@ -7367,6 +7367,36 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             }
         }
         
+        mut param_idx: i32 = 0;
+        loop {
+            if param_idx >= len(extern_params) {
+                break;
+            }
+            val param: string = extern_params.data[param_idx];
+            if has_pointer_syntax(param) {
+                print ctx.filename;
+                print ":";
+                print(i32_to_string(current_line(ctx)));
+                print ": error: C-style pointer syntax is disallowed, use 'ref' instead. ";
+                print "(in parameter: ";
+                print param;
+                println ")";
+                quit(1);
+            }
+            param_idx++;
+        }
+
+        if has_pointer_syntax(extern_return_type) {
+            print ctx.filename;
+            print ":";
+            print(i32_to_string(current_line(ctx)));
+            print ": error: C-style pointer syntax is disallowed, use 'ref' instead. ";
+            print " (in return type: ";
+            print extern_return_type;
+            println ")";
+            quit(1);
+        }
+
         node.data.extern_node.return_type = extern_return_type;
         return node;
     }

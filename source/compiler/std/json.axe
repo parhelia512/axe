@@ -11,13 +11,13 @@ pub val JSON_TYPE_STR: i32 = 3;
 pub val JSON_TYPE_ARR: i32 = 4;
 pub val JSON_TYPE_OBJ: i32 = 5;
 
-extern def yyjson_read(json: char*, size: size_t, flags: i32): char*;
-extern def yyjson_doc_free(doc: char*);
-extern def yyjson_doc_get_root(doc: char*): char*;
-extern def yyjson_is_null(value: char*): bool;
-extern def yyjson_is_bool(value: char*): bool;
-extern def yyjson_is_num(value: char*): bool;
-extern def yyjson_is_str(value: char*): bool;
+extern def yyjson_read(json: ref char, size: size_t, flags: i32): ref char;
+extern def yyjson_doc_free(doc: ref char);
+extern def yyjson_doc_get_root(doc: ref char): ref char;
+extern def yyjson_is_null(value: ref char): bool;
+extern def yyjson_is_bool(value: ref char): bool;
+extern def yyjson_is_num(value: ref char): bool;
+extern def yyjson_is_str(value: ref char): bool;
 
 /// Parse a JSON string and return a document
 pub def parse_json(json_str: string): ref char {
@@ -259,7 +259,7 @@ pub def stringify_val(value: ref char): string {
 
 extern def yyjson_write(doc: ref yyjson_doc, flags: i32, out_len: ref usize): ref char;
 extern def yyjson_val_write(val: ref yyjson_val, flags: i32, out_len: ref usize): ref char;
-extern def yyjson_write_file(path: char*, doc: ref yyjson_doc, flags: i32, alloc: ref yyjson_alc, write_opts: ref yyjson_write_opts): bool;
+extern def yyjson_write_file(path: ref char, doc: ref yyjson_doc, flags: i32, alloc: ref yyjson_alc, write_opts: ref yyjson_write_opts): bool;
 
 /// Serialize with pretty formatting
 pub def stringify_pretty(doc: ref char): string {
