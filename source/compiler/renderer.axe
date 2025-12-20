@@ -3330,8 +3330,18 @@ def rewrite_method_calls(expr: string): string {
                     } else {
                         full_name = base;
                     }
-                    full_name = concat(full_name, str("__"));
-                    full_name = concat(full_name, fixed_method);
+
+                    mut already_has_prefix: bool = false;
+                    if find_substr(fixed_method, full_name) == 0 {
+                        already_has_prefix = true;
+                    }
+
+                    if !already_has_prefix {
+                        full_name = concat(full_name, str("__"));
+                        full_name = concat(full_name, fixed_method);
+                    } else {
+                        full_name = fixed_method;
+                    }
                     StringBuilder.append(addr(sb), full_name);
                     i = m;
                     continue;
@@ -6981,13 +6991,20 @@ pub def generate_c(ast: ref ASTNode): string {
                                 val first_char: char = get_char(import_name, 0);
                                 if first_char >= 'a' and first_char <= 'z' {
                                     if !StringStringMap.contains(addr(g_function_prefixes), import_name) {
-                                        mut sb_prefix: StringBuilder = StringBuilder.init(str_len(module_prefix) + str_len(import_name) + 2);
-                                        StringBuilder.append(addr(sb_prefix), module_prefix);
-                                        StringBuilder.append(addr(sb_prefix), double_underscore_str);
-                                        StringBuilder.append(addr(sb_prefix), import_name);
-                                        val prefixed_name: string = StringBuilder.to_string(addr(sb_prefix));
-                                        StringBuilder.destroy(addr(sb_prefix));
-                                        StringStringMap.set(addr(g_function_prefixes), addr(use_arena), import_name, prefixed_name);
+                                        mut already_prefixed: bool = false;
+                                        if find_substr(import_name, module_prefix) >= 0 {
+                                            already_prefixed = true;
+                                        }
+
+                                        if !already_prefixed {
+                                            mut sb_prefix: StringBuilder = StringBuilder.init(str_len(module_prefix) + str_len(import_name) + 2);
+                                            StringBuilder.append(addr(sb_prefix), module_prefix);
+                                            StringBuilder.append(addr(sb_prefix), double_underscore_str);
+                                            StringBuilder.append(addr(sb_prefix), import_name);
+                                            val prefixed_name: string = StringBuilder.to_string(addr(sb_prefix));
+                                            StringBuilder.destroy(addr(sb_prefix));
+                                            StringStringMap.set(addr(g_function_prefixes), addr(use_arena), import_name, prefixed_name);
+                                        }
                                     }
                                 }
                             }
