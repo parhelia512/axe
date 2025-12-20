@@ -147,6 +147,23 @@ mut g_current_line: i32;
 
 /// Current type mapping for generic function specialization. Used by WhenBranch nodes to check if their constraints match
 mut g_current_type_mapping: ref StringStringMap;
+mut g_current_module_prefix: string;
+
+/// Helper to extract prefix from a mangled name (e.g. "std__errors__error" -> "std__errors")
+def get_prefix_from_mangled(name: string): string {
+    val n: i32 = cast[i32](str_len(name));
+    mut i: i32 = n - 2;
+    loop {
+        if i <= 0 {
+            break;
+        }
+        if get_char(name, i) == '_' and get_char(name, i + 1) == '_' {
+            return substring_se(name, 0, i);
+        }
+        i--;
+    }
+    return str("");
+}
 
 /// Whether to emit #line directives
 mut g_emit_line_directives: bool;
@@ -292,6 +309,133 @@ pub def initialize_renderer() {
     StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("rchar"), str("char*"));
     StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("byte"), str("uint8_t"));
     StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("ptrdiff"), str("isize"));
+}
+
+/// Get the base name of a type (part after "__")
+def get_type_base_name(t: string): string {
+    val tlen: i32 = cast[i32](str_len(t));
+    mut i: i32 = tlen - 2;
+    loop {
+        if i <= 0 {
+            break;
+        }
+        if get_char(t, i) == '_' and get_char(t, i + 1) == '_' {
+            return substring_se(t, i + 2, tlen);
+        }
+        i--;
+    }
+    return t;
+}
+
+/// Check if two types are equivalent, handling module prefixes appropriately
+def types_match(actual_type: string, expected_type: string): bool {
+    if ::loud_logger {
+         print "types_match: '"; print actual_type; print "' vs '"; print expected_type; println "'";
+    }
+
+    if compare(actual_type, expected_type) == 0 {
+        return true;
+    }
+
+    val actual_base: string = get_type_base_name(actual_type);
+    val expected_base: string = get_type_base_name(expected_type);
+    
+    if compare(actual_base, expected_base) == 0 {
+        if compare(actual_base, str("error")) == 0 {
+            return true;
+        }
+        if str_contains_c(actual_type, "__") or str_contains_c(expected_type, "__") {
+             return true;
+        }
+    }
+
+    val expected_len: i32 = cast[i32](str_len(expected_type));
+    val actual_len: i32 = cast[i32](str_len(actual_type));
+
+    if actual_len > expected_len and expected_len >= 2 {
+        val suffix_start: i32 = actual_len - expected_len;
+        val separator_pos: i32 = suffix_start - 2;
+
+        if separator_pos > 0 and suffix_start <= actual_len {
+            if get_char(actual_type, separator_pos) == '_' and get_char(actual_type, separator_pos + 1) == '_' {
+                val actual_suffix: string = substring_se(actual_type, suffix_start, actual_len);
+                if compare(actual_suffix, expected_type) == 0 {
+                    return true;
+                }
+            }
+        }
+    }
+
+    if expected_len > actual_len and actual_len >= 2 and find_char_from(actual_type, '_', cast[usize](0)) < 0 {
+        val actual_suffix_len: i32 = cast[i32](str_len(actual_type));
+        val suffix_start2: i32 = expected_len - actual_suffix_len;
+        val separator_pos2: i32 = suffix_start2 - 2;
+
+        if suffix_start2 <= expected_len and separator_pos2 > 0 {
+            if get_char(expected_type, separator_pos2) == '_' and get_char(expected_type, separator_pos2 + 1) == '_' {
+                val expected_suffix: string = substring_se(expected_type, suffix_start2, expected_len);
+                if compare(actual_type, expected_suffix) == 0 {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+/// Helper to compare comma-separated constraint strings (e.g. "T:type1,U:type2")
+def constraints_match(actual_constraints: string, expected_constraints: string): bool {
+    if compare(actual_constraints, expected_constraints) == 0 {
+        return true;
+    }
+
+    mut a_start: i32 = 0;
+    val alen: i32 = cast[i32](str_len(actual_constraints));
+    mut e_start: i32 = 0;
+    val elen: i32 = cast[i32](str_len(expected_constraints));
+
+    loop {
+        if a_start >= alen or e_start >= elen {
+            break;
+        }
+
+        mut a_end: i32 = find_char_from(actual_constraints, ',', cast[usize](a_start));
+        if a_end < 0 { a_end = alen; }
+        mut e_end: i32 = find_char_from(expected_constraints, ',', cast[usize](e_start));
+        if e_end < 0 { e_end = elen; }
+
+        val a_pair: string = substring_se(actual_constraints, a_start, a_end);
+        val e_pair: string = substring_se(expected_constraints, e_start, e_end);
+
+        val a_colon: i32 = find_char_from(a_pair, ':', cast[usize](0));
+        val e_colon: i32 = find_char_from(e_pair, ':', cast[usize](0));
+
+        if a_colon > 0 and e_colon > 0 {
+            val a_param: string = substring_se(a_pair, 0, a_colon);
+            val e_param: string = substring_se(e_pair, 0, e_colon);
+
+            if compare(a_param, e_param) == 0 {
+                val a_type: string = substring_se(a_pair, a_colon + 1, cast[i32](str_len(a_pair)));
+                val e_type: string = substring_se(e_pair, e_colon + 1, cast[i32](str_len(e_pair)));
+
+                if !types_match(a_type, e_type) {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        } else {
+            if compare(a_pair, e_pair) != 0 {
+                return false;
+            }
+        }
+
+        a_start = a_end + 1;
+        e_start = e_end + 1;
+    }
+
+    return a_start >= alen and e_start >= elen;
 }
 
 /// Check if a type is a builtin primitive type
@@ -1304,7 +1448,7 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
         }
 
         if !StringBoolMap.contains(addr(g_extern_functions), func_name) and !is_generic_func {
-            if str_len(inferred_type) > 0 and !equals_c(inferred_type, "auto") and compare(mapped_inferred, mapped_expected) != 0 {
+            if str_len(inferred_type) > 0 and !equals_c(inferred_type, "auto") and !types_match(mapped_inferred, mapped_expected) {
                 if has_prefix(inferred_type, expected_type) {
                     arg_idx++;
                     continue;
@@ -2086,9 +2230,28 @@ def map_type(axe_type: string): string {
     return axe_type;
 }
 
-/// Get canonical model C name from g_model_names
-[inline]
 def canonical_model_c_name(name: string): string {
+    if str_contains_c(name, "__") {
+        if StringStringMap.contains(addr(g_model_names), name) {
+            return StringStringMap.get(addr(g_model_names), name);
+        }
+    }
+
+    if str_len(g_current_module_prefix) > 0 {
+        val prefixed: string = concat(concat(g_current_module_prefix, str("__")), name);
+        if StringStringMap.contains(addr(g_model_names), prefixed) {
+            return StringStringMap.get(addr(g_model_names), prefixed);
+        }
+        
+        val parent_prefix: string = get_prefix_from_mangled(g_current_module_prefix);
+        if str_len(parent_prefix) > 0 {
+            val prefixed2: string = concat(concat(parent_prefix, str("__")), name);
+            if StringStringMap.contains(addr(g_model_names), prefixed2) {
+                return StringStringMap.get(addr(g_model_names), prefixed2);
+            }
+        }
+    }
+
     if StringStringMap.contains(addr(g_model_names), name) {
         return StringStringMap.get(addr(g_model_names), name);
     }
@@ -8335,6 +8498,9 @@ pub def generate_c(ast: ref ASTNode): string {
         mut return_type: string = ast.data.function.return_type;
         val is_public: bool = ast.data.function.is_public;
         val is_generic: bool = ast.data.function.is_generic;
+        val old_prefix: string = g_current_module_prefix;
+
+        g_current_module_prefix = get_prefix_from_mangled(func_name);
         
         if is_generic {
             val when_types: ref list(string) = ast.data.function.when_branch_types;
@@ -8343,6 +8509,7 @@ pub def generate_c(ast: ref ASTNode): string {
             val type_params: ref list(string) = ast.data.function.type_params;
             
             if type_params == nil {
+                g_current_module_prefix = old_prefix;
                 return str("");
             }
             
@@ -8450,6 +8617,7 @@ pub def generate_c(ast: ref ASTNode): string {
             }
             
             if !has_top_level_when and len(collected_constraints) == 0 {
+                g_current_module_prefix = old_prefix;
                 return str("");
             }
             
@@ -8657,7 +8825,7 @@ pub def generate_c(ast: ref ASTNode): string {
                             if is_branch_start {
                                 val branch_constraint: string = when_types.data[next_check_branch];
                                 val b_count: i32 = when_counts.data[next_check_branch];
-                                val is_match: bool = equals_c(branch_constraint, constraint_str.data);
+                                val is_match: bool = constraints_match(constraint_str, branch_constraint);
                                 
                                 if is_match {
                                     mut bi: i32 = 0;
@@ -8745,6 +8913,7 @@ pub def generate_c(ast: ref ASTNode): string {
                 branch_idx = branch_idx + 1;
             }
             
+            g_current_module_prefix = old_prefix;
             return StringBuilder.to_string(addr(sb_all_funcs));
         }
         
@@ -8803,6 +8972,7 @@ pub def generate_c(ast: ref ASTNode): string {
         }
         
         if StringBoolMap.contains(addr(g_generated_functions), func_name) {
+            g_current_module_prefix = old_prefix;
             return str("");
         }
         
@@ -8860,6 +9030,7 @@ pub def generate_c(ast: ref ASTNode): string {
             }
             
             StringBuilder.append_c(addr(sb_main), "return 0;\n}\n\n");
+            g_current_module_prefix = old_prefix;
             return StringBuilder.to_string(addr(sb_main));
         }
         
@@ -8947,6 +9118,7 @@ pub def generate_c(ast: ref ASTNode): string {
         }
         
         result = concat_c(result, "}\n\n");
+        g_current_module_prefix = old_prefix;
         return result;
     }
     
@@ -10522,10 +10694,16 @@ pub def generate_c(ast: ref ASTNode): string {
                     if ci >= len(deref(tp_list)) { break; }
                     val tp: string = tp_list.data[ci];
                     val ct_expected: string = ct_list.data[ci];
-                    
+
                     if StringStringMap.contains(g_current_type_mapping, tp) {
                         val ct_actual: string = StringStringMap.get(g_current_type_mapping, tp);
-                        if !equals_c(ct_actual, ct_expected.data) {
+                        
+                        if ::loud_logger {
+                            print "Match attempt: "; print tp; print " -> "; print ct_actual;
+                            print " vs expected "; println ct_expected;
+                        }
+
+                        if !types_match(ct_actual, ct_expected) {
                             all_match = false;
                             break;
                         }
