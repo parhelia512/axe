@@ -185,7 +185,7 @@ platform posix {
     extern def tcsetattr(fd: i32, optional_actions: i32, termios_p: ref termios): i32;
 }
 
-/// Read a single keypress from stdin without waiting for Enter
+/// Read a single keypress from stdin without waiting for enter keypress
 pub def read_key(): i32 {
     platform windows {
         unsafe {
