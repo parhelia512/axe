@@ -3137,7 +3137,7 @@ def parse_function(ctx: ref ParserContext): ASTNode {
             loop {
                 if ctx.pos >= len(ctx.tokens) { break; }
                 val t: Token = ctx.tokens.data[ctx.pos];
-                if t.token_type == TokenType.AND or t.token_type == TokenType.LBRACE {
+                if t.token_type == TokenType.AND or t.token_type == TokenType.OR or t.token_type == TokenType.LBRACE {
                     break;
                 }
                 if t.token_type == TokenType.REF {
@@ -3217,8 +3217,105 @@ def parse_function(ctx: ref ParserContext): ASTNode {
                 constraint_str = concat(constraint_str, next_concrete_type);
             }
             
-            append(when_branch_types, constraint_str);
-            
+            mut alternatives: list(string);
+            append(alternatives, constraint_str);
+
+            loop {
+                if ctx.pos >= len(ctx.tokens) { break; }
+                val or_tok: Token = ctx.tokens.data[ctx.pos];
+                if or_tok.token_type != TokenType.OR {
+                    break;
+                }
+                ctx.pos++; // Skip 'or'
+                skip_whitespace(ctx);
+
+                if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.IDENTIFIER {
+                    mut err: string = format_error(ctx, str("Expected type parameter after 'or'"));
+                    enforce_raw(false, err.data);
+                    return func;
+                }
+                val next_type_param: string = ctx.tokens.data[ctx.pos].value;
+                ctx.pos++;
+                skip_whitespace(ctx);
+
+                if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.IS {
+                    mut err: string = format_error(ctx, str("Expected 'is' after type parameter in 'or' clause"));
+                    enforce_raw(false, err.data);
+                    return func;
+                }
+                ctx.pos++; // Skip 'is'
+                skip_whitespace(ctx);
+
+                mut next_constraint_str: string = concat(next_type_param, str(":"));
+                mut next_concrete_type: string = str("");
+                loop {
+                    if ctx.pos >= len(ctx.tokens) { break; }
+                    val t: Token = ctx.tokens.data[ctx.pos];
+                    if t.token_type == TokenType.AND or t.token_type == TokenType.OR or t.token_type == TokenType.LBRACE {
+                        break;
+                    }
+                    if t.token_type == TokenType.REF {
+                        next_concrete_type = concat(next_concrete_type, str("ref "));
+                    } elif t.token_type == TokenType.MUT {
+                        next_concrete_type = concat(next_concrete_type, str("mut "));
+                    } else {
+                        next_concrete_type = concat(next_concrete_type, t.value);
+                    }
+                    consume(ctx);
+                    skip_whitespace(ctx);
+                }
+                next_constraint_str = concat(next_constraint_str, next_concrete_type);
+
+                loop {
+                    if ctx.pos >= len(ctx.tokens) { break; }
+                    val and_tok: Token = ctx.tokens.data[ctx.pos];
+                    if and_tok.token_type != TokenType.AND {
+                        break;
+                    }
+                    ctx.pos++; // Skip 'and'
+                    skip_whitespace(ctx);
+                    
+                    if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.IDENTIFIER {
+                        mut err: string = format_error(ctx, str("Expected type parameter after 'and'"));
+                        enforce_raw(false, err.data);
+                        return func;
+                    }
+                    val next_tp: string = ctx.tokens.data[ctx.pos].value;
+                    ctx.pos++;
+                    skip_whitespace(ctx);
+                    if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.IS {
+                        mut err: string = format_error(ctx, str("Expected 'is' after type parameter in 'and' clause"));
+                        enforce_raw(false, err.data);
+                        return func;
+                    }
+                    ctx.pos++;
+                    skip_whitespace(ctx);
+                    
+                    mut next_ct: string = str("");
+                    loop {
+                        if ctx.pos >= len(ctx.tokens) { break; }
+                        val t: Token = ctx.tokens.data[ctx.pos];
+                        if t.token_type == TokenType.AND or t.token_type == TokenType.OR or t.token_type == TokenType.LBRACE {
+                            break;
+                        }
+                        if t.token_type == TokenType.REF {
+                            next_ct = concat(next_ct, str("ref "));
+                        } elif t.token_type == TokenType.MUT {
+                            next_ct = concat(next_ct, str("mut "));
+                        } else {
+                            next_ct = concat(next_ct, t.value);
+                        }
+                        consume(ctx);
+                        skip_whitespace(ctx);
+                    }
+                    next_constraint_str = concat(next_constraint_str, str(","));
+                    next_constraint_str = concat(next_constraint_str, next_tp);
+                    next_constraint_str = concat(next_constraint_str, str(":"));
+                    next_constraint_str = concat(next_constraint_str, next_ct);
+                }
+                append(alternatives, next_constraint_str);
+            }
+
             if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.LBRACE {
                 mut err: string = format_error(ctx, str("Expected '{' after type in when clause"));
                 enforce_raw(false, err.data);
@@ -3250,7 +3347,16 @@ def parse_function(ctx: ref ParserContext): ASTNode {
                 }
             }
             
-            append(when_branch_counts, branch_child_count);
+            mut i_alt: i32 = 0;
+            loop {
+                if i_alt >= len(alternatives) { break; }
+                append(when_branch_types, alternatives.data[i_alt]);
+                append(when_branch_counts, branch_child_count);
+                if i_alt > 0 {
+                    append(when_branch_starts, when_branch_starts.data[len(when_branch_starts) - 1]);
+                }
+                i_alt++;
+            }
             skip_whitespace(ctx);
         }
         

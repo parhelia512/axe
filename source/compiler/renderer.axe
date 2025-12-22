@@ -2261,6 +2261,11 @@ def canonical_model_c_name(name: string): string {
 /// Map Axe type to C type (comprehensive version for model fields)
 def map_axe_type_to_c(axe_type: string): string {
     mut result: string = strip(axe_type);
+    
+    if g_current_type_mapping != nil and StringStringMap.contains(g_current_type_mapping, result) {
+        result = StringStringMap.get(g_current_type_mapping, result);
+    }
+
     if find_char_from(result, '$', cast[usize](0)) >= 0 {
         mut out_sb: StringBuilder = StringBuilder.init(str_len(result) + 32);
         mut i: i32 = 0;
