@@ -6711,17 +6711,22 @@ def generate_global_decl(ast: ref ASTNode): string {
     }
 
     if str_len(var_name) > 0 and str_len(type_name) > 0 {
-        mut arena: Arena = Arena.create(2560);
-        StringStringMap.set(addr(g_var_types), addr(arena), var_name, type_name);
+        mut resolved_type_name: string = type_name;
+        if g_current_type_mapping != nil and StringStringMap.contains(g_current_type_mapping, type_name) {
+            resolved_type_name = StringStringMap.get(g_current_type_mapping, type_name);
+        }
 
-        if has_prefix(type_name, str("list(")) {
+        mut arena: Arena = Arena.create(2560);
+        StringStringMap.set(addr(g_var_types), addr(arena), var_name, resolved_type_name);
+
+        if has_prefix(resolved_type_name, str("list(")) {
             mut paren_pos: i32 = 5;
             mut depth: i32 = 1;
             loop {
-                if paren_pos >= str_len(type_name) {
+                if paren_pos >= str_len(resolved_type_name) {
                     break;
                 }
-                val ch: char = get_char(type_name, paren_pos);
+                val ch: char = get_char(resolved_type_name, paren_pos);
                 if ch == '(' {
                     depth++;
                 } elif ch == ')' {
@@ -6733,12 +6738,12 @@ def generate_global_decl(ast: ref ASTNode): string {
                 paren_pos++;
             }
             if depth == 0 {
-                val element_type: string = strip(substring_se(type_name, 5, paren_pos));
+                val element_type: string = strip(substring_se(resolved_type_name, 5, paren_pos));
                 mut list_arena: Arena = Arena.create(2560);
                 StringStringMap.set(addr(g_list_of_types), addr(list_arena), var_name, element_type);
             }
-        } elif has_suffix(type_name, str("[999]")) {
-            val element_type: string = strip(substring_se(type_name, 0, str_len(type_name) - 5));
+        } elif has_suffix(resolved_type_name, str("[999]")) {
+            val element_type: string = strip(substring_se(resolved_type_name, 0, str_len(resolved_type_name) - 5));
             mut list_arena: Arena = Arena.create(2560);
             StringStringMap.set(addr(g_list_of_types), addr(list_arena), var_name, element_type);
         }
@@ -8438,17 +8443,22 @@ pub def generate_c(ast: ref ASTNode): string {
                     }
 
                     if str_len(var_name) > 0 and str_len(type_name) > 0 {
-                        mut arena_decl: Arena = Arena.create(2560);
-                        StringStringMap.set(addr(g_var_types), addr(arena_decl), var_name, type_name);
+                        mut resolved_type_name: string = type_name;
+                        if g_current_type_mapping != nil and StringStringMap.contains(g_current_type_mapping, type_name) {
+                            resolved_type_name = StringStringMap.get(g_current_type_mapping, type_name);
+                        }
 
-                        if has_prefix(type_name, str("list(")) {
+                        mut arena_decl: Arena = Arena.create(2560);
+                        StringStringMap.set(addr(g_var_types), addr(arena_decl), var_name, resolved_type_name);
+
+                        if has_prefix(resolved_type_name, str("list(")) {
                             mut paren_pos: i32 = 5;
                             mut depth: i32 = 1;
                             loop {
-                                if paren_pos >= str_len(type_name) {
+                                if paren_pos >= str_len(resolved_type_name) {
                                     break;
                                 }
-                                val ch: char = get_char(type_name, paren_pos);
+                                val ch: char = get_char(resolved_type_name, paren_pos);
                                 if ch == '(' {
                                     depth++;
                                 } elif ch == ')' {
@@ -8460,12 +8470,12 @@ pub def generate_c(ast: ref ASTNode): string {
                                 paren_pos++;
                             }
                             if depth == 0 {
-                                val element_type: string = strip(substring_se(type_name, 5, paren_pos));
+                                val element_type: string = strip(substring_se(resolved_type_name, 5, paren_pos));
                                 mut list_arena: Arena = Arena.create(2560);
                                 StringStringMap.set(addr(g_list_of_types), addr(list_arena), var_name, element_type);
                             }
-                        } elif has_suffix(type_name, str("[999]")) {
-                            val element_type: string = strip(substring_se(type_name, 0, str_len(type_name) - 5));
+                        } elif has_suffix(resolved_type_name, str("[999]")) {
+                            val element_type: string = strip(substring_se(resolved_type_name, 0, str_len(resolved_type_name) - 5));
                             mut list_arena: Arena = Arena.create(2560);
                             StringStringMap.set(addr(g_list_of_types), addr(list_arena), var_name, element_type);
                         }
@@ -9613,16 +9623,20 @@ pub def generate_c(ast: ref ASTNode): string {
             }
 
             mut decl_arena: Arena = Arena.create(2560);
-            StringStringMap.set(addr(g_var_types), addr(decl_arena), var_name, type_name);
+            mut resolved_type_name: string = type_name;
+            if g_current_type_mapping != nil and StringStringMap.contains(g_current_type_mapping, type_name) {
+                resolved_type_name = StringStringMap.get(g_current_type_mapping, type_name);
+            }
+            StringStringMap.set(addr(g_var_types), addr(decl_arena), var_name, resolved_type_name);
 
-            if has_prefix(type_name, str("list(")) {
+            if has_prefix(resolved_type_name, str("list(")) {
                 mut paren_pos: i32 = 5;
                 mut depth: i32 = 1;
                 loop {
-                    if paren_pos >= str_len(type_name) {
+                    if paren_pos >= str_len(resolved_type_name) {
                         break;
                     }
-                    val ch: char = get_char(type_name, paren_pos);
+                    val ch: char = get_char(resolved_type_name, paren_pos);
                     if ch == '(' {
                         depth++;
                     } elif ch == ')' {
@@ -9634,14 +9648,22 @@ pub def generate_c(ast: ref ASTNode): string {
                     paren_pos++;
                 }
                 if depth == 0 {
-                    val element_type: string = strip(substring_se(type_name, 5, paren_pos));
+                    val element_type: string = strip(substring_se(resolved_type_name, 5, paren_pos));
+                    mut resolved_element_type: string = element_type;
+                    if g_current_type_mapping != nil and StringStringMap.contains(g_current_type_mapping, element_type) {
+                        resolved_element_type = StringStringMap.get(g_current_type_mapping, element_type);
+                    }
                     mut list_arena: Arena = Arena.create(2560);
-                    StringStringMap.set(addr(g_list_of_types), addr(list_arena), var_name, element_type);
+                    StringStringMap.set(addr(g_list_of_types), addr(list_arena), var_name, resolved_element_type);
                 }
-            } elif has_suffix(type_name, str("[999]")) {
-                val element_type: string = strip(substring_se(type_name, 0, str_len(type_name) - 5));
+            } elif has_suffix(resolved_type_name, str("[999]")) {
+                val element_type: string = strip(substring_se(resolved_type_name, 0, str_len(resolved_type_name) - 5));
+                mut resolved_element_type: string = element_type;
+                if g_current_type_mapping != nil and StringStringMap.contains(g_current_type_mapping, element_type) {
+                    resolved_element_type = StringStringMap.get(g_current_type_mapping, element_type);
+                }
                 mut list_arena: Arena = Arena.create(2560);
-                StringStringMap.set(addr(g_list_of_types), addr(list_arena), var_name, element_type);
+                StringStringMap.set(addr(g_list_of_types), addr(list_arena), var_name, resolved_element_type);
             }
         }
 
@@ -10509,6 +10531,12 @@ pub def generate_c(ast: ref ASTNode): string {
 
                     val c_element_type: string = map_axe_type_to_c(element_type);
                     val sanitized_element: string = sanitize_list_element_name(c_element_type);
+
+                    if !StringBoolMap.contains(addr(g_list_element_types), c_element_type) {
+                        StringBoolMap.set(addr(g_list_element_types), addr(g_renderer_arena), c_element_type, true);
+                        StringList.push(g_list_elements, addr(g_renderer_arena), c_element_type);
+                    }
+
                     val processed_value: string = process_expression(value);
 
                     mut sb_append: StringBuilder = StringBuilder.init(1256);
@@ -10528,13 +10556,46 @@ pub def generate_c(ast: ref ASTNode): string {
 
                 elif StringStringMap.contains(addr(g_var_types), var_name) {
                     mut var_type: string = StringStringMap.get(addr(g_var_types), var_name);
-                    
-                    if g_current_type_mapping != nil and StringStringMap.contains(g_current_type_mapping, var_type) {
-                        var_type = StringStringMap.get(g_current_type_mapping, var_type);
+                    mut resolved_var_type: string = var_type;
+                    if g_current_type_mapping != nil {
+                        if StringStringMap.contains(g_current_type_mapping, var_type) {
+                            resolved_var_type = StringStringMap.get(g_current_type_mapping, var_type);
+                        } else {
+                            if has_prefix(var_type, str("list(")) {
+                                mut paren_pos: i32 = 5;
+                                mut depth: i32 = 1;
+                                loop {
+                                    if paren_pos >= str_len(var_type) {
+                                        break;
+                                    }
+                                    val ch: char = get_char(var_type, paren_pos);
+                                    if ch == '(' {
+                                        depth++;
+                                    } elif ch == ')' {
+                                        depth--;
+                                        if depth == 0 {
+                                            break;
+                                        }
+                                    }
+                                    paren_pos++;
+                                }
+                                if depth == 0 {
+                                    val inner_type: string = strip(substring_se(var_type, 5, paren_pos - 5));
+                                    if StringStringMap.contains(g_current_type_mapping, inner_type) {
+                                        val resolved_inner: string = StringStringMap.get(g_current_type_mapping, inner_type);
+                                        mut sb_resolved: StringBuilder = StringBuilder.init(128);
+                                        StringBuilder.append_c(addr(sb_resolved), "list(");
+                                        StringBuilder.append(addr(sb_resolved), resolved_inner);
+                                        StringBuilder.append_c(addr(sb_resolved), ")");
+                                        resolved_var_type = StringBuilder.to_string(addr(sb_resolved));
+                                    }
+                                }
+                            }
+                        }
                     }
 
-                    if has_prefix(var_type, str("list(")) or has_suffix(var_type, str("[999]")) {
-                        mut element_type: string = var_type;
+                    if has_prefix(resolved_var_type, str("list(")) or has_suffix(resolved_var_type, str("[999]")) {
+                        mut element_type: string = resolved_var_type;
                         if has_prefix(element_type, str("list(")) {
                             mut paren_pos: i32 = 5;
                             mut depth: i32 = 1;
@@ -10553,13 +10614,24 @@ pub def generate_c(ast: ref ASTNode): string {
                                 }
                                 paren_pos++;
                             }
-                            element_type = strip(substr(var_type, 5, paren_pos - 5));
+                            element_type = strip(substring_se(resolved_var_type, 5, paren_pos));
                         } elif has_suffix(element_type, str("[999]")) {
-                            element_type = strip(substring_se(var_type, 0, str_len(var_type) - 5));
+                            element_type = strip(substring_se(resolved_var_type, 0, str_len(resolved_var_type) - 5));
                         }
 
-                        val c_element_type: string = map_axe_type_to_c(element_type);
+                        mut resolved_element_type: string = element_type;
+                        if g_current_type_mapping != nil and StringStringMap.contains(g_current_type_mapping, element_type) {
+                            resolved_element_type = StringStringMap.get(g_current_type_mapping, element_type);
+                        }
+
+                        val c_element_type: string = map_axe_type_to_c(resolved_element_type);
                         val sanitized_element: string = sanitize_list_element_name(c_element_type);
+
+                        if !StringBoolMap.contains(addr(g_list_element_types), c_element_type) {
+                            StringBoolMap.set(addr(g_list_element_types), addr(g_renderer_arena), c_element_type, true);
+                            StringList.push(g_list_elements, addr(g_renderer_arena), c_element_type);
+                        }
+
                         val processed_value: string = process_expression(value);
 
                         mut sb_append2: StringBuilder = StringBuilder.init(256);
@@ -10575,6 +10647,235 @@ pub def generate_c(ast: ref ASTNode): string {
                         debug_print_str var_name;
                         debug_print_raw "'";
                         return StringBuilder.to_string(addr(sb_append2));
+                    }
+                }
+
+                elif StringStringMap.contains(addr(g_var_types), var_name) {
+                    mut var_type: string = StringStringMap.get(addr(g_var_types), var_name);
+
+                    mut resolved_var_type: string = var_type;
+                    if g_current_type_mapping != nil {
+                        if StringStringMap.contains(g_current_type_mapping, var_type) {
+                            resolved_var_type = StringStringMap.get(g_current_type_mapping, var_type);
+                        } else {
+                            if has_prefix(var_type, str("list(")) {
+                                mut paren_pos: i32 = 5;
+                                mut depth: i32 = 1;
+                                loop {
+                                    if paren_pos >= str_len(var_type) {
+                                        break;
+                                    }
+                                    val ch: char = get_char(var_type, paren_pos);
+                                    if ch == '(' {
+                                        depth++;
+                                    } elif ch == ')' {
+                                        depth--;
+                                        if depth == 0 {
+                                            break;
+                                        }
+                                    }
+                                    paren_pos++;
+                                }
+                                if depth == 0 {
+                                    val inner_type: string = strip(substring_se(var_type, 5, paren_pos - 5));
+                                    if StringStringMap.contains(g_current_type_mapping, inner_type) {
+                                        val resolved_inner: string = StringStringMap.get(g_current_type_mapping, inner_type);
+                                        mut sb_resolved: StringBuilder = StringBuilder.init(128);
+                                        StringBuilder.append_c(addr(sb_resolved), "list(");
+                                        StringBuilder.append(addr(sb_resolved), resolved_inner);
+                                        StringBuilder.append_c(addr(sb_resolved), ")");
+                                        resolved_var_type = StringBuilder.to_string(addr(sb_resolved));
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if has_prefix(resolved_var_type, str("list(")) or has_suffix(resolved_var_type, str("[999]")) {
+                        mut element_type: string = resolved_var_type;
+                        if has_prefix(element_type, str("list(")) {
+                            mut paren_pos: i32 = 5;
+                            mut depth: i32 = 1;
+                            loop {
+                                if paren_pos >= str_len(element_type) {
+                                    break;
+                                }
+                                val ch: char = get_char(element_type, paren_pos);
+                                if ch == '(' {
+                                    depth++;
+                                } elif ch == ')' {
+                                    depth--;
+                                    if depth == 0 {
+                                        break;
+                                    }
+                                }
+                                paren_pos++;
+                            }
+                            element_type = strip(substring_se(resolved_var_type, 5, paren_pos));
+                        } elif has_suffix(element_type, str("[999]")) {
+                            element_type = strip(substring_se(resolved_var_type, 0, str_len(resolved_var_type) - 5));
+                        }
+
+                        mut resolved_element_type: string = element_type;
+                        if g_current_type_mapping != nil and StringStringMap.contains(g_current_type_mapping, element_type) {
+                            resolved_element_type = StringStringMap.get(g_current_type_mapping, element_type);
+                        }
+
+                        val c_element_type: string = map_axe_type_to_c(resolved_element_type);
+                        val sanitized_element: string = sanitize_list_element_name(c_element_type);
+
+                        if !StringBoolMap.contains(addr(g_list_element_types), c_element_type) {
+                            StringBoolMap.set(addr(g_list_element_types), addr(g_renderer_arena), c_element_type, true);
+                            StringList.push(g_list_elements, addr(g_renderer_arena), c_element_type);
+                        }
+
+                        val processed_value: string = process_expression(value);
+
+                        mut sb_append2: StringBuilder = StringBuilder.init(256);
+                        StringBuilder.append_c(addr(sb_append2), "__list_");
+                        StringBuilder.append(addr(sb_append2), sanitized_element);
+                        StringBuilder.append_c(addr(sb_append2), "_push(&");
+                        StringBuilder.append(addr(sb_append2), var_name);
+                        StringBuilder.append_c(addr(sb_append2), ", ");
+                        StringBuilder.append(addr(sb_append2), processed_value);
+                        StringBuilder.append_c(addr(sb_append2), ");\n");
+
+                        debug_print_raw "\n[DEBUG] Generated append code for '";
+                        debug_print_str var_name;
+                        debug_print_raw "'";
+                        return StringBuilder.to_string(addr(sb_append2));
+                    }
+                }
+            }
+
+            if args_extracted and str_len(var_name) > 0 and str_len(value) > 0 {
+                mut actual_var_type: string = str("");
+                if StringStringMap.contains(addr(g_var_types), var_name) {
+                    actual_var_type = StringStringMap.get(addr(g_var_types), var_name);
+
+                    if g_current_type_mapping != nil {
+                        if StringStringMap.contains(g_current_type_mapping, actual_var_type) {
+                            actual_var_type = StringStringMap.get(g_current_type_mapping, actual_var_type);
+                        } else {
+                            if has_prefix(actual_var_type, str("list(")) {
+                                mut paren_pos: i32 = 5;
+                                mut depth: i32 = 1;
+                                loop {
+                                    if paren_pos >= str_len(actual_var_type) {
+                                        break;
+                                    }
+                                    val ch: char = get_char(actual_var_type, paren_pos);
+                                    if ch == '(' {
+                                        depth++;
+                                    } elif ch == ')' {
+                                        depth--;
+                                        if depth == 0 {
+                                            break;
+                                        }
+                                    }
+                                    paren_pos++;
+                                }
+                                if depth == 0 {
+                                    val inner_type: string = strip(substring_se(actual_var_type, 5, paren_pos - 5));
+                                    if StringStringMap.contains(g_current_type_mapping, inner_type) {
+                                        val resolved_inner: string = StringStringMap.get(g_current_type_mapping, inner_type);
+                                        mut sb_resolved: StringBuilder = StringBuilder.init(128);
+                                        StringBuilder.append_c(addr(sb_resolved), "list(");
+                                        StringBuilder.append(addr(sb_resolved), resolved_inner);
+                                        StringBuilder.append_c(addr(sb_resolved), ")");
+                                        actual_var_type = StringBuilder.to_string(addr(sb_resolved));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if str_len(actual_var_type) == 0 {
+                    actual_var_type = infer_expression_type(var_name);
+
+                    if g_current_type_mapping != nil and StringStringMap.contains(g_current_type_mapping, actual_var_type) {
+                        actual_var_type = StringStringMap.get(g_current_type_mapping, actual_var_type);
+                    }
+                    elif g_current_type_mapping != nil and has_prefix(actual_var_type, str("list(")) {
+                        mut paren_pos: i32 = 5;
+                        mut depth: i32 = 1;
+                        loop {
+                            if paren_pos >= str_len(actual_var_type) {
+                                break;
+                            }
+                            val ch: char = get_char(actual_var_type, paren_pos);
+                            if ch == '(' {
+                                depth++;
+                            } elif ch == ')' {
+                                depth--;
+                                if depth == 0 {
+                                    break;
+                                }
+                            }
+                            paren_pos++;
+                        }
+                        if depth == 0 {
+                            val inner_type: string = strip(substring_se(actual_var_type, 5, paren_pos - 5));
+                            if StringStringMap.contains(g_current_type_mapping, inner_type) {
+                                val resolved_inner: string = StringStringMap.get(g_current_type_mapping, inner_type);
+                                mut sb_resolved: StringBuilder = StringBuilder.init(128);
+                                StringBuilder.append_c(addr(sb_resolved), "list(");
+                                StringBuilder.append(addr(sb_resolved), resolved_inner);
+                                StringBuilder.append_c(addr(sb_resolved), ")");
+                                actual_var_type = StringBuilder.to_string(addr(sb_resolved));
+                            }
+                        }
+                    }
+                }
+
+                if has_prefix(actual_var_type, str("list(")) {
+                    mut paren_pos: i32 = 5;
+                    mut depth: i32 = 1;
+                    loop {
+                        if paren_pos >= str_len(actual_var_type) {
+                            break;
+                        }
+                        val ch: char = get_char(actual_var_type, paren_pos);
+                        if ch == '(' {
+                            depth++;
+                        } elif ch == ')' {
+                            depth--;
+                            if depth == 0 {
+                                break;
+                            }
+                        }
+                        paren_pos++;
+                    }
+                    if depth == 0 {
+                        val element_type: string = strip(substring_se(actual_var_type, 5, paren_pos));
+                        mut resolved_element_type: string = element_type;
+                        if g_current_type_mapping != nil and StringStringMap.contains(g_current_type_mapping, element_type) {
+                            resolved_element_type = StringStringMap.get(g_current_type_mapping, element_type);
+                        }
+                        val c_element_type: string = map_axe_type_to_c(resolved_element_type);
+                        val sanitized_element: string = sanitize_list_element_name(c_element_type);
+
+                        if !StringBoolMap.contains(addr(g_list_element_types), c_element_type) {
+                            StringBoolMap.set(addr(g_list_element_types), addr(g_renderer_arena), c_element_type, true);
+                            StringList.push(g_list_elements, addr(g_renderer_arena), c_element_type);
+                        }
+
+                        val processed_value: string = process_expression(value);
+
+                        mut sb_append_inferred: StringBuilder = StringBuilder.init(256);
+                        StringBuilder.append_c(addr(sb_append_inferred), "__list_");
+                        StringBuilder.append(addr(sb_append_inferred), sanitized_element);
+                        StringBuilder.append_c(addr(sb_append_inferred), "_push(&");
+                        StringBuilder.append(addr(sb_append_inferred), var_name);
+                        StringBuilder.append_c(addr(sb_append_inferred), ", ");
+                        StringBuilder.append(addr(sb_append_inferred), processed_value);
+                        StringBuilder.append_c(addr(sb_append_inferred), ");\n");
+
+                        debug_print_raw "\n[DEBUG] Generated append code (resolved/inferred) for '";
+                        debug_print_str var_name;
+                        debug_print_raw "'";
+                        return StringBuilder.to_string(addr(sb_append_inferred));
                     }
                 }
             }

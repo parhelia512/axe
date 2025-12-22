@@ -274,18 +274,13 @@ pub def atan2(y: f64, x: f64): f64 {
 
 /// Sorts a list of numeric values in ascending order
 pub def sorted[T](lst: ref T): T {
-    when T is list(i32) or T is list(f32) or T is list(f64) 
-        or T is list(i64) or T is list(u32) or T is list(u64) {
+    when T is list(i32) {
         val length = len(lst);
         if length <= 1 {
             return deref(lst);
         }
 
-        mut result: T;
-        result.len = 0;
-        result.capacity = 0;
-        result.data = nil;
-
+        mut result: list(i32);
         for mut i = 0; i < length; i++ {
             append(result, lst.data[i]);
         }
@@ -293,7 +288,117 @@ pub def sorted[T](lst: ref T): T {
         for mut i = 0; i < length - 1; i++ {
             for mut j = 0; j < length - i - 1; j++ {
                 if result.data[j] > result.data[j + 1] {
-                    val temp: i32 = result.data[j];
+                    val temp:i32 = result.data[j];
+                    result.data[j] = result.data[j + 1];
+                    result.data[j + 1] = temp;
+                }
+            }
+        }
+        return result;
+    }
+    when T is list(f32) {
+        val length = len(lst);
+        if length <= 1 {
+            return deref(lst);
+        }
+
+        mut result: list(f32);
+        for mut i = 0; i < length; i++ {
+            append(result, lst.data[i]);
+        }
+
+        for mut i = 0; i < length - 1; i++ {
+            for mut j = 0; j < length - i - 1; j++ {
+                if result.data[j] > result.data[j + 1] {
+                    val temp = result.data[j];
+                    result.data[j] = result.data[j + 1];
+                    result.data[j + 1] = temp;
+                }
+            }
+        }
+        return result;
+    }
+    when T is list(f64) {
+        val length = len(lst);
+        if length <= 1 {
+            return deref(lst);
+        }
+
+        mut result: list(f64);
+        for mut i = 0; i < length; i++ {
+            append(result, lst.data[i]);
+        }
+
+        for mut i = 0; i < length - 1; i++ {
+            for mut j = 0; j < length - i - 1; j++ {
+                if result.data[j] > result.data[j + 1] {
+                    val temp = result.data[j];
+                    result.data[j] = result.data[j + 1];
+                    result.data[j + 1] = temp;
+                }
+            }
+        }
+        return result;
+    }
+    when T is list(i64) {
+        val length = len(lst);
+        if length <= 1 {
+            return deref(lst);
+        }
+
+        mut result: list(i64);
+        for mut i = 0; i < length; i++ {
+            append(result, lst.data[i]);
+        }
+
+        for mut i = 0; i < length - 1; i++ {
+            for mut j = 0; j < length - i - 1; j++ {
+                if result.data[j] > result.data[j + 1] {
+                    val temp = result.data[j];
+                    result.data[j] = result.data[j + 1];
+                    result.data[j + 1] = temp;
+                }
+            }
+        }
+        return result;
+    }
+    when T is list(u32) {
+        val length = len(lst);
+        if length <= 1 {
+            return deref(lst);
+        }
+
+        mut result: list(u32);
+        for mut i = 0; i < length; i++ {
+            append(result, lst.data[i]);
+        }
+
+        for mut i = 0; i < length - 1; i++ {
+            for mut j = 0; j < length - i - 1; j++ {
+                if result.data[j] > result.data[j + 1] {
+                    val temp = result.data[j];
+                    result.data[j] = result.data[j + 1];
+                    result.data[j + 1] = temp;
+                }
+            }
+        }
+        return result;
+    }
+    when T is list(u64) {
+        val length = len(lst);
+        if length <= 1 {
+            return deref(lst);
+        }
+
+        mut result: list(u64);
+        for mut i = 0; i < length; i++ {
+            append(result, lst.data[i]);
+        }
+
+        for mut i = 0; i < length - 1; i++ {
+            for mut j = 0; j < length - i - 1; j++ {
+                if result.data[j] > result.data[j + 1] {
+                    val temp = result.data[j];
                     result.data[j] = result.data[j + 1];
                     result.data[j + 1] = temp;
                 }
