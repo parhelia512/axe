@@ -18,6 +18,7 @@ use parser (
     add_child_to_ast,
     macros_add,
     macros_mark_non_public,
+    set_parse_location,
     expand_macros_in_expression
 );
 
@@ -1122,24 +1123,28 @@ def expand_macros_in_ast(ast: ref ASTNode) {
     if equals_c(node_type, "Declaration") {
         val initializer: string = ast.data.declaration.initializer;
         if str_len(initializer) > 0 {
+            set_parse_location(ast.line, ast.source_file);
             val expanded: string = expand_macros_in_expression(initializer);
             ast.data.declaration.initializer = expanded;
         }
     } elif equals_c(node_type, "Assignment") {
         val expression: string = ast.data.assignment.expression;
         if str_len(expression) > 0 {
+            set_parse_location(ast.line, ast.source_file);
             val expanded: string = expand_macros_in_expression(expression);
             ast.data.assignment.expression = expanded;
         }
     } elif equals_c(node_type, "Return") {
         val expr: string = ast.data.return_node.expression;
         if str_len(expr) > 0 {
+            set_parse_location(ast.line, ast.source_file);
             val expanded: string = expand_macros_in_expression(expr);
             ast.data.return_node.expression = expanded;
         }
     } elif equals_c(node_type, "FuncCall") {
         mut args: ref list(string) = ast.data.func_call.args;
         if args != nil {
+            set_parse_location(ast.line, ast.source_file);
             mut i: i32 = 0;
             loop {
                 if i >= len(deref(args)) {
@@ -1154,18 +1159,21 @@ def expand_macros_in_ast(ast: ref ASTNode) {
     } elif equals_c(node_type, "If") {
         val condition: string = ast.data.if_node.condition;
         if str_len(condition) > 0 {
+            set_parse_location(ast.line, ast.source_file);
             val expanded: string = expand_macros_in_expression(condition);
             ast.data.if_node.condition = expanded;
         }
     } elif equals_c(node_type, "While") {
         val condition: string = ast.data.if_node.condition;
         if str_len(condition) > 0 {
+            set_parse_location(ast.line, ast.source_file);
             val expanded: string = expand_macros_in_expression(condition);
             ast.data.if_node.condition = expanded;
         }
     } elif equals_c(node_type, "For") {
         val condition: string = ast.data.for_loop.condition;
         if str_len(condition) > 0 {
+            set_parse_location(ast.line, ast.source_file);
             val expanded: string = expand_macros_in_expression(condition);
             ast.data.for_loop.condition = expanded;
         }

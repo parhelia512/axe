@@ -35,6 +35,8 @@ mut g_var_declaration_lines: StringIntMap;
 mut g_var_declaration_files: StringStringMap;
 mut g_var_scope_depth: StringIntMap;
 mut g_current_scope_depth: i32;
+mut g_current_parse_line: i32;
+mut g_current_parse_file: string;
 mut g_function_has_raw_block: bool;
 mut g_check_shadowing: bool;
 mut g_macro_names: list(string);
@@ -58,6 +60,8 @@ pub def initialize_all() {
     g_var_declaration_files = deref(StringStringMap.create(addr(arena), 128));
     g_var_scope_depth = deref(StringIntMap.create(addr(arena), 128));
     g_current_scope_depth = 0;
+    g_current_parse_line = 0;
+    g_current_parse_file = str("");
     g_check_shadowing = false;
     g_macro_names.len = 0;
     g_macro_defs.len = 0;
@@ -152,6 +156,12 @@ pub def macros_is_non_public(name: string): bool {
     return StringBoolMap.contains(addr(g_non_public_macros), name);
 }
 
+/// Set the current parse location for error reporting
+pub def set_parse_location(line: i32, file: string) {
+    g_current_parse_line = line;
+    g_current_parse_file = file;
+}
+
 /// Check if a string consists only of decimal digits (for macro arg classification)
 def is_all_digits(s: string): bool {
     if str_len(s) == 0 {
@@ -230,7 +240,16 @@ pub def expand_macros_in_expression(expr: string): string {
             
             if i < expr_len and get_char(expr, i) == '(' {
                 if macros_is_non_public(ident) {
-                    print "error: cannot use non-public macro '";
+                    if str_len(g_current_parse_file) > 0 {
+                        print g_current_parse_file;
+                        print ":";
+                    }
+                    if g_current_parse_line > 0 {
+                        print g_current_parse_line;
+                        print ":";
+                    }
+                    print(ident_start + 1);
+                    print ": error: cannot use non-public macro '";
                     print ident;
                     println "'";
                     unsafe {
@@ -3999,6 +4018,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
         
         check_star_deref(ctx, condition_start, ctx.pos);
+        g_current_parse_line = assert_line;
+        g_current_parse_file = ctx.filename;
         condition = expand_macros_in_expression(condition);
         
         if !expect(ctx, TokenType.COMMA) {
@@ -4098,6 +4119,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         consume(ctx);
         
         check_star_deref(ctx, return_start, ctx.pos);
+        g_current_parse_line = return_line;
+        g_current_parse_file = ctx.filename;
         expr = expand_macros_in_expression(expr);
         
         node.node_type = str("Return");
@@ -5075,6 +5098,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 }
 
                 check_star_deref(ctx, initializer_start, ctx.pos);
+                g_current_parse_line = decl_line;
+                g_current_parse_file = ctx.filename;
                 initializer = expand_macros_in_expression(initializer);
 
                 if !has_explicit_type {
@@ -5252,6 +5277,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 }
 
                 check_star_deref(ctx, initializer_start_mut, ctx.pos);
+                g_current_parse_line = mut_line;
+                g_current_parse_file = ctx.filename;
                 initializer = expand_macros_in_expression(initializer);
 
                 if !has_explicit_type_mut {
@@ -5656,6 +5683,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 consume(ctx);
                 
                 check_star_deref(ctx, value_start, ctx.pos);
+                g_current_parse_line = token.line;
+                g_current_parse_file = ctx.filename;
                 value_str = expand_macros_in_expression(value_str);
                 
                 mut left_side: string = concat(ident_name, str("("));
@@ -6634,6 +6663,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             }
 
             check_star_deref(ctx, compound_start, ctx.pos);
+            g_current_parse_line = token.line;
+            g_current_parse_file = ctx.filename;
             expr = expand_macros_in_expression(expr);
             scan_expression_for_addr(expr);
             scan_expression_for_c_calls(expr, ctx);
@@ -6735,6 +6766,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             debug_print_str expr;
 
             check_star_deref(ctx, assign_start, ctx.pos);
+            g_current_parse_line = token.line;
+            g_current_parse_file = ctx.filename;
             expr = expand_macros_in_expression(expr);
 
             mut trimmed_assign: string = strip(expr);
