@@ -1493,13 +1493,41 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
     // Handle function tags like [inline]
     if token_type == TokenType.LBRACKET {
         mut tags: list(string);
+        mut extern_symbol: string = str("");
+
         ctx.pos++;
         skip_whitespace(ctx);
         
         if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.IDENTIFIER {
             val tag_name: string = ctx.tokens.data[ctx.pos].value;
             
-            if !equals_c(tag_name, "inline") and !equals_c(tag_name, "noinline") 
+            if equals_c(tag_name, "symbol") {
+                ctx.pos++;
+                skip_whitespace(ctx);
+                
+                if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.COLON {
+                    ctx.pos++;
+                    skip_whitespace(ctx);
+                    
+                    if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.STR {
+                        extern_symbol = ctx.tokens.data[ctx.pos].value;
+                        ctx.pos++;
+                        skip_whitespace(ctx);
+                    } else {
+                        print ctx.filename;
+                        print ":";
+                        print(i32_to_string(current_line(ctx)));
+                        println ": error: expected string literal (ref char) after 'symbol:'";
+                        quit(1);
+                    }
+                } else {
+                    print ctx.filename;
+                    print ":";
+                    print(i32_to_string(current_line(ctx)));
+                    println ": error: expected ':' after 'symbol'";
+                    quit(1);
+                }
+            } elif !equals_c(tag_name, "inline") and !equals_c(tag_name, "noinline") 
                 and !equals_c(tag_name, "cold") 
                 and !equals_c(tag_name, "hot") 
                 and !equals_c(tag_name, "entry") {
@@ -1508,18 +1536,27 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
                 print(i32_to_string(current_line(ctx)));
                 print ": error: unrecognized function tag '";
                 print tag_name;
-                println "'. Supported tags: [inline], [noinline], [cold], [hot], [entry].";
+                println "'. Supported tags: [inline], [noinline], [cold], [hot], [entry], [symbol: \"...\"].";
                 quit(1);
+            } else {
+                append(tags, tag_name);
+                ctx.pos++;
+                skip_whitespace(ctx);
             }
-            
-            append(tags, tag_name);
-            ctx.pos++;
-            skip_whitespace(ctx);
         }
         
         if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.RBRACKET {
             ctx.pos++;
             skip_whitespace(ctx);
+        }
+        
+        if str_len(extern_symbol) > 0 and ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.EXTERN {
+            mut extern_node: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+            if str_len(extern_node.node_type) > 0 {
+                extern_node.data.extern_node.symbol = extern_symbol;
+                add_child_to_ast(ast, extern_node);
+            }
+            return;
         }
         
         if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.DEF {

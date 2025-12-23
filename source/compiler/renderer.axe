@@ -127,6 +127,9 @@ mut g_specialization_queue: ref StringList;
 /// Extern functions
 mut g_extern_functions: StringBoolMap;
 
+/// Extern aliases (function name -> C symbol name for aliased extern functions)
+mut g_extern_aliases: StringStringMap;
+
 /// Track overloaded functions (to skip validation as they don't have a single signature)
 mut g_overloads: StringBoolMap;
 
@@ -285,6 +288,7 @@ pub def initialize_renderer() {
     g_generic_functions = deref(StringBoolMap.create(addr(g_renderer_arena), 128));
     g_function_param_types = deref(StringStringMap.create(addr(g_renderer_arena), 256));
     g_extern_functions = deref(StringBoolMap.create(addr(g_renderer_arena), 128));
+    g_extern_aliases = deref(StringStringMap.create(addr(g_renderer_arena), 128));
     g_overloads = deref(StringBoolMap.create(addr(g_renderer_arena), 128));
     g_overload_type_mappings = deref(StringStringMap.create(addr(g_renderer_arena), 128));
     g_needed_specializations = deref(StringStringMap.create(addr(g_renderer_arena), 128));
@@ -1516,8 +1520,14 @@ def collect_function_signatures(node: ref ASTNode, arena: ref Arena, prefix: str
         val func_name: string = node.data.extern_node.function_name;
         val params: ref list(string) = node.data.extern_node.params;
         val ret_type: string = node.data.extern_node.return_type;
+        val symbol: string = node.data.extern_node.symbol;
+
         register_function_signature(func_name, params, ret_type, arena);
         StringBoolMap.set(addr(g_extern_functions), arena, func_name, true);
+        
+        if str_len(symbol) > 0 {
+            StringStringMap.set(addr(g_extern_aliases), arena, func_name, symbol);
+        }
     }
 
     if equals_c(node.node_type, "Overload") {
@@ -2001,6 +2011,137 @@ def replace_substr_outside_strings(expr: string, old_sub: string, replacement: s
     val result: string = StringBuilder.to_string(addr(sb));
     StringBuilder.destroy(addr(sb));
     return result;
+}
+
+/// Apply extern aliases to function calls in an expression.
+/// Replaces function names like "my_malloc(" with their aliased C symbols like "malloc(".
+def apply_extern_aliases(expr: string): string {
+    mut result: string = expr;
+    mut i: i32 = 0;
+    loop {
+        if i >= deref(g_extern_aliases.keys).len {
+            break;
+        }
+    
+        val func_name: string = deref(g_extern_aliases.keys).data[i];
+        val symbol: string = deref(g_extern_aliases.values).data[i];
+        if str_len(func_name) > 0 and str_len(symbol) > 0 {
+            val func_call: string = concat(func_name, str("("));
+            val symbol_call: string = concat(symbol, str("("));
+            result = replace_substr_outside_strings(result, func_call, symbol_call);
+
+            val func_call_with_space: string = concat(func_name, str(" ("));
+            val symbol_call_with_space: string = concat(symbol, str(" ("));
+            result = replace_substr_outside_strings(result, func_call_with_space, symbol_call_with_space);
+
+            val func_call_with_spaces: string = concat(func_name, str("  ("));
+            val symbol_call_with_spaces: string = concat(symbol, str("  ("));
+            result = replace_substr_outside_strings(result, func_call_with_spaces, symbol_call_with_spaces);
+
+            val func_call_with_more_spaces: string = concat(func_name, str("   ("));
+            val symbol_call_with_more_spaces: string = concat(symbol, str("   ("));
+            result = replace_substr_outside_strings(result, func_call_with_more_spaces, symbol_call_with_more_spaces);
+
+            val func_name_space: string = concat(func_name, str(" "));
+            val symbol_space: string = concat(symbol, str(" "));
+            result = replace_substr_outside_strings(result, func_name_space, symbol_space);
+
+            val func_name_comma: string = concat(func_name, str(","));
+            val symbol_comma: string = concat(symbol, str(","));
+            result = replace_substr_outside_strings(result, func_name_comma, symbol_comma);
+
+            val func_name_semicolon: string = concat(func_name, str(";"));
+            val symbol_semicolon: string = concat(symbol, str(";"));
+            result = replace_substr_outside_strings(result, func_name_semicolon, symbol_semicolon);
+
+            val func_name_rparen: string = concat(func_name, str(")"));
+            val symbol_rparen: string = concat(symbol, str(")"));
+            result = replace_substr_outside_strings(result, func_name_rparen, symbol_rparen);
+
+            result = replace_function_name_outside_strings(result, func_name, symbol);
+        }
+        i++;
+    }
+    return result;
+}
+
+/// Replace a function name with its alias, handling word boundaries to avoid partial matches
+/// This function replaces complete identifiers only, avoiding partial matches within other identifiers
+def replace_function_name_outside_strings(expr: string, old_name: string, new_name: string): string {
+    mut result: StringBuilder = StringBuilder.init(str_len(expr) + 64);
+    mut i: i32 = 0;
+    val expr_len: i32 = cast[i32](str_len(expr));
+    val old_len: i32 = cast[i32](str_len(old_name));
+
+    mut in_string: bool = false;
+    mut in_char_literal: bool = false;
+
+    loop {
+        if i >= expr_len {
+            break;
+        }
+
+        if get_char(expr, i) == '\'' and !in_string and !is_escaped_quote(expr, i) {
+            in_char_literal = !in_char_literal;
+            StringBuilder.append_char(addr(result), get_char(expr, i));
+            i++;
+            continue;
+        }
+
+        if get_char(expr, i) == '"' and !in_char_literal and !is_escaped_quote(expr, i) {
+            in_string = !in_string;
+            StringBuilder.append_char(addr(result), get_char(expr, i));
+            i++;
+            continue;
+        }
+
+        if in_string or in_char_literal {
+            StringBuilder.append_char(addr(result), get_char(expr, i));
+            i++;
+            continue;
+        }
+
+        if i + old_len <= expr_len {
+            mut match: bool = true;
+            mut j: i32 = 0;
+            loop {
+                if j >= old_len {
+                    break;
+                }
+                if get_char(expr, i + j) != get_char(old_name, j) {
+                    match = false;
+                    break;
+                }
+                j++;
+            }
+
+            if match {
+                val start_ok: bool = (i == 0) or !is_ident_char(get_char(expr, i - 1));
+                val end_ok: bool = (i + old_len >= expr_len) or !is_ident_char(get_char(expr, i + old_len));
+
+                if start_ok and end_ok {
+                    StringBuilder.append(addr(result), new_name);
+                    i = i + old_len;
+                    continue;
+                }
+            }
+        }
+
+        StringBuilder.append_char(addr(result), get_char(expr, i));
+        i++;
+    }
+
+    val final_result: string = StringBuilder.to_string(addr(result));
+    StringBuilder.destroy(addr(result));
+    return final_result;
+}
+
+/// Check if a character is valid in an identifier
+def is_ident_char(ch: char): bool {
+    return (ch >= 'a' and ch <= 'z') or
+           (ch >= 'A' and ch <= 'Z') or
+           (ch >= '0' and ch <= '9') or
+           ch == '_';
 }
 
 /// Rewrite member access on pointer-typed variables...
@@ -6004,7 +6145,7 @@ def process_expression(expr: string): string {
         val inner_len: i32 = str_len(trimmed) - 32;
         if inner_len > 0 {
             val inner: string = substring_se(trimmed, 16, 16 + inner_len);
-            return process_interpolated_string(inner, false);
+            return apply_extern_aliases(process_interpolated_string(inner, false));
         }
     }
 
@@ -6041,7 +6182,7 @@ def process_expression(expr: string): string {
                     val inner_len2: i32 = str_len(inner_raw) - 32;
                     if inner_len2 > 0 {
                         val inner2: string = substring_se(inner_raw, 16, 16 + inner_len2);
-                        return process_interpolated_string(inner2, true);
+                        return apply_extern_aliases(process_interpolated_string(inner2, true));
                     }
                 }
             }
@@ -6101,7 +6242,7 @@ def process_expression(expr: string): string {
             val mod_fixed_chars: string = replace_keyword_outside_strings(prefixes_fixed_chars, str("mod"), str("%"));
             val and_fixed_chars: string = replace_keyword_outside_strings(mod_fixed_chars, str("and"), str("&&"));
             val or_fixed_chars: string = replace_keyword_outside_strings(and_fixed_chars, str("or"), str("||"));
-            return strip(or_fixed_chars);
+            return apply_extern_aliases(strip(or_fixed_chars));
         }
 
         // Even when there is no pointer sugar or C. prefix, we still need to
@@ -6216,7 +6357,7 @@ def process_expression(expr: string): string {
         val and_fixed_no_sugar: string = replace_keyword_outside_strings(mod_fixed_no_sugar, str("and"), str("&&"));
         val or_fixed_no_sugar: string = replace_keyword_outside_strings(and_fixed_no_sugar, str("or"), str("||"));
         
-        return strip(or_fixed_no_sugar);
+        return apply_extern_aliases(strip(or_fixed_no_sugar));
     }
 
     mut result: string = trimmed;
@@ -6383,8 +6524,9 @@ def process_expression(expr: string): string {
     val mod_fixed: string = replace_keyword_outside_strings(prefixes_fixed, str("mod"), str("%"));
     val and_fixed: string = replace_keyword_outside_strings(mod_fixed, str("and"), str("&&"));
     val or_fixed: string = replace_keyword_outside_strings(and_fixed, str("or"), str("||"));
+    val extern_aliases_fixed: string = apply_extern_aliases(strip(or_fixed));
 
-    return strip(or_fixed);
+    return extern_aliases_fixed;
 }
 
 /// Generate stack trace headers for segfault handlers (Windows and POSIX versions)
@@ -9914,7 +10056,7 @@ pub def generate_c(ast: ref ASTNode): string {
                                             StringBuilder.append_c(addr(sb_decl), ".");
                                             StringBuilder.append(addr(sb_decl), field_name);
                                             StringBuilder.append_c(addr(sb_decl), " = ");
-                                            StringBuilder.append(addr(sb_decl), value_expr);
+                                            StringBuilder.append(addr(sb_decl), process_expression(value_expr));
                                             first_field = false;
                                         }
                                     }
@@ -9940,7 +10082,7 @@ pub def generate_c(ast: ref ASTNode): string {
                                     StringBuilder.append_c(addr(sb_decl), ".");
                                     StringBuilder.append(addr(sb_decl), field_name_last);
                                     StringBuilder.append_c(addr(sb_decl), " = ");
-                                    StringBuilder.append(addr(sb_decl), value_expr_last);
+                                    StringBuilder.append(addr(sb_decl), process_expression(value_expr_last));
                                     first_field = false;
                                 }
                             }
@@ -9995,7 +10137,7 @@ pub def generate_c(ast: ref ASTNode): string {
                                             StringBuilder.append_c(addr(sb_decl), ".");
                                             StringBuilder.append(addr(sb_decl), field_name2);
                                             StringBuilder.append_c(addr(sb_decl), " = ");
-                                            StringBuilder.append(addr(sb_decl), value_expr2);
+                                            StringBuilder.append(addr(sb_decl), process_expression(value_expr2));
                                             first_field2 = false;
                                         }
                                     }
@@ -10021,7 +10163,7 @@ pub def generate_c(ast: ref ASTNode): string {
                                     StringBuilder.append_c(addr(sb_decl), ".");
                                     StringBuilder.append(addr(sb_decl), field_name_last2);
                                     StringBuilder.append_c(addr(sb_decl), " = ");
-                                    StringBuilder.append(addr(sb_decl), value_expr_last2);
+                                    StringBuilder.append(addr(sb_decl), process_expression(value_expr_last2));
                                     first_field2 = false;
                                 }
                             }
@@ -11125,6 +11267,8 @@ pub def generate_c(ast: ref ASTNode): string {
                 }
             }
         }
+
+        emitted_name = apply_extern_aliases(emitted_name);
 
         mut sb_call: StringBuilder = StringBuilder.init(512);
         StringBuilder.append(addr(sb_call), emitted_name);

@@ -232,6 +232,7 @@ pub model ASTNode {
             function_name: string;
             params: ref list(string);
             return_type: string;
+            symbol: string;
         };
         
         unsafe_node: model {
