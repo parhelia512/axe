@@ -1,0 +1,15 @@
+use std.io;
+
+model SomeModel {
+    age: i32;
+
+    def some_function(self: Self) {
+        println(self.age);
+    }
+}
+
+def main() {
+    mut md: SomeModel = SomeModel{};
+    md.age = 10;
+    some_function(md);
+}
