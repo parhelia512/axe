@@ -7141,53 +7141,52 @@ def generate_global_decl(ast: ref ASTNode): string {
 
     val emitted_name: string = var_name;
 
-    if is_mutable {
-        result = concat(result, mapped_type);
-        result = concat_c(result, " ");
-        result = concat(result, emitted_name);
-        if str_len(array_suffix) > 0 {
-            result = concat(result, array_suffix);
-        }
-    } else {
-        result = concat_c(result, "const ");
-        result = concat(result, mapped_type);
-        result = concat_c(result, " ");
-        result = concat(result, emitted_name);
-        if str_len(array_suffix) > 0 {
-            result = concat(result, array_suffix);
-        }
+    // Optimize: Use StringBuilder instead of repeated concat
+    mut sb_decl: StringBuilder = StringBuilder.init(256);
+    
+    if !is_mutable {
+        StringBuilder.append_c(addr(sb_decl), "const ");
+    }
+    
+    StringBuilder.append(addr(sb_decl), mapped_type);
+    StringBuilder.append_char(addr(sb_decl), ' ');
+    StringBuilder.append(addr(sb_decl), emitted_name);
+    
+    if str_len(array_suffix) > 0 {
+        StringBuilder.append(addr(sb_decl), array_suffix);
     }
 
     if str_len(initializer) > 0 {
         val trimmed: string = strip(initializer);
         val brace_idx: i32 = find_char_from(trimmed, '{', cast[usize](0));
+        StringBuilder.append_c(addr(sb_decl), " = ");
+        
         if brace_idx >= 0 {
             val type_part: string = strip(substring_se(trimmed, 0, brace_idx));
-            val brace_part: string = substring_se(trimmed, brace_idx, cast[i32](str_len(trimmed)));
             if str_len(type_part) > 0 {
-                result = concat_c(result, " = ");
-                result = concat(result, brace_part);
+                val brace_part: string = substring_se(trimmed, brace_idx, cast[i32](str_len(trimmed)));
+                StringBuilder.append(addr(sb_decl), brace_part);
             } else {
-                result = concat_c(result, " = ");
-                result = concat(result, trimmed);
+                StringBuilder.append(addr(sb_decl), trimmed);
             }
         } else {
             val processed_init: string = process_expression(trimmed);
-            result = concat_c(result, " = ");
-            result = concat(result, processed_init);
+            StringBuilder.append(addr(sb_decl), processed_init);
         }
     } else {
         val first_char: char = get_char(mapped_type, 0);
         if first_char >= 'A' and first_char <= 'Z' {
-            result = concat_c(result, " = {0}");
+            StringBuilder.append_c(addr(sb_decl), " = {0}");
         } elif has_prefix(mapped_type, str("__list_")) {
-            result = concat_c(result, " = {0}");
+            StringBuilder.append_c(addr(sb_decl), " = {0}");
         } elif has_prefix(mapped_type, str("std__")) {
-            result = concat_c(result, " = {0}");
+            StringBuilder.append_c(addr(sb_decl), " = {0}");
         }
     }
 
-    result = concat_c(result, ";\n");
+    StringBuilder.append_c(addr(sb_decl), ";\n");
+    result = StringBuilder.to_string(addr(sb_decl));
+    StringBuilder.destroy(addr(sb_decl));
     return result;
 }
 
@@ -7402,10 +7401,10 @@ pub def generate_c(ast: ref ASTNode): string {
         collect_foreign_types(ast);
         build_function_signatures(ast);
 
-        mut sb_header: StringBuilder = StringBuilder.init(8192);
-        mut sb_protos: StringBuilder = StringBuilder.init(8192);
-        mut sb_bodies: StringBuilder = StringBuilder.init(16384);
-        mut sb_specs: StringBuilder = StringBuilder.init(16384);
+        mut sb_header: StringBuilder = StringBuilder.init(32768);
+        mut sb_protos: StringBuilder = StringBuilder.init(32768);
+        mut sb_bodies: StringBuilder = StringBuilder.init(65536);
+        mut sb_specs: StringBuilder = StringBuilder.init(32768);
 
         StringBuilder.append_c(
             addr(sb_header),
@@ -7811,13 +7810,11 @@ pub def generate_c(ast: ref ASTNode): string {
                 i_enums = i_enums + 1;
             }
 
-            // Topological sort of models to ensure dependencies come first
-            // Step 1: Collect all model names and build model map
             mut model_arena: Arena = Arena.create(1024 * 64);
             mut model_names_list: ref StringList = StringList.create(addr(model_arena), 64);
             mut model_indices: StringIntMap = deref(StringIntMap.create(addr(model_arena), 128));
-            
             mut collect_idx: i32 = 0;
+
             loop {
                 if collect_idx >= children_len {
                     break;
@@ -7832,24 +7829,22 @@ pub def generate_c(ast: ref ASTNode): string {
                     }
 
                     if !StringIntMap.contains(addr(model_indices), cname) {
+                        val idx: i32 = model_names_list.len;
                         StringList.push(model_names_list, addr(model_arena), cname);
-                        StringIntMap.set(addr(model_indices), addr(model_arena), cname, model_names_list.len - 1);
+                        StringIntMap.set(addr(model_indices), addr(model_arena), cname, idx);
                     }
                 }
                 collect_idx = collect_idx + 1;
             }
             
-            // Step 2: Build dependency adjacency lists
-            // deps[i] contains list of model indices that model i depends on
             val num_models: i32 = model_names_list.len;
-            
-            mut deps_lists: ref StringList = StringList.create(addr(model_arena), num_models + 1);
+            mut deps_sbs: list(StringBuilder);
             mut dep_init: i32 = 0;
             loop {
                 if dep_init >= num_models {
                     break;
                 }
-                StringList.push(deps_lists, addr(model_arena), str(""));
+                append(deps_sbs, StringBuilder.init(64));
                 dep_init = dep_init + 1;
             }
             
@@ -7871,8 +7866,9 @@ pub def generate_c(ast: ref ASTNode): string {
 
                     if ftypes != nil {
                         mut ft_idx: i32 = 0;
+                        val ftypes_len: i32 = len(deref(ftypes));
                         loop {
-                            if ft_idx >= len(deref(ftypes)) {
+                            if ft_idx >= ftypes_len {
                                 break;
                             }
 
@@ -7887,17 +7883,15 @@ pub def generate_c(ast: ref ASTNode): string {
                             }
                             if StringIntMap.contains(addr(model_indices), mapped_type) {
                                 if compare(mapped_type, this_model_name) != 0 {
-                                    val current_deps: string = StringList.get(deps_lists, this_model_idx);
-                                    if str_len(current_deps) == 0 {
-                                        deps_lists.data[this_model_idx] = mapped_type;
+                                    val current_sb: ref StringBuilder = addr(deps_sbs.data[this_model_idx]);
+                                    val current_len: i32 = current_sb.len;
+                                    if current_len == 0 {
+                                        StringBuilder.append(current_sb, mapped_type);
                                     } else {
-                                        if find_substr(current_deps, mapped_type) < 0 {
-                                            mut sb_deps: StringBuilder = StringBuilder.init(str_len(current_deps) + str_len(mapped_type) + 1);
-                                            StringBuilder.append(addr(sb_deps), current_deps);
-                                            StringBuilder.append_c(addr(sb_deps), ",");
-                                            StringBuilder.append(addr(sb_deps), mapped_type);
-                                            deps_lists.data[this_model_idx] = StringBuilder.to_string(addr(sb_deps));
-                                            StringBuilder.destroy(addr(sb_deps));
+                                        val current_str: string = StringBuilder.to_string(current_sb);
+                                        if find_substr(current_str, mapped_type) < 0 {
+                                            StringBuilder.append_c(current_sb, ",");
+                                            StringBuilder.append(current_sb, mapped_type);
                                         }
                                     }
                                 }
@@ -7909,8 +7903,9 @@ pub def generate_c(ast: ref ASTNode): string {
                     val union_types: ref list(string) = bdep_child.data.model_node.union_member_types;
                     if union_types != nil {
                         mut ut_idx: i32 = 0;
+                        val union_types_len: i32 = len(deref(union_types));
                         loop {
-                            if ut_idx >= len(deref(union_types)) {
+                            if ut_idx >= union_types_len {
                                 break;
                             }
                             val utype: string = union_types.data[ut_idx];
@@ -7925,26 +7920,36 @@ pub def generate_c(ast: ref ASTNode): string {
 
                             if StringIntMap.contains(addr(model_indices), umapped_type) {
                                 if compare(umapped_type, this_model_name) != 0 {
-                                    val current_deps: string = StringList.get(deps_lists, this_model_idx);
-                                    if str_len(current_deps) == 0 {
-                                        deps_lists.data[this_model_idx] = umapped_type;
+                                    val current_sb: ref StringBuilder = addr(deps_sbs.data[this_model_idx]);
+                                    val current_len: i32 = current_sb.len;
+                                    if current_len == 0 {
+                                        StringBuilder.append(current_sb, umapped_type);
                                     } else {
-                                        if find_substr(current_deps, umapped_type) < 0 {
-                                            mut sb_udeps: StringBuilder = StringBuilder.init(str_len(current_deps) + str_len(umapped_type) + 1);
-                                            StringBuilder.append(addr(sb_udeps), current_deps);
-                                            StringBuilder.append_c(addr(sb_udeps), ",");
-                                            StringBuilder.append(addr(sb_udeps), umapped_type);
-                                            deps_lists.data[this_model_idx] = StringBuilder.to_string(addr(sb_udeps));
-                                            StringBuilder.destroy(addr(sb_udeps));
+                                        val current_str: string = StringBuilder.to_string(current_sb);
+                                        if find_substr(current_str, umapped_type) < 0 {
+                                            StringBuilder.append_c(current_sb, ",");
+                                            StringBuilder.append(current_sb, umapped_type);
                                         }
                                     }
                                 }
                             }
-                            ut_idx++;
+                            ut_idx = ut_idx + 1;
                         }
                     }
                 }
-                build_deps_idx++;
+                build_deps_idx = build_deps_idx + 1;
+            }
+            
+            mut deps_lists: ref StringList = StringList.create(addr(model_arena), num_models + 1);
+            mut finalize_idx: i32 = 0;
+            loop {
+                if finalize_idx >= num_models {
+                    break;
+                }
+                val dep_str: string = StringBuilder.to_string(addr(deps_sbs.data[finalize_idx]));
+                StringList.push(deps_lists, addr(model_arena), dep_str);
+                StringBuilder.destroy(addr(deps_sbs.data[finalize_idx]));
+                finalize_idx = finalize_idx + 1;
             }
             
             mut visit_state: ref IntList = IntList.create(addr(model_arena), num_models + 1);
@@ -8110,20 +8115,27 @@ pub def generate_c(ast: ref ASTNode): string {
                                         val tp_list: ref list(string) = scan_node.data.when_branch.type_params;
                                         val ct_list: ref list(string) = scan_node.data.when_branch.concrete_types;
                                         if tp_list != nil and ct_list != nil {
-                                            mut constraint_str: string = str("");
+                                            mut sb_constraint: StringBuilder = StringBuilder.init(128);
                                             mut cti: i32 = 0;
+                                            val tp_list_len: i32 = len(deref(tp_list));
                                             loop {
-                                                if cti >= len(deref(tp_list)) { break; }
-                                                if cti > 0 { constraint_str = concat(constraint_str, str(",")); }
-                                                constraint_str = concat(constraint_str, tp_list.data[cti]);
-                                                constraint_str = concat(constraint_str, str(":"));
-                                                constraint_str = concat(constraint_str, ct_list.data[cti]);
+                                                if cti >= tp_list_len { break; }
+                                                if cti > 0 { 
+                                                    StringBuilder.append_char(addr(sb_constraint), ',');
+                                                }
+                                                StringBuilder.append(addr(sb_constraint), tp_list.data[cti]);
+                                                StringBuilder.append_char(addr(sb_constraint), ':');
+                                                StringBuilder.append(addr(sb_constraint), ct_list.data[cti]);
                                                 cti++;
                                             }
+                                            val constraint_str: string = StringBuilder.to_string(addr(sb_constraint));
+                                            StringBuilder.destroy(addr(sb_constraint));
+                                            
                                             mut found: bool = false;
                                             mut fi: i32 = 0;
+                                            val collected_len: i32 = len(collected_constraints);
                                             loop {
-                                                if fi >= len(collected_constraints) { break; }
+                                                if fi >= collected_len { break; }
                                                 if equals_c(collected_constraints.data[fi], constraint_str.data) {
                                                     found = true;
                                                     break;
@@ -8166,7 +8178,7 @@ pub def generate_c(ast: ref ASTNode): string {
                                 constraint_str2 = collected_constraints.data[branch_idx2];
                             }
 
-                            mut sb_spec_name2: StringBuilder = StringBuilder.init(256);
+                            mut sb_spec_name2: StringBuilder = StringBuilder.init(512);
                             mut base_name_for_spec2: string = proto_child.data.function.name;
                             if StringStringMap.contains(addr(g_function_prefixes), base_name_for_spec2) {
                                 base_name_for_spec2 = StringStringMap.get(addr(g_function_prefixes), base_name_for_spec2);
@@ -8565,7 +8577,7 @@ pub def generate_c(ast: ref ASTNode): string {
             }
         }
         
-        mut sb_final: StringBuilder = StringBuilder.init(128000);
+        mut sb_final: StringBuilder = StringBuilder.init(256000);
         StringBuilder.append(addr(sb_final), StringBuilder.to_string(addr(sb_header)));
         StringBuilder.append(addr(sb_final), StringBuilder.to_string(addr(sb_protos)));
         StringBuilder.append(addr(sb_final), StringBuilder.to_string(addr(g_specialization_prototypes_sb)));
@@ -8580,22 +8592,30 @@ pub def generate_c(ast: ref ASTNode): string {
         StringBuilder.destroy(addr(sb_final));
         result = replace_all(result, str("(->"), str("->"));
 
-        mut fixed_result: string = str("");
+        // Optimize: Use StringBuilder instead of repeated concat operations
+        mut sb_fixed: StringBuilder = StringBuilder.init(str_len(result) + 1024);
         mut start_idx: i32 = 0;
         mut idx_line: i32 = 0;
+        val result_len: i32 = cast[i32](str_len(result));
+        
         loop {
-            if idx_line >= str_len(result) {
+            if idx_line >= result_len {
                 if start_idx < idx_line {
                     val last_line: string = substring_se(result, start_idx, idx_line);
-                    mut line_fixed: string = last_line;
-
                     val trimmed_last: string = strip(last_line);
+                    val last_line_len: i32 = cast[i32](str_len(last_line));
+                    
+                    // Check if line needs fixing
+                    mut needs_fix: bool = false;
+                    mut fix_pos: i32 = -1;
+                    
                     if has_suffix(trimmed_last, str(");")) {
                         mut eq_pos: i32 = -1;
                         mut in_string_eq: bool = false;
                         mut ei: i32 = 0;
+                        
                         loop {
-                            if ei >= str_len(last_line) {
+                            if ei >= last_line_len {
                                 break;
                             }
                             val ec: char = get_char(last_line, ei);
@@ -8614,8 +8634,9 @@ pub def generate_c(ast: ref ASTNode): string {
                             mut close_p: i32 = 0;
                             mut in_string_p: bool = false;
                             mut pi: i32 = eq_pos + 1;
+                            
                             loop {
-                                if pi >= str_len(last_line) {
+                                if pi >= last_line_len {
                                     break;
                                 }
                                 val c: char = get_char(last_line, pi);
@@ -8634,17 +8655,15 @@ pub def generate_c(ast: ref ASTNode): string {
                             }
 
                             if close_p == open_p + 1 {
-                                mut semi_idx: i32 = -1;
-                                mut sj: i32 = str_len(last_line) - 1;
+                                mut semi_idx: i32 = last_line_len - 1;
                                 loop {
-                                    if sj < 0 {
+                                    if semi_idx < 0 {
                                         break;
                                     }
-                                    if get_char(last_line, sj) == ';' {
-                                        semi_idx = sj;
+                                    if get_char(last_line, semi_idx) == ';' {
                                         break;
                                     }
-                                    sj = sj - 1;
+                                    semi_idx = semi_idx - 1;
                                 }
 
                                 if semi_idx > 0 {
@@ -8662,17 +8681,20 @@ pub def generate_c(ast: ref ASTNode): string {
                                     }
 
                                     if close_idx >= 0 and get_char(last_line, close_idx) == ')' {
-                                        mut tmp: string = str("");
-                                        tmp = concat(tmp, substring_se(last_line, 0, cast[i32](close_idx)));
-                                        tmp = concat(tmp, substring_se(last_line, close_idx + 1, cast[i32](str_len(last_line))));
-                                        line_fixed = tmp;
+                                        needs_fix = true;
+                                        fix_pos = close_idx;
                                     }
                                 }
                             }
                         }
                     }
 
-                    fixed_result = concat(fixed_result, line_fixed);
+                    if needs_fix and fix_pos >= 0 {
+                        StringBuilder.append(addr(sb_fixed), substring_se(last_line, 0, fix_pos));
+                        StringBuilder.append(addr(sb_fixed), substring_se(last_line, fix_pos + 1, last_line_len));
+                    } else {
+                        StringBuilder.append(addr(sb_fixed), last_line);
+                    }
                 }
                 break;
             }
@@ -8680,16 +8702,19 @@ pub def generate_c(ast: ref ASTNode): string {
             val ch: char = get_char(result, idx_line);
             if ch == '\n' {
                 val line: string = substring_se(result, start_idx, idx_line + 1);
-                mut line_fixed2: string = line;
-
                 val trimmed: string = strip(line);
+                val line_len: i32 = cast[i32](str_len(line));
+
+                mut needs_fix2: bool = false;
+                mut fix_pos2: i32 = -1;
 
                 if has_suffix(trimmed, str(");")) and !has_prefix(trimmed, str("return ")) {
                     mut eq_pos2: i32 = -1;
                     mut in_string_eq2: bool = false;
                     mut ei2: i32 = 0;
+                    
                     loop {
-                        if ei2 >= str_len(line) {
+                        if ei2 >= line_len {
                             break;
                         }
                         val ec2: char = get_char(line, ei2);
@@ -8708,8 +8733,9 @@ pub def generate_c(ast: ref ASTNode): string {
                         mut close_p2: i32 = 0;
                         mut in_string_p2: bool = false;
                         mut pi2: i32 = eq_pos2 + 1;
+                        
                         loop {
-                            if pi2 >= str_len(line) {
+                            if pi2 >= line_len {
                                 break;
                             }
                             val c2: char = get_char(line, pi2);
@@ -8728,17 +8754,15 @@ pub def generate_c(ast: ref ASTNode): string {
                         }
 
                         if close_p2 == open_p2 + 1 {
-                            mut semi_idx2: i32 = -1;
-                            mut sj2: i32 = str_len(line) - 1;
+                            mut semi_idx2: i32 = line_len - 1;
                             loop {
-                                if sj2 < 0 {
+                                if semi_idx2 < 0 {
                                     break;
                                 }
-                                if get_char(line, sj2) == ';' {
-                                    semi_idx2 = sj2;
+                                if get_char(line, semi_idx2) == ';' {
                                     break;
                                 }
-                                sj2 = sj2 - 1;
+                                semi_idx2 = semi_idx2 - 1;
                             }
 
                             if semi_idx2 > 0 {
@@ -8756,26 +8780,32 @@ pub def generate_c(ast: ref ASTNode): string {
                                 }
 
                                 if close_idx2 >= 0 and get_char(line, close_idx2) == ')' {
-                                    mut tmp2: string = str("");
-                                    tmp2 = concat(tmp2, substring_se(line, 0, cast[i32](close_idx2)));
-                                    tmp2 = concat(tmp2, substring_se(line, close_idx2 + 1, cast[i32](str_len(line))));
-                                    line_fixed2 = tmp2;
+                                    needs_fix2 = true;
+                                    fix_pos2 = close_idx2;
                                 }
                             }
                         }
                     }
                 }
 
-                fixed_result = concat(fixed_result, line_fixed2);
+                if needs_fix2 and fix_pos2 >= 0 {
+                    StringBuilder.append(addr(sb_fixed), substring_se(line, 0, fix_pos2));
+                    StringBuilder.append(addr(sb_fixed), substring_se(line, fix_pos2 + 1, line_len));
+                } else {
+                    StringBuilder.append(addr(sb_fixed), line);
+                }
+                
                 start_idx = idx_line + 1;
             }
 
             idx_line = idx_line + 1;
         }
 
+        val fixed_result: string = StringBuilder.to_string(addr(sb_fixed));
         if str_len(fixed_result) > 0 {
             result = fixed_result;
         }
+        StringBuilder.destroy(addr(sb_fixed));
     }
 
     if equals_c(node_type, "Program") {
@@ -9242,7 +9272,7 @@ pub def generate_c(ast: ref ASTNode): string {
                 return str("");
             }
             
-            mut sb_all_funcs: StringBuilder = StringBuilder.init(8192);
+            mut sb_all_funcs: StringBuilder = StringBuilder.init(32768);
             mut branch_idx: i32 = 0;
             mut constraint_list_len: i32 = 0;
 
@@ -9730,8 +9760,6 @@ pub def generate_c(ast: ref ASTNode): string {
         }
         
         StringBuilder.append_c(addr(sb_func), ") {\n");
-        result = StringBuilder.to_string(addr(sb_func));
-        StringBuilder.destroy(addr(sb_func));
         
         if ast.children != nil {
             val children: ref list(ASTNode) = ast.children;
@@ -9741,12 +9769,15 @@ pub def generate_c(ast: ref ASTNode): string {
                     break;
                 }
                 val child_code: string = generate_c(addr(children.data[i]));
-                result = concat(result, child_code);
+                StringBuilder.append(addr(sb_func), child_code);
                 i++;
             }
         }
         
-        result = concat_c(result, "}\n\n");
+        StringBuilder.append_c(addr(sb_func), "}\n\n");
+        result = StringBuilder.to_string(addr(sb_func));
+        StringBuilder.destroy(addr(sb_func));
+        
         g_current_model = old_model;
         g_current_module_prefix = old_prefix;
         StringBoolMap.clear(addr(g_current_function_type_params));
