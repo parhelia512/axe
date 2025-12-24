@@ -3,7 +3,7 @@ use std.string(
 );
 
 /// An enumeration for any type.
-enum AnyKind {
+pub enum AnyKind {
     INT_T;
     FLOAT_T;
     STRING_T;
