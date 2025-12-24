@@ -385,7 +385,7 @@ pub def base64_encode(data: ref char, len: i32, arena: ref Arena): string {
         o = o + 4;
     }
 
-    val remaining: i32 = len mod 3;
+    val remaining: i32 = len % 3;
     if remaining == 1 {
         out.data[o - 2] = '=';
         out.data[o - 1] = '=';
@@ -431,7 +431,7 @@ pub def base64_decode(data: ref char, len: i32, arena: ref Arena): string {
         panic(error.create("base64_decode: negative length"));
     }
 
-    if (len mod 4) != 0 {
+    if (len % 4) != 0 {
         panic(error.create("base64_decode: length must be multiple of 4"));
     }
 

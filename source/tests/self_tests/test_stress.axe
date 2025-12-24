@@ -142,7 +142,7 @@ def test_list_operations() {
     }
     
     for mut i = 0; i < 50; i++ {
-        if i mod 2 == 0 {
+        if i % 2 == 0 {
             append(my_list, i * 3);
         } else {
             append(my_list, i * 5);
@@ -150,7 +150,7 @@ def test_list_operations() {
     }
     
     for mut i = 0; i < len(my_list); i++ {
-        if my_list.data[i] mod 3 == 0 {
+        if my_list.data[i] % 3 == 0 {
             my_list.data[i] = my_list.data[i] * 2;
         }
     }

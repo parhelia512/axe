@@ -1937,7 +1937,7 @@ def is_escaped_quote(expr: string, pos: i32): bool {
         j = j - 1;
     }
     // Odd number of backslashes means the quote is escaped
-    return (backslash_count mod 2) == 1;
+    return (backslash_count % 2) == 1;
 }
 
 /// Replace a keyword with another string, but only when it's a standalone word
@@ -1948,6 +1948,8 @@ def replace_keyword_outside_strings(expr: string, keyword: string, replacement: 
     if expr_len == 0 or kw_len == 0 {
         return expr;
     }
+    
+    val is_mod_keyword: bool = compare(keyword, str("mod")) == 0;
     
     mut sb: StringBuilder = StringBuilder.init(cast[usize](expr_len + 32));
     mut in_string: bool = false;
@@ -2024,6 +2026,11 @@ def replace_keyword_outside_strings(expr: string, keyword: string, replacement: 
             }
             
             if is_word {
+                if is_mod_keyword {
+                    print "error: 'mod' is deprecated, use '%' instead\n";
+                    quit(1);
+                }
+                
                 if i > 0 {
                     val prev_ch: char = get_char(expr, i - 1);
                     if prev_ch != ' ' {
@@ -4724,7 +4731,7 @@ def int_to_ascii(n: i32): string {
         if v == 0 {
             break;
         }
-        val digit: i32 = v mod 10;
+        val digit: i32 = v % 10;
         StringBuilder.append_char(addr(sb_rev), cast[char]('0' + digit));
         v = v / 10;
     }
@@ -6238,7 +6245,7 @@ def check_variable_declared(name: string) {
     if is_builtin_function(name) { return; }
     if is_c_constant(name) { return; }
     if equals_c(name, "true") or equals_c(name, "false") or equals_c(name, "nil") { return; }
-    if equals_c(name, "mod") or equals_c(name, "and") or equals_c(name, "or") or equals_c(name, "not") or equals_c(name, "xor") { return; }
+    if equals_c(name, "and") or equals_c(name, "or") or equals_c(name, "not") or equals_c(name, "xor") { return; }
     if StringStringMap.contains(addr(g_var_types), name) { return; }
     if StringStringMap.contains(addr(g_global_var_prefixes), name) { return; }
     if StringStringMap.contains(addr(g_function_param_types), name) { return; }

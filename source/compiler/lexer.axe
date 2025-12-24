@@ -76,7 +76,6 @@ pub enum TokenType {
     DEF,
     VAL,
     MAIN,
-    MOD,
     DEFAULT,
     LOOP,
     NEW,
@@ -612,9 +611,6 @@ pub def lex(source: string): list(Token) {
                 pos = pos + 4;
             } elif str_equals(source, "mut", pos, 3, source_len) and check_boundary(source, pos + 3, source_len) {
                 append(tokens, create_token(TokenType.MUT, "mut"));
-                pos = pos + 3;
-            } elif str_equals(source, "mod", pos, 3, source_len) and check_boundary(source, pos + 3, source_len) {
-                append(tokens, create_token(TokenType.MOD, "mod"));
                 pos = pos + 3;
             } else {
                 val start: i32 = pos;

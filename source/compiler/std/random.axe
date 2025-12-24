@@ -22,7 +22,7 @@ pub def random(a: i32, b: i32): i32 {
         panic("random: min value cannot be greater than max value");
     }
     unsafe {
-        return C.rand() mod (b - a + 1) + a;
+        return C.rand() % (b - a + 1) + a;
     }
 }
 
@@ -52,7 +52,7 @@ pub def random_max(max: i32): i32 {
         panic("random_max: max value must be positive");
     }
     unsafe {
-        return C.rand() mod max;
+        return C.rand() % max;
     }
 }
 
@@ -75,7 +75,7 @@ pub def random_i64(): i64 {
 /// Get random boolean value.
 pub def random_bool(): bool {
     unsafe {
-        return (C.rand() mod 2) == 1;
+        return (C.rand() % 2) == 1;
     }
 }
 
@@ -144,7 +144,7 @@ pub def shuffle_i32(arr: ref i32, len: i32): void {
     }
     unsafe {
         for mut i = len - 1; i > 0; i-- {
-            val j: i32 = C.rand() mod (i + 1);
+            val j: i32 = C.rand() % (i + 1);
             val temp: i32 = arr[i];
             arr[i] = arr[j];
             arr[j] = temp;
@@ -158,7 +158,7 @@ pub def choice_i32(arr: ref i32, len: i32): i32 {
         panic(error.create("choice_i32: array must have at least one element"));
     }
     unsafe {
-        val idx: i32 = C.rand() mod len;
+        val idx: i32 = C.rand() % len;
         return arr[idx];
     }
 }
@@ -229,28 +229,28 @@ pub def random_alnum(): char {
 /// Generate random digit character ('0'-'9').
 pub def random_digit(): char {
     unsafe {
-        return cast[char]('0' + (C.rand() mod 10));
+        return cast[char]('0' + (C.rand() % 10));
     }
 }
 
 /// Generate random lowercase letter ('a'-'z').
 pub def random_lower(): char {
     unsafe {
-        return cast[char]('a' + (C.rand() mod 26));
+        return cast[char]('a' + (C.rand() % 26));
     }
 }
 
 /// Generate random uppercase letter ('A'-'Z').
 pub def random_upper(): char {
     unsafe {
-        return cast[char]('A' + (C.rand() mod 26));
+        return cast[char]('A' + (C.rand() % 26));
     }
 }
 
 /// Generate random printable ASCII character (32-126).
 pub def random_ascii(): char {
     unsafe {
-        return cast[char](32 + (C.rand() mod 95));
+        return cast[char](32 + (C.rand() % 95));
     }
 }
 
