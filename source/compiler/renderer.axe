@@ -2027,7 +2027,14 @@ def replace_keyword_outside_strings(expr: string, keyword: string, replacement: 
             
             if is_word {
                 if is_mod_keyword {
-                    print "error: 'mod' is deprecated, use '%' instead\n";
+                    if g_current_source_file.data != nil {
+                        print(get_short_filename(g_current_source_file));
+                    } else {
+                        print "(null)";
+                    }
+                    print ":";
+                    print(i32_to_string(g_current_line));
+                    print ": error: 'mod' is deprecated, use '%' instead\n";
                     quit(1);
                 }
                 
