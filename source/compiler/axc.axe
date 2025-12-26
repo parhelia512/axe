@@ -169,14 +169,14 @@ def print_help_and_exit() {
     println("  -I<path>          Pass a C include directory");
     println("  -L<path>          Add C library search path");
     println("  -l<name>          Link against C library (e.g. -lm, -lSDL2)");
+    platform windows {
+        println("  --nowin           Do not include windows.h automatically");
+    }
     println("  --syntax-check    Check syntax only (no code generation)");
     println("  --target <triple> Cross-compile for target (e.g. x86_64-w64-mingw32)");
     println("  --sysroot <path>  Specify sysroot for cross-compilation");
     println("  --version, -v     Show axe version and exit");
     println("  --help, -h        Show this help message and exit");
-    platform windows {
-        println("  --nowin           Do not include windows.h automatically");
-    }
     println("");
     println("Note: Cross-compiling requires the target platform's SDK and sysroot.\n");
     quit(0);
