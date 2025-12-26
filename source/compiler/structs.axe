@@ -27,6 +27,7 @@ pub model ParserContext {
     filename: string;
     in_test_block: bool;
     expecting_public: bool;
+    extern_symbol: string;
     current_model: string;
 }
 
@@ -236,6 +237,7 @@ pub model ASTNode {
             params: ref list(string);
             return_type: string;
             symbol: string;
+            is_public: bool;
         };
         
         unsafe_node: model {

@@ -1,0 +1,5 @@
+use test_pub_extern;
+
+def main() {
+    my_malloc(102);
+}

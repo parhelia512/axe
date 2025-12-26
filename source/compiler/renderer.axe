@@ -8330,6 +8330,57 @@ pub def generate_c(ast: ref ASTNode): string {
                         StringBuilder.append_c(addr(sb_protos), "#endif\n");
                     }
                 }
+                if equals_c(proto_child.node_type, "Extern") {
+                    val extern_func_name: string = proto_child.data.extern_node.function_name;
+                    val extern_params: ref list(string) = proto_child.data.extern_node.params;
+                    val extern_ret_type: string = proto_child.data.extern_node.return_type;
+                    
+                    mut sb_extern: StringBuilder = StringBuilder.init(512);
+                    
+                    mut mapped_extern_ret: string = str("void");
+                    if str_len(extern_ret_type) > 0 {
+                        mapped_extern_ret = map_axe_type_to_c(extern_ret_type);
+                    }
+                    
+                    StringBuilder.append(addr(sb_extern), mapped_extern_ret);
+                    StringBuilder.append_char(addr(sb_extern), ' ');
+                    StringBuilder.append(addr(sb_extern), extern_func_name);
+                    StringBuilder.append_char(addr(sb_extern), '(');
+                    
+                    if extern_params != nil {
+                        mut ep_idx: i32 = 0;
+                        loop {
+                            if ep_idx >= len(deref(extern_params)) {
+                                break;
+                            }
+                            if ep_idx > 0 {
+                                StringBuilder.append_c(addr(sb_extern), ", ");
+                            }
+                            val eparam: string = extern_params.data[ep_idx];
+                            if equals_c(eparam, "...") {
+                                StringBuilder.append_c(addr(sb_extern), "...");
+                            } else {
+                                val ep_colon: i32 = find_char_from(eparam, ':', cast[usize](0));
+                                if ep_colon >= 0 {
+                                    val ep_name: string = strip(substring_se(eparam, 0, ep_colon));
+                                    val ep_type: string = strip(substr(eparam, ep_colon + 1, str_len(eparam) - ep_colon - 1));
+                                    val mapped_ep_type: string = map_axe_type_to_c(ep_type);
+                                    StringBuilder.append(addr(sb_extern), mapped_ep_type);
+                                    StringBuilder.append_char(addr(sb_extern), ' ');
+                                    StringBuilder.append(addr(sb_extern), ep_name);
+                                } else {
+                                    StringBuilder.append(addr(sb_extern), eparam);
+                                }
+                            }
+                            ep_idx++;
+                        }
+                    }
+                    
+                    StringBuilder.append_c(addr(sb_extern), ");\n");
+                    val extern_proto: string = StringBuilder.to_string(addr(sb_extern));
+                    StringBuilder.destroy(addr(sb_extern));
+                    StringBuilder.append(addr(sb_protos), extern_proto);
+                }
                 i_proto++;
             }
             

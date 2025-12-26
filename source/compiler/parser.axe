@@ -1439,6 +1439,7 @@ pub def parse(tokens: ref list(Token), is_axec: bool, check_entry_point: bool, c
     ctx.current_module = current_module;
     ctx.filename = filename;
     ctx.expecting_public = false;
+    ctx.extern_symbol = str("");
     ctx.current_model = str("");
     
     g_check_shadowing = check_entry_point;
@@ -1796,7 +1797,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
     // Handle function tags like [inline]
     if token_type == TokenType.LBRACKET {
         mut tags: list(string);
-        mut extern_symbol: string = str("");
+        ctx.extern_symbol = str("");
 
         ctx.pos++;
         skip_whitespace(ctx);
@@ -1813,7 +1814,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
                     skip_whitespace(ctx);
                     
                     if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.STR {
-                        extern_symbol = ctx.tokens.data[ctx.pos].value;
+                        ctx.extern_symbol = ctx.tokens.data[ctx.pos].value;
                         ctx.pos++;
                         skip_whitespace(ctx);
                     } else {
@@ -1853,12 +1854,13 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
             skip_whitespace(ctx);
         }
         
-        if str_len(extern_symbol) > 0 and ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.EXTERN {
+        if str_len(ctx.extern_symbol) > 0 and ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.EXTERN {
             mut extern_node: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
             if str_len(extern_node.node_type) > 0 {
-                extern_node.data.extern_node.symbol = extern_symbol;
+                extern_node.data.extern_node.symbol = ctx.extern_symbol;
                 add_child_to_ast(ast, extern_node);
             }
+            ctx.extern_symbol = str("");
             return;
         }
         
@@ -8021,6 +8023,9 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
 
         node.data.extern_node.return_type = extern_return_type;
+        node.data.extern_node.is_public = ctx.expecting_public;
+        node.data.extern_node.symbol = ctx.extern_symbol;
+        ctx.extern_symbol = str("");
         return node;
     }
     

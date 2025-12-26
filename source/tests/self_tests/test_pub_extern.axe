@@ -1,0 +1,6 @@
+[symbol: "malloc"]
+pub extern def my_malloc(size: usize): ref u8;
+
+test {
+    
+}

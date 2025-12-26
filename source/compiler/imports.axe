@@ -396,6 +396,10 @@ def build_exported_name_map(imported: ref ASTNode): StringBoolMap {
             if child.data.macro_node.is_public {
                 StringBoolMap.set(addr(m), addr(arena), child.data.macro_node.name, true);
             }
+        } elif equals_c(child.node_type, "Extern") {
+            if child.data.extern_node.is_public {
+                StringBoolMap.set(addr(m), addr(arena), child.data.extern_node.function_name, true);
+            }
         }
         i++;
     }
@@ -784,7 +788,25 @@ def merge_imported_module(program: ref ASTNode, imported: ref ASTNode, use_modul
             register_imported_symbol(var_name);
         } elif equals_c(child.node_type, "Extern") {
             val func_name: string = child.data.extern_node.function_name;
+            
+            if !child.data.extern_node.is_public {
+                i++;
+                continue;
+            }
+
+            if check_symbol_exists_in_program(program, func_name) {
+                print "error: imported symbol '";
+                print func_name;
+                print "' from module '";
+                print use_module;
+                println "' shadows a local declaration";
+                unsafe {
+                    C.exit(1);
+                }
+            }
+
             register_imported_symbol(func_name);
+            prefix_types_in_node(addr(child), module_prefix, addr(exported));
         } elif equals_c(child.node_type, "Platform") {
             if child.children != nil {
                 val plat_children: ref list(ASTNode) = child.children;
@@ -1041,6 +1063,9 @@ pub def process_imports(
                                     C.exit(1);
                                 }
                             }
+                        } elif equals_c(node_type, "Extern") {
+                            val extern_name: string = import_child.data.extern_node.function_name;
+                            validate_import_visibility(extern_name, import_child.data.extern_node.is_public, use_mod, addr(import_set), str("extern"));
                         }
 
                         j++;
