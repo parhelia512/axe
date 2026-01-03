@@ -3331,6 +3331,8 @@ def parse_function(ctx: ref ParserContext): ASTNode {
                 current_param = concat(current_param, str("ref "));
             } elif t.token_type == TokenType.MUT {
                 current_param = concat(current_param, str("mut "));
+            } elif t.token_type == TokenType.VAL {
+                current_param = concat(current_param, str("val "));
             } else {
                 current_param = concat(current_param, t.value);
             }
