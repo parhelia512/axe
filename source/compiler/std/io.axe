@@ -84,24 +84,28 @@ pub def println_f32(value: f32) {
     }
 }
 
+/// Print an f64 with newline
 pub def println_f64(value: f64) {
     unsafe {
         C.printf("%.10f\n", value);
     }
 }
 
+/// Print an f64 with no newline
 pub def print_f64(value: f64) {
     unsafe {
         C.printf("%.10f", value);
     }
 }
 
+/// Print some i64 with newline
 pub def println_i64(value: i64) {
     unsafe {
         C.printf("%ld\n", value);
     }
 }
 
+/// Print some i64 with no newline
 pub def print_i64(value: i64) {
     unsafe {
         C.printf("%ld", value);
@@ -256,24 +260,28 @@ pub def eprintln_f32(value: f32) {
     }
 }
 
+/// Print some f64 to stderr with newline
 pub def eprintln_f64(value: f64) {
     unsafe {
         C.fprintf(C.stderr, "%.10f\n", value);
     }
 }
 
+/// Print some f64 to stderr with no newline
 pub def eprint_f64(value: f64) {
     unsafe {
         C.fprintf(C.stderr, "%.10f", value);
     }
 }
 
+/// Print some i64 to stderr with newline
 pub def eprintln_i64(value: i64) {
     unsafe {
         C.fprintf(C.stderr, "%ld\n", value);
     }
 }
 
+/// Print some i64 to stderr with no newline
 pub def eprint_i64(value: i64) {
     unsafe {
         C.fprintf(C.stderr, "%ld", value);
