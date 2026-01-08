@@ -102,23 +102,44 @@ def is_module_processed(path: string): bool {
 
 /// Generate a module prefix from its name
 def get_module_prefix(module_name: string): string {
+    mut normalized_name: string = module_name;
+    
+    if has_prefix(module_name, str("./")) or has_prefix(module_name, str("../")) {
+        val lenp: i32 = cast[i32](str_len(module_name));
+        mut last_slash: i32 = -1;
+        mut i: i32 = 0;
+        loop {
+            if i >= lenp {
+                break;
+            }
+            val ch: char = get_char(module_name, i);
+            if ch == '/' or ch == '\\' {
+                last_slash = i;
+            }
+            i++;
+        }
+        if last_slash >= 0 and last_slash + 1 < lenp {
+            normalized_name = substring_se(module_name, last_slash + 1, lenp);
+        }
+    }
+    
     mut result: string = str("");
-    mut i: i32 = 0;
-    val n: i32 = cast[i32](str_len(module_name));
+    mut j: i32 = 0;
+    val n: i32 = cast[i32](str_len(normalized_name));
     loop {
-        if i >= n {
+        if j >= n {
             break;
         }
-        val ch: char = get_char(module_name, i);
+        val ch: char = get_char(normalized_name, j);
         if ch == '.' {
             result = concat(result, str("__"));
         } elif ch == '-' {
             result = concat(result, str("_"));
         } else {
-            val tmp: string = substring_se(module_name, i, i + 1);
+            val tmp: string = substring_se(normalized_name, j, j + 1);
             result = concat(result, tmp);
         }
-        i++;
+        j++;
     }
     return result;
 }
@@ -138,17 +159,89 @@ def get_dir_from_path(path: string): string {
     }
 }
 
+def normalize_path(path: string): string {
+    val components: ref StringList = StringList.create(addr(g_model_names_arena), 32);
+    mut current: string = str("");
+    val path_len: i32 = cast[i32](str_len(path));
+    mut i: i32 = 0;
+    
+    loop {
+        if i >= path_len {
+            if str_len(current) > 0 {
+                StringList.push(components, addr(g_model_names_arena), current);
+            }
+            break;
+        }
+        
+        val ch: char = get_char(path, i);
+        if ch == '/' or ch == '\\' {
+            if str_len(current) > 0 {
+                StringList.push(components, addr(g_model_names_arena), current);
+                current = str("");
+            }
+        } else {
+            current = concat(current, substring_se(path, i, i + 1));
+        }
+        i++;
+    }
+    
+    mut normalized: ref StringList = StringList.create(addr(g_model_names_arena), 32);
+    mut j: i32 = 0;
+    loop {
+        if j >= components.len {
+            break;
+        }
+        
+        val component: string = StringList.get(components, j);
+        if equals_c(component, "..") {
+            if normalized.len > 0 {
+                normalized.len--;
+            }
+        } elif !equals_c(component, ".") and str_len(component) > 0 {
+            StringList.push(normalized, addr(g_model_names_arena), component);
+        }
+        j++;
+    }
+    
+    mut result: string = str("");
+    mut k: i32 = 0;
+    loop {
+        if k >= normalized.len {
+            break;
+        }
+        
+        if k > 0 {
+            result = concat(result, str("/"));
+        }
+        result = concat(result, StringList.get(normalized, k));
+        k++;
+    }
+    
+    if str_len(path) > 0 and get_char(path, 0) == '/' {
+        result = concat(str("/"), result);
+    }
+    
+    return result;
+}
+
 def join_path(base_dir: string, rel: string): string {
     if str_len(base_dir) == 0 or equals_c(base_dir, ".") {
         return rel;
     }
 
     val last: char = get_char(base_dir, str_len(base_dir) - 1);
+    mut path: string;
     if last == '/' or last == '\\' {
-        return concat(base_dir, rel);
+        path = concat(base_dir, rel);
+    } else {
+        path = concat(concat(base_dir, str("/")), rel);
     }
 
-    return concat(concat(base_dir, str("/")), rel);
+    if find_substr(path, str("../")) >= 0 {
+        return normalize_path(path);
+    }
+
+    return path;
 }
 
 def make_module_path(base_dir: string, use_module: string): string {

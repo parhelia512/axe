@@ -21,7 +21,7 @@ use imports (
     process_imports,
     has_imported_module
 );
-use renderer (
+use backends.c.renderer (
     has_external_header, 
     initialize_renderer, 
     set_source_file, 
