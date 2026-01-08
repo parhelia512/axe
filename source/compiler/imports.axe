@@ -1069,27 +1069,27 @@ pub def process_imports(
             val module_path: string = make_module_path(effective_base, use_mod);
             
             if !file_exists(module_path) {
-                print(str("Cannot find module '"));
+                print("Cannot find module '");
                 print(use_mod);
-                print(str("'\n"));
-                print(str("Searched for: "));
+                print("'\n");
+                print("Searched for: ");
                 print(module_path);
-                print(str("\n"));
+                print("\n");
                 if has_prefix(use_mod, str("std.")) {
-                    print(str("Note: Standard library modules are searched in:\n"));
-                    print(str("    - $AXE_HOME/std/\n"));
-                    print(str("    - compiler/std/\n"));
-                    print(str("    - ../std/\n"));
-                    print(str("    - executable_dir/std/\n"));
-                    print(str("    - ~/.axe/std/\n"));
+                    print("Note: Standard library modules are searched in:\n");
+                    print("    - $AXE_HOME/std/\n");
+                    print("    - compiler/std/\n");
+                    print("    - ../std/\n");
+                    print("    - executable_dir/std/\n");
+                    print("    - ~/.axe/std/\n");
                 } elif has_prefix(use_mod, str("./")) or has_prefix(use_mod, str("../")) {
-                    print(str("Note: Relative imports are resolved from: "));
+                    print("Note: Relative imports are resolved from: ");
                     print(effective_base);
-                    print(str("\n"));
+                    print("\n");
                 } else {
-                    print(str("Note: Module imports are resolved from: "));
+                    print("Note: Module imports are resolved from: ");
                     print(effective_base);
-                    print(str("\n"));
+                    print("\n");
                 }
                 panic(error.create("Module not found"));
             }
