@@ -528,6 +528,22 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
         }
     }
 
+    platform windows {
+        if str_len(compiler) == 0 {
+            if command_exists(str("clang")) {
+                compiler = str("clang");
+            }
+        }
+    }
+
+    platform linux {
+        if command_exists(str("gcc")) {
+            compiler = str("gcc");
+        } elif command_exists(str("clang")) {
+            compiler = str("clang");
+        }
+    }
+
     if str_len(compiler) == 0 {
         if command_exists(str("clang")) {
             compiler = str("clang");
@@ -540,10 +556,17 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
             }
             
             if str_len(compiler) == 0 {
-                println "\nYou do not have the LLVM C toolchain installed.";
-                println "Install clang from https://releases.llvm.org/ or via your package manager.";
-                println "Alternatively, ensure 'cc' is available in your PATH.";
+                platform linux {
+                    println "\nYou do not have GCC or Clang installed.";
+                    println "Install gcc or clang from your package manager.";
+                }
+                platform windows {
+                    println "\nYou do not have the LLVM C toolchain installed.";
+                    println "Install clang from https://releases.llvm.org/ or via your package manager.";
+                }
                 platform macos {
+                    println "\nYou do not have the LLVM C toolchain installed.";
+                    println "Install clang from https://releases.llvm.org/ or via your package manager.";
                     println "For parallel features to work, run 'brew install llvm' first (requires installing Homebrew).";
                 }
                 return false;
@@ -705,10 +728,20 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
     }
     
     val compile_only: bool = get_compile_only();
-    if compile_only {
-        compile_cmd = concat(compile_cmd, str(" -Wno-everything -O0 -c -o "));
+    mut warning_flags: string = str("");
+    
+    if str_contains_c(compiler, "gcc") {
+        warning_flags = str(" -w");
     } else {
-        compile_cmd = concat(compile_cmd, str(" -Wno-everything -O0 -o "));
+        warning_flags = str(" -Wno-everything");
+    }
+    
+    if compile_only {
+        compile_cmd = concat(compile_cmd, warning_flags);
+        compile_cmd = concat_c(compile_cmd, " -O0 -c -o ");
+    } else {
+        compile_cmd = concat(compile_cmd, warning_flags);
+        compile_cmd = concat_c(compile_cmd, " -O0 -o ");
     }
     compile_cmd = concat(compile_cmd, exe_filename);
     
