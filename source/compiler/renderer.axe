@@ -6456,6 +6456,7 @@ def convert_union_member_init(expr: string): string {
     return result;
 }
 
+/// Fix floating-point literals that have spaces around the decimal point
 def process_expression(expr: string): string {
     mut trimmed: string = strip(expr);
     
@@ -6851,9 +6852,14 @@ def process_expression(expr: string): string {
     val mod_fixed: string = replace_keyword_outside_strings(prefixes_fixed, str("mod"), str("%"));
     val and_fixed: string = replace_keyword_outside_strings(mod_fixed, str("and"), str("&&"));
     val or_fixed: string = replace_keyword_outside_strings(and_fixed, str("or"), str("||"));
-    val extern_aliases_fixed: string = apply_extern_aliases(strip(or_fixed));
+    
+    mut final_result: string = or_fixed;
+    final_result = replace_all(final_result, str(" . "), str("."));
+    
+    val extern_aliases_fixed: string = apply_extern_aliases(strip(final_result));
+    val float_literal_fixed: string = replace_all(extern_aliases_fixed, str(" . "), str("."));
 
-    return extern_aliases_fixed;
+    return float_literal_fixed;
 }
 
 /// Generate stack trace headers for segfault handlers (Windows and POSIX versions)
@@ -10934,6 +10940,8 @@ pub def generate_c(ast: ref ASTNode): string {
         
         result = StringBuilder.to_string(addr(sb_assign));
         StringBuilder.destroy(addr(sb_assign));
+        result = replace_all(result, str(" . "), str("."));
+        
         return result;
     }
     
