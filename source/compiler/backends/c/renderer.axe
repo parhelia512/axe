@@ -3,10 +3,10 @@
 /// 
 /// Handles the rendering process.
 
-use gstate;
-use structs     (ASTNode);
-use imports     (is_symbol_imported);
-use std.lists   (StringList, IntList, LongList);
+use ../../gstate;
+use ../../structs     (ASTNode);
+use ../../imports     (is_symbol_imported);
+use std.lists         (StringList, IntList, LongList);
 use std.string;
 use std.io;
 use std.os;
