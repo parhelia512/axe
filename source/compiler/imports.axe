@@ -974,10 +974,39 @@ pub def process_imports(
         if equals_c(child.node_type, "Use") {
             val use_mod: string = child.data.use_node.module_name;
             val module_path: string = make_module_path(effective_base, use_mod);
+            
+            if !file_exists(module_path) {
+                print(str("Cannot find module '"));
+                print(use_mod);
+                print(str("'\n"));
+                print(str("Searched for: "));
+                print(module_path);
+                print(str("\n"));
+                if has_prefix(use_mod, str("std.")) {
+                    print(str("Note: Standard library modules are searched in:\n"));
+                    print(str("    - $AXE_HOME/std/\n"));
+                    print(str("    - compiler/std/\n"));
+                    print(str("    - ../std/\n"));
+                    print(str("    - executable_dir/std/\n"));
+                    print(str("    - ~/.axe/std/\n"));
+                } elif has_prefix(use_mod, str("./")) or has_prefix(use_mod, str("../")) {
+                    print(str("Note: Relative imports are resolved from: "));
+                    print(effective_base);
+                    print(str("\n"));
+                } else {
+                    print(str("Note: Module imports are resolved from: "));
+                    print(effective_base);
+                    print(str("\n"));
+                }
+                panic(error.create("Module not found"));
+            }
+            
             val src: string = read_file(module_path);
             if str_len(src) == 0 {
-                idx = idx + 1;
-                continue;
+                print(str("Error: Failed to read module file: "));
+                print(module_path);
+                print(str("\n"));
+                panic(error.create("Failed to read module"));
             }
 
             val toks: list(Token) = lex(src);
