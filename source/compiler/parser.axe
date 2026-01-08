@@ -2557,6 +2557,11 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
 
             skip_whitespace(ctx);
             if expect(ctx, TokenType.STAR) {
+                if !saw_ref {
+                    mut err: string = format_error(ctx, str("C-style pointer syntax (e.g., 'char*') is not allowed in overloads. Use 'ref char' instead."));
+                    enforce_raw(false, err.data);
+                    return;
+                }
                 consume(ctx);
                 // Append '*' to the last stored type name
                 val last_idx: i32 = len(type_names) - 1;

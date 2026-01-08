@@ -1,0 +1,7 @@
+pub overload some_overload(x: generic) {
+	char* => do_thing
+}(x);
+
+pub def do_thing(x: ref char) {
+
+}

@@ -26,9 +26,9 @@ pub mut no_windows_header: bool = false;
 
 /// Print a debug message
 pub overload debug_print(x: generic) {
-    string => debug_print_str;
-    char*  => debug_print_raw;
-    i32    => debug_print_int;
+    string    => debug_print_str;
+    ref char  => debug_print_raw;
+    i32       => debug_print_int;
 }(x);
 
 /// Enable verbose logging
