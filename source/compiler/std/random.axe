@@ -1,6 +1,7 @@
 use std.io;
 use std.time;
 use std.errors;
+use std.math;
 
 /// Obtain random seed from current time.
 pub def randomize(): void {
@@ -132,7 +133,7 @@ pub def random_normal(mean: f64, std_dev: f64): f64 {
     unsafe {
         val u1: f64 = C.rand() / cast[f64](C.RAND_MAX);
         val u2: f64 = C.rand() / cast[f64](C.RAND_MAX);
-        val z0: f64 = C.sqrt(-2.0 * C.log(u1)) * C.cos(2.0 * 3.14159265358979323846 * u2);
+        val z0: f64 = sqrt(-2.0 * ln(u1)) * cos(2.0 * 3.14159265358979323846 * u2);
         return mean + z0 * std_dev;
     }
 }
@@ -171,7 +172,7 @@ pub def random_exponential(lambda: f64): f64 {
     }
     unsafe {
         val u: f64 = C.rand() / cast[f64](C.RAND_MAX);
-        return -C.log(u) / lambda;
+        return -ln(u) / lambda;
     }
 }
 
