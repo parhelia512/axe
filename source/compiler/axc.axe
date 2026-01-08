@@ -66,6 +66,12 @@ def main() {
             i += 2;
             continue;
         }
+        if equals_c(arg, "--backend") and i + 1 < args.len {
+            val backend: string = StringList.get(args, i + 1);
+            set_backend_type(backend);
+            i += 2;
+            continue;
+        }
         if has_prefix(arg, str("-I")) and str_len(arg) > 2 {
             val inc_path: string = substring_se(arg, 2, cast[i32](str_len(arg)));
             StringList.push(inc_paths, addr(arena), inc_path);

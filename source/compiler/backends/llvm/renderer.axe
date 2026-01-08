@@ -1,0 +1,107 @@
+/// Author: Navid Momtahen (C) 2025
+/// License: GPL-3.0
+/// 
+/// LLVM IR backend renderer for Axe compiler.
+
+use ../../gstate;
+use ../../structs (ASTNode);
+use std.lists (StringList);
+use std.string;
+use std.io;
+use std.maps;
+
+/// Global LLVM IR string builder
+mut g_llvm_sb: StringBuilder;
+
+/// Track LLVM basic block counter
+mut g_block_counter: i32;
+
+/// Track LLVM register counter  
+mut g_register_counter: i32;
+
+/// Track variable to register mappings
+mut g_var_registers: StringStringMap;
+
+/// Track function declarations
+mut g_function_decls: StringBoolMap;
+
+/// Initialize the LLVM renderer
+pub def initialize_llvm_renderer() {
+}
+
+/// Get next register name
+def next_register(): string {
+    val reg: string = concat(str("%"), i32_to_string(g_register_counter));
+    g_register_counter++;
+    return reg;
+}
+
+/// Get next block label
+def next_block(): string {
+    val block: string = concat(str("block"), i32_to_string(g_block_counter));
+    g_block_counter++;
+    return block;
+}
+
+/// Generate LLVM IR for an AST node
+pub def generate_llvm(ast: ref ASTNode): string {
+    return str("; Simple LLVM IR test\ndefine i32 @main() {\nentry:\n  ret i32 42\n}\n");
+}
+
+/// Render program node
+def render_program(ast: ref ASTNode): string {
+    if ast.children == nil {
+        return str("");
+    }
+    
+    val children: ref list(ASTNode) = ast.children;
+    val child_count: i32 = len(deref(children));
+    mut i: i32 = 0;
+    
+    loop {
+        if i >= child_count {
+            break;
+        }
+        val child_code: string = generate_llvm(addr(children.data[i]));
+        StringBuilder.append(addr(g_llvm_sb), child_code);
+        i++;
+    }
+    
+    return StringBuilder.to_string(addr(g_llvm_sb));
+}
+
+/// Render function definition
+def render_function(ast: ref ASTNode): string {
+    val func_name: string = ast.data.function.name;
+    mut sb: StringBuilder = StringBuilder.init(256);
+    
+    StringBuilder.append(addr(sb), str("define i32 @"));
+    StringBuilder.append(addr(sb), func_name);
+    StringBuilder.append(addr(sb), str("() {\n"));
+    StringBuilder.append(addr(sb), str("entry:\n"));
+    
+    if ast.children != nil {
+        val children: ref list(ASTNode) = ast.children;
+        val child_count: i32 = len(deref(children));
+        mut i: i32 = 0;
+        
+        loop {
+            if i >= child_count {
+                break;
+            }
+            val child_code: string = generate_llvm(addr(children.data[i]));
+            StringBuilder.append(addr(sb), child_code);
+            i++;
+        }
+    }
+    
+    StringBuilder.append(addr(sb), str("}\n\n"));
+    return StringBuilder.to_string(addr(sb));
+}
+
+/// Render return statement
+def render_return(ast: ref ASTNode): string {
+    mut sb: StringBuilder = StringBuilder.init(128);
+    StringBuilder.append(addr(sb), str("  ret i32 0\n"));
+    return StringBuilder.to_string(addr(sb));
+}
