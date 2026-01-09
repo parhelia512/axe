@@ -418,6 +418,7 @@ def render_qbe_overload(ast: ref ASTNode): string {
         if i >= count {
             break;
         }
+
         val type_name: string = type_names.data[i];
         val target_func: string = target_funcs.data[i];      
         val overload_key1: string = concat(concat(overload_name, str(":")), type_name);
