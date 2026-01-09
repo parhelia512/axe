@@ -89,6 +89,8 @@ def render_qbe_ast_node(ast: ref ASTNode): string {
         return render_qbe_print(ast);
     } elif equals_c(node_type, "Model") {
         return render_qbe_model(ast);
+    } elif equals_c(node_type, "FunctionCall") {
+        return render_qbe_function_call(ast);
     }
     
     return str("");
@@ -303,4 +305,16 @@ def render_qbe_model(ast: ref ASTNode): string {
     }
 
     return str("");
+}
+
+/// Render function call
+def render_qbe_function_call(ast: ref ASTNode): string {
+    val func_name: string = ast.data.func_call.function_name;
+    mut sb: StringBuilder = StringBuilder.init(128);
+    
+    StringBuilder.append(addr(sb), str("    call $"));
+    StringBuilder.append(addr(sb), func_name);
+    StringBuilder.append(addr(sb), str("()\n"));
+    
+    return StringBuilder.to_string(addr(sb));
 }
