@@ -169,6 +169,7 @@ def print_help_and_exit() {
     println("  -ast              Print the parsed AST and exit");
     println("  -dll              Build shared instead of standalone executable");
     println("  --release         Build in release mode");
+    println("  --backend <name>  Build either with the C or LLVM backend");
     println("  --bootstrap       Emit without line directives");
     println("  -l, --loud        Loud debug output");
     println("  -q, --quiet       Suppress all output");
