@@ -1,4 +1,4 @@
-/// Author: Navid Momtahen (C) 2025
+/// Author: Navid Momtahen (C) 2026
 /// License: GPL-3.0
 
 use std.algorithms;
@@ -89,7 +89,7 @@ def main() {
     
     if strlst_contains_c(deref(args), "-v") or strlst_contains_c(deref(args), "--version") {
         println("Axe v0.0.16");
-        println("Specification and compiler by Navid Momtahen ((C) GPL-3.0, 2025)\n");
+        println("Specification and compiler by Navid Momtahen ((C) GPL-3.0, 2026)\n");
         quit(0);
     }
 
