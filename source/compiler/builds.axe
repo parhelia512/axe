@@ -35,6 +35,10 @@ use backends.llvm.renderer (
     generate_llvm,
     llvm_renderer_add_prefix
 );
+use backends.qbe.renderer (
+    initialize_qbe_renderer,
+    generate_qbe
+);
 use std.os (
     ExecResult, 
     exec_capture, 
@@ -506,6 +510,8 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
     val backend: string = get_backend_type();
     if equals_c(backend, "llvm") {
         initialize_llvm_renderer();
+    } elif equals_c(backend, "qbe") {
+        initialize_qbe_renderer();
     } else {
         initialize_renderer();
     }
@@ -529,6 +535,13 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
         code_file = replace_extension(filename, str(".ll"));
         if str_len(generated_code) == 0 {
             println "Error: Failed to generate LLVM IR code";
+            return false;
+        }
+    } elif equals_c(backend, "qbe") {
+        generated_code = generate_qbe(addr(ast));
+        code_file = replace_extension(filename, str(".ssa"));
+        if str_len(generated_code) == 0 {
+            println "Error: Failed to generate QBE IR code";
             return false;
         }
     } else {
@@ -580,7 +593,33 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
         }
     }
     
-    mut compile_cmd: string = concat(compiler, str(" "));
+    mut compile_cmd: string;
+    
+    if equals_c(backend, "qbe") {
+        val asm_file: string = replace_extension(filename, str(".s"));
+        val qbe_cmd: string = concat(concat(str("qbe -o "), asm_file), concat(str(" "), code_file));
+        val qbe_result: ExecResult = exec_capture(qbe_cmd);
+        
+        if qbe_result.exit_code != 0 {
+            println "Error: QBE compilation failed";
+            println qbe_result.output;
+            return false;
+        }
+        
+        val clang_available: bool = command_exists(str("clang"));
+        val gcc_available: bool = command_exists(str("gcc"));
+        
+        if clang_available {
+            compile_cmd = concat(str("clang "), asm_file);
+        } elif gcc_available {
+            compile_cmd = concat(str("gcc "), asm_file);
+        } else {
+            println "Error: No C toolchain found in PATH, cannot link.";
+            return false;
+        }
+    } else {
+        compile_cmd = concat(compiler, str(" "));
+    }
     
     val target_triple: string = get_target_triple();
     if str_len(target_triple) > 0 {
@@ -765,6 +804,8 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
         if !::quiet_mode {
             if equals_c(backend, "llvm") {
                 println "Keeping emitted LLVM IR.";
+            } elif equals_c(backend, "qbe") {
+                println "Keeping emitted QBE IR.";
             } else {
                 println "Keeping emitted C.";
             }

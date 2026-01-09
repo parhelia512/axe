@@ -1,0 +1,306 @@
+/// Author: Navid Momtahen (C) 2026
+/// License: GPL-3.0
+/// 
+/// QBE IR backend renderer for Axe compiler.
+
+use ../../gstate;
+use ../../structs (ASTNode);
+use std.lists (StringList);
+use std.string;
+use std.io;
+use std.maps;
+use std.arena;
+
+/// Global QBE IR string builder
+mut g_qbe_sb: StringBuilder;
+
+/// Track QBE register counter  
+mut g_qbe_register_counter: i32;
+
+/// Track variable to register mappings
+mut g_qbe_var_registers: StringStringMap;
+
+/// Track variable types
+mut g_qbe_var_types: StringStringMap;
+
+/// Track model definitions
+mut g_qbe_model_definitions: StringStringMap;
+
+/// Track model field offsets
+mut g_qbe_model_field_offsets: StringIntMap;
+
+/// Track if QBE renderer is initialized
+mut g_qbe_initialized: bool = false;
+
+/// Arena for QBE renderer memory management
+mut g_qbe_arena: Arena;
+
+/// Initialize the QBE renderer
+pub def initialize_qbe_renderer() {
+    g_qbe_arena = Arena.create(1024 * 1024);
+    g_qbe_var_registers = deref(StringStringMap.create(addr(g_qbe_arena), 128));
+    g_qbe_var_types = deref(StringStringMap.create(addr(g_qbe_arena), 128));
+    g_qbe_model_definitions = deref(StringStringMap.create(addr(g_qbe_arena), 128));
+    g_qbe_model_field_offsets = deref(StringIntMap.create(addr(g_qbe_arena), 256));
+    g_qbe_register_counter = 1;
+    g_qbe_initialized = true;
+}
+
+/// Get next register name
+def next_qbe_register(): string {
+    val reg: string = concat(str("%r"), i32_to_string(g_qbe_register_counter));
+    g_qbe_register_counter++;
+    return reg;
+}
+
+/// Generate QBE IR for an AST node
+pub def generate_qbe(ast: ref ASTNode): string {
+    if ast == nil {
+        return str("# Empty AST\n");
+    }
+    
+    g_qbe_sb = StringBuilder.init(4096);
+    g_qbe_register_counter = 1;
+    
+    val code: string = render_qbe_ast_node(ast);
+    return code;
+}
+
+/// Render any AST node based on its type
+def render_qbe_ast_node(ast: ref ASTNode): string {
+    if ast == nil {
+        return str("");
+    }
+    
+    val node_type: string = ast.node_type;
+    if str_len(node_type) == 0 {
+        return str("");
+    }
+    
+    if equals_c(node_type, "Program") {
+        return render_qbe_program(ast);
+    } elif equals_c(node_type, "Function") {
+        return render_qbe_function(ast);
+    } elif equals_c(node_type, "Return") {
+        return render_qbe_return(ast);
+    } elif equals_c(node_type, "Declaration") {
+        return render_qbe_declaration(ast);
+    } elif equals_c(node_type, "Print") {
+        return render_qbe_print(ast);
+    } elif equals_c(node_type, "Model") {
+        return render_qbe_model(ast);
+    }
+    
+    return str("");
+}
+
+/// Render program node
+def render_qbe_program(ast: ref ASTNode): string {
+    if ast.children == nil {
+        return str("");
+    }
+    
+    val children: ref list(ASTNode) = ast.children;
+    val child_count: i32 = len(deref(children));
+    mut i: i32 = 0;
+    
+    loop {
+        if i >= child_count {
+            break;
+        }
+        val child_code: string = render_qbe_ast_node(addr(children.data[i]));
+        StringBuilder.append(addr(g_qbe_sb), child_code);
+        i++;
+    }
+    
+    return StringBuilder.to_string(addr(g_qbe_sb));
+}
+
+/// Render function definition
+def render_qbe_function(ast: ref ASTNode): string {
+    val func_name: string = ast.data.function.name;
+    val return_type: string = ast.data.function.return_type;
+    mut sb: StringBuilder = StringBuilder.init(512);
+    
+    StringBuilder.append(addr(sb), str("export function w $"));
+    StringBuilder.append(addr(sb), func_name);
+    StringBuilder.append(addr(sb), str("() {\n"));
+    StringBuilder.append(addr(sb), str("@start\n"));
+    
+    mut has_return: bool = false;
+    if ast.children != nil {
+        val children: ref list(ASTNode) = ast.children;
+        val child_count: i32 = len(deref(children));
+        mut i: i32 = 0;
+        
+        loop {
+            if i >= child_count {
+                break;
+            }
+            val child: ref ASTNode = addr(children.data[i]);
+            if equals_c(child.node_type, "Return") {
+                has_return = true;
+            }
+            val child_code: string = render_qbe_ast_node(child);
+            StringBuilder.append(addr(sb), child_code);
+            i++;
+        }
+    }
+    
+    if !has_return {
+        StringBuilder.append(addr(sb), str("    ret 0\n"));
+    }
+    
+    StringBuilder.append(addr(sb), str("}\n\n"));
+    return StringBuilder.to_string(addr(sb));
+}
+
+/// Render declaration node
+def render_qbe_declaration(ast: ref ASTNode): string {
+    val name: string = ast.data.declaration.name;
+    val type_name: string = ast.data.declaration.type_name;
+    val initializer: string = ast.data.declaration.initializer;
+    val reg: string = next_qbe_register();
+
+    StringStringMap.set(addr(g_qbe_var_registers), addr(g_qbe_arena), name, reg);
+    StringStringMap.set(addr(g_qbe_var_types), addr(g_qbe_arena), name, type_name);
+    
+    mut sb: StringBuilder = StringBuilder.init(128);
+
+    if StringStringMap.contains(addr(g_qbe_model_definitions), type_name) {
+        StringBuilder.append(addr(sb), str("    "));
+        StringBuilder.append(addr(sb), reg);
+        StringBuilder.append(addr(sb), str(" =l alloc8 8\n"));
+        
+        if str_len(initializer) > 0 and str_contains(initializer, str("{ }")) {
+            StringBuilder.append(addr(sb), str("    storew 0, "));
+            StringBuilder.append(addr(sb), reg);
+            StringBuilder.append(addr(sb), str("\n"));
+            val offset_reg: string = next_qbe_register();
+            StringBuilder.append(addr(sb), str("    "));
+            StringBuilder.append(addr(sb), offset_reg);
+            StringBuilder.append(addr(sb), str(" =l add "));
+            StringBuilder.append(addr(sb), reg);
+            StringBuilder.append(addr(sb), str(", 4\n"));
+            StringBuilder.append(addr(sb), str("    storew 0, "));
+            StringBuilder.append(addr(sb), offset_reg);
+            StringBuilder.append(addr(sb), str("\n"));
+        }
+    } else {
+        StringBuilder.append(addr(sb), str("    "));
+        StringBuilder.append(addr(sb), reg);
+        StringBuilder.append(addr(sb), str(" =l alloc4 4\n"));
+        
+        if str_len(initializer) > 0 {
+            StringBuilder.append(addr(sb), str("    storew "));
+            StringBuilder.append(addr(sb), initializer);
+            StringBuilder.append(addr(sb), str(", "));
+            StringBuilder.append(addr(sb), reg);
+            StringBuilder.append(addr(sb), str("\n"));
+        }
+    }
+    
+    return StringBuilder.to_string(addr(sb));
+}
+
+/// Render print node
+def render_qbe_print(ast: ref ASTNode): string {
+    val messages_ref: ref list(string) = ast.data.print.messages;
+    val flags_ref: ref list(bool) = ast.data.print.is_expressions;
+
+    if messages_ref == nil or flags_ref == nil {
+        return str("");
+    }
+
+    val messages: list(string) = deref(messages_ref);
+    val flags: list(bool) = deref(flags_ref);
+
+    if len(messages) == 0 {
+        return str("");
+    }
+
+    mut sb: StringBuilder = StringBuilder.init(256);
+    
+    if len(messages) == 1 and len(flags) == 1 and flags.data[0] {
+        val expr: string = strip(messages.data[0]);
+        
+        if find_char_from(expr, '.', cast[usize](0)) > 0 {
+            val dot_pos: i32 = find_char_from(expr, '.', cast[usize](0));
+            if dot_pos > 0 {
+                val object_name: string = substring_se(expr, 0, dot_pos);
+                
+                if StringStringMap.contains(addr(g_qbe_var_registers), object_name) {
+                    val object_reg: string = StringStringMap.get(addr(g_qbe_var_registers), object_name);
+                    val load_reg: string = next_qbe_register();
+                    
+                    StringBuilder.append(addr(sb), str("    "));
+                    StringBuilder.append(addr(sb), load_reg);
+                    StringBuilder.append(addr(sb), str(" =w loadw "));
+                    StringBuilder.append(addr(sb), object_reg);
+                    StringBuilder.append(addr(sb), str("\n"));
+                    StringBuilder.append(addr(sb), str("    call $println(w "));
+                    StringBuilder.append(addr(sb), load_reg);
+                    StringBuilder.append(addr(sb), str(")\n"));
+                    
+                    return StringBuilder.to_string(addr(sb));
+                }
+            }
+        }
+        
+        StringBuilder.append(addr(sb), str("    call $println(w "));
+        StringBuilder.append(addr(sb), expr);
+        StringBuilder.append(addr(sb), str(")\n"));
+        
+        return StringBuilder.to_string(addr(sb));
+    }
+    
+    return StringBuilder.to_string(addr(sb));
+}
+
+/// Render return statement
+def render_qbe_return(ast: ref ASTNode): string {
+    val expression: string = strip(ast.data.return_node.expression);
+    
+    mut sb: StringBuilder = StringBuilder.init(128);
+    if str_len(expression) > 0 {
+        StringBuilder.append(addr(sb), str("    ret "));
+        StringBuilder.append(addr(sb), expression);
+        StringBuilder.append(addr(sb), str("\n"));
+    } else {
+        StringBuilder.append(addr(sb), str("    ret 0\n"));
+    }
+    return StringBuilder.to_string(addr(sb));
+}
+
+/// Render model definition
+def render_qbe_model(ast: ref ASTNode): string {
+    val model_name: string = ast.data.model_node.name;
+    val field_names_ref: ref list(string) = ast.data.model_node.field_names;
+    val field_types_ref: ref list(string) = ast.data.model_node.field_types;
+
+    if field_names_ref == nil or field_types_ref == nil {
+        return str("");
+    }
+
+    val field_names: list(string) = deref(field_names_ref);
+    val field_types: list(string) = deref(field_types_ref);
+    val field_count: i32 = len(field_names);
+
+    if field_count != len(field_types) {
+        return str("");
+    }
+
+    StringStringMap.set(addr(g_qbe_model_definitions), addr(g_qbe_arena), model_name, str("defined"));
+
+    mut i: i32 = 0;
+    loop {
+        if i >= field_count {
+            break;
+        }
+        val field_key: string = concat(concat(model_name, str(".")), field_names.data[i]);
+        StringIntMap.set(addr(g_qbe_model_field_offsets), addr(g_qbe_arena), field_key, i * 4);
+        i++;
+    }
+
+    return str("");
+}
