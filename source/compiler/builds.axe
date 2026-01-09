@@ -145,10 +145,11 @@ def prefix_root_functions(node: ref ASTNode, mprefix: string) {
                 new_name = concat(new_name, fname);
                 
                 node.data.function.name = new_name;
-                renderer_add_prefix(fname, new_name);
                 
                 val backend: string = get_backend_type();
-                if equals_c(backend, "llvm") {
+                if equals_c(backend, "c") {
+                    renderer_add_prefix(fname, new_name);
+                } elif equals_c(backend, "llvm") {
                     llvm_renderer_add_prefix(fname, new_name);
                 }
             }
