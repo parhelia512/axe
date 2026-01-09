@@ -641,7 +641,7 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
     
     val toolchain_root: string = get_executable_dir();
     
-    if has_external_header(str("pcre.h")) {
+    if !equals_c(backend, "llvm") and has_external_header(str("pcre.h")) {
         compile_cmd = concat_c(compile_cmd, " -DPCRE_STATIC");
         platform windows {
             compile_cmd = concat_c(compile_cmd, " -I");

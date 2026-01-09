@@ -52,6 +52,10 @@ def next_block(): string {
 
 /// Generate LLVM IR for an AST node
 pub def generate_llvm(ast: ref ASTNode): string {
+    if ast == nil {
+        return str("; Empty AST\n");
+    }
+    
     g_llvm_sb = StringBuilder.init(4096);
     g_block_counter = 0;
     g_register_counter = 1;
@@ -67,6 +71,9 @@ def render_ast_node(ast: ref ASTNode): string {
     }
     
     val node_type: string = ast.node_type;
+    if str_len(node_type) == 0 {
+        return str("");
+    }
     
     if equals_c(node_type, "Program") {
         return render_program(ast);
@@ -119,9 +126,13 @@ def render_assignment(ast: ref ASTNode): string {
     val variable: string = ast.data.assignment.variable;
     val expression: string = ast.data.assignment.expression;
     
-    val reg: string = StringStringMap.get(addr(g_var_registers), variable);
+    if !StringStringMap.contains(addr(g_var_registers), variable) {
+        return str(""); 
+    }
     
+    val reg: string = StringStringMap.get(addr(g_var_registers), variable);
     mut sb: StringBuilder = StringBuilder.init(128);
+    
     StringBuilder.append(addr(sb), str("  store i32 "));
     StringBuilder.append(addr(sb), expression);
     StringBuilder.append(addr(sb), str(", i32* "));
@@ -153,6 +164,7 @@ def render_if(ast: ref ASTNode): string {
     val end_label: string = next_block();
     
     mut sb: StringBuilder = StringBuilder.init(256);
+
     StringBuilder.append(addr(sb), str("  br i1 "));
     StringBuilder.append(addr(sb), condition);
     StringBuilder.append(addr(sb), str(", label %"));
@@ -160,7 +172,6 @@ def render_if(ast: ref ASTNode): string {
     StringBuilder.append(addr(sb), str(", label %"));
     StringBuilder.append(addr(sb), else_label);
     StringBuilder.append(addr(sb), str("\n\n"));
-    
     StringBuilder.append(addr(sb), then_label);
     StringBuilder.append(addr(sb), str(":\n"));
     
@@ -182,13 +193,11 @@ def render_if(ast: ref ASTNode): string {
     StringBuilder.append(addr(sb), str("  br label %"));
     StringBuilder.append(addr(sb), end_label);
     StringBuilder.append(addr(sb), str("\n\n"));
-    
     StringBuilder.append(addr(sb), else_label);
     StringBuilder.append(addr(sb), str(":\n"));
     StringBuilder.append(addr(sb), str("  br label %"));
     StringBuilder.append(addr(sb), end_label);
     StringBuilder.append(addr(sb), str("\n\n"));
-    
     StringBuilder.append(addr(sb), end_label);
     StringBuilder.append(addr(sb), str(":\n"));
     
@@ -205,13 +214,11 @@ def render_loop(ast: ref ASTNode): string {
     StringBuilder.append(addr(sb), str("  br label %"));
     StringBuilder.append(addr(sb), loop_label);
     StringBuilder.append(addr(sb), str("\n\n"));
-    
     StringBuilder.append(addr(sb), loop_label);
     StringBuilder.append(addr(sb), str(":\n"));
     StringBuilder.append(addr(sb), str("  br label %"));
     StringBuilder.append(addr(sb), body_label);
     StringBuilder.append(addr(sb), str("\n\n"));
-    
     StringBuilder.append(addr(sb), body_label);
     StringBuilder.append(addr(sb), str(":\n"));
     
@@ -233,7 +240,6 @@ def render_loop(ast: ref ASTNode): string {
     StringBuilder.append(addr(sb), str("  br label %"));
     StringBuilder.append(addr(sb), loop_label);
     StringBuilder.append(addr(sb), str("\n\n"));
-    
     StringBuilder.append(addr(sb), end_label);
     StringBuilder.append(addr(sb), str(":\n"));
     
@@ -270,7 +276,7 @@ def render_function(ast: ref ASTNode): string {
     mut sb: StringBuilder = StringBuilder.init(512);
     
     StringBuilder.append(addr(sb), str("define "));
-    if equals_c(return_type, "void") {
+    if str_len(return_type) > 0 and equals_c(return_type, "void") {
         StringBuilder.append(addr(sb), str("void"));
     } else {
         StringBuilder.append(addr(sb), str("i32"));
@@ -280,6 +286,7 @@ def render_function(ast: ref ASTNode): string {
     StringBuilder.append(addr(sb), str("() {\n"));
     StringBuilder.append(addr(sb), str("entry:\n"));
     
+    mut has_return: bool = false;
     if ast.children != nil {
         val children: ref list(ASTNode) = ast.children;
         val child_count: i32 = len(deref(children));
@@ -289,16 +296,22 @@ def render_function(ast: ref ASTNode): string {
             if i >= child_count {
                 break;
             }
-            val child_code: string = render_ast_node(addr(children.data[i]));
+            val child: ref ASTNode = addr(children.data[i]);
+            if equals_c(child.node_type, "Return") {
+                has_return = true;
+            }
+            val child_code: string = render_ast_node(child);
             StringBuilder.append(addr(sb), child_code);
             i++;
         }
     }
     
-    if equals_c(return_type, "void") {
-        StringBuilder.append(addr(sb), str("  ret void\n"));
-    } else {
-        StringBuilder.append(addr(sb), str("  ret i32 0\n"));
+    if !has_return {
+        if str_len(return_type) > 0 and equals_c(return_type, "void") {
+            StringBuilder.append(addr(sb), str("  ret void\n"));
+        } else {
+            StringBuilder.append(addr(sb), str("  ret i32 0\n"));
+        }
     }
     
     StringBuilder.append(addr(sb), str("}\n\n"));
@@ -307,13 +320,26 @@ def render_function(ast: ref ASTNode): string {
 
 /// Render return statement
 def render_return(ast: ref ASTNode): string {
-    val expression: string = ast.data.return_node.expression;
+    val expression: string = strip(ast.data.return_node.expression);
     
     mut sb: StringBuilder = StringBuilder.init(128);
     if str_len(expression) > 0 {
-        StringBuilder.append(addr(sb), str("  ret i32 "));
-        StringBuilder.append(addr(sb), expression);
-        StringBuilder.append(addr(sb), str("\n"));
+        if StringStringMap.contains(addr(g_var_registers), expression) {
+            val reg: string = StringStringMap.get(addr(g_var_registers), expression);
+            val load_reg: string = next_register();
+            StringBuilder.append(addr(sb), str("  "));
+            StringBuilder.append(addr(sb), load_reg);
+            StringBuilder.append(addr(sb), str(" = load i32, i32* "));
+            StringBuilder.append(addr(sb), reg);
+            StringBuilder.append(addr(sb), str("\n"));
+            StringBuilder.append(addr(sb), str("  ret i32 "));
+            StringBuilder.append(addr(sb), load_reg);
+            StringBuilder.append(addr(sb), str("\n"));
+        } else {
+            StringBuilder.append(addr(sb), str("  ret i32 "));
+            StringBuilder.append(addr(sb), expression);
+            StringBuilder.append(addr(sb), str("\n"));
+        }
     } else {
         StringBuilder.append(addr(sb), str("  ret void\n"));
     }
