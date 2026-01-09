@@ -112,6 +112,8 @@ def render_qbe_ast_node(ast: ref ASTNode): string {
         return render_qbe_loop(ast);
     } elif equals_c(node_type, "Print") {
         return render_qbe_print(ast);
+    } elif equals_c(node_type, "Put") {
+        return render_qbe_print(ast);
     } elif equals_c(node_type, "Model") {
         return render_qbe_model(ast);
     } elif equals_c(node_type, "FunctionCall") {
@@ -205,7 +207,8 @@ def render_qbe_function(ast: ref ASTNode): string {
         if equals_c(child.node_type, "Return") or 
            equals_c(child.node_type, "Declaration") or
            equals_c(child.node_type, "FunctionCall") or
-           equals_c(child.node_type, "Print") {
+           equals_c(child.node_type, "Print") or
+           equals_c(child.node_type, "If") {
             has_meaningful_code = true;
             break;
         }
@@ -339,7 +342,10 @@ def render_qbe_declaration(ast: ref ASTNode): string {
                     );
                     
                     if StringStringMap.contains(addr(g_qbe_var_registers), object_name) {
-                        val object_reg: string = StringStringMap.get(addr(g_qbe_var_registers), object_name);
+                        val object_reg: string = StringStringMap.get(
+                            addr(g_qbe_var_registers),
+                            object_name
+                        );
                         val temp_reg: string = next_qbe_register();
                         
                         if equals_c(member_name, "len") {
@@ -1028,20 +1034,59 @@ def render_qbe_assignment(ast: ref ASTNode): string {
 def render_qbe_if(ast: ref ASTNode): string {
     mut sb: StringBuilder = StringBuilder.init(256);
     
+    val then_label: string = concat(str("then_"), i32_to_string(g_qbe_register_counter));
+    val else_label: string = concat(str("else_"), i32_to_string(g_qbe_register_counter));
+    val end_label: string = concat(str("end_"), i32_to_string(g_qbe_register_counter));
+    g_qbe_register_counter++;
+    
+    val cond_reg: string = next_qbe_register();
+    StringBuilder.append(addr(sb), str("    "));
+    StringBuilder.append(addr(sb), cond_reg);
+    StringBuilder.append(addr(sb), str(" =w ceqw 1, 1\n"));
+    StringBuilder.append(addr(sb), str("    jnz "));
+    StringBuilder.append(addr(sb), cond_reg);
+    StringBuilder.append(addr(sb), str(", @"));
+    StringBuilder.append(addr(sb), then_label);
+    StringBuilder.append(addr(sb), str(", @"));
+    StringBuilder.append(addr(sb), else_label);
+    StringBuilder.append(addr(sb), str("\n"));
+    StringBuilder.append(addr(sb), str("@"));
+    StringBuilder.append(addr(sb), then_label);
+    StringBuilder.append(addr(sb), str("\n"));
+    
     if ast.children != nil {
         val children: ref list(ASTNode) = ast.children;
         val child_count: i32 = len(deref(children));
         
-        mut i: i32 = 0;
-        loop {
-            if i >= child_count {
-                break;
-            }
-            val child_code: string = render_qbe_ast_node(addr(children.data[i]));
-            StringBuilder.append(addr(sb), child_code);
-            i++;
+        if child_count > 0 {
+            val then_code: string = render_qbe_ast_node(addr(children.data[0]));
+            StringBuilder.append(addr(sb), then_code);
         }
     }
+    
+    StringBuilder.append(addr(sb), str("    jmp @"));
+    StringBuilder.append(addr(sb), end_label);
+    StringBuilder.append(addr(sb), str("\n"));
+    StringBuilder.append(addr(sb), str("@"));
+    StringBuilder.append(addr(sb), else_label);
+    StringBuilder.append(addr(sb), str("\n"));
+    
+    if ast.children != nil {
+        val children: ref list(ASTNode) = ast.children;
+        val child_count: i32 = len(deref(children));
+        
+        if child_count > 1 {
+            val else_code: string = render_qbe_ast_node(addr(children.data[1]));
+            StringBuilder.append(addr(sb), else_code);
+        }
+    }
+    
+    StringBuilder.append(addr(sb), str("    jmp @"));
+    StringBuilder.append(addr(sb), end_label);
+    StringBuilder.append(addr(sb), str("\n"));
+    StringBuilder.append(addr(sb), str("@"));
+    StringBuilder.append(addr(sb), end_label);
+    StringBuilder.append(addr(sb), str("\n"));
     
     return StringBuilder.to_string(addr(sb));
 }
