@@ -26,6 +26,12 @@ mut g_var_registers: StringStringMap;
 /// Track function declarations
 mut g_function_decls: StringBoolMap;
 
+/// Track string constants counter
+mut g_string_counter: i32;
+
+/// Track string constants
+mut g_string_constants: list(string);
+
 /// Arena for LLVM renderer memory management
 mut g_llvm_arena: Arena;
 
@@ -34,6 +40,7 @@ pub def initialize_llvm_renderer() {
     g_llvm_arena = Arena.create(1024 * 1024);
     g_var_registers = deref(StringStringMap.create(addr(g_llvm_arena), 128));
     g_function_decls = deref(StringBoolMap.create(addr(g_llvm_arena), 128));
+    g_string_counter = 0;
 }
 
 /// Get next register name
@@ -48,6 +55,12 @@ def next_block(): string {
     val block: string = concat(str("block"), i32_to_string(g_block_counter));
     g_block_counter++;
     return block;
+}
+
+/// Add a string constant to the global list
+def add_string_constant(str_value: string) {
+    append(g_string_constants, str_value);
+    g_string_counter++;
 }
 
 /// Generate LLVM IR for an AST node
@@ -91,6 +104,8 @@ def render_ast_node(ast: ref ASTNode): string {
         return render_if(ast);
     } elif equals_c(node_type, "Loop") {
         return render_loop(ast);
+    } elif equals_c(node_type, "Print") {
+        return render_print(ast);
     }
     
     return str("");
@@ -263,14 +278,39 @@ def render_program(ast: ref ASTNode): string {
         i++;
     }
     
-    return StringBuilder.to_string(addr(g_llvm_sb));
+    mut final_sb: StringBuilder = StringBuilder.init(4096);
+    
+    if len(g_string_constants) > 0 {
+        mut str_i: i32 = 0;
+        loop {
+            if str_i >= len(g_string_constants) {
+                break;
+            }
+            StringBuilder.append(addr(final_sb), str("@.str"));
+            StringBuilder.append(addr(final_sb), i32_to_string(str_i));
+            StringBuilder.append(addr(final_sb), str(" = private unnamed_addr constant ["));
+            StringBuilder.append(addr(final_sb), i32_to_string(str_len(g_string_constants.data[str_i]) + 1));
+            StringBuilder.append(addr(final_sb), str(" x i8] c\""));
+            StringBuilder.append(addr(final_sb), g_string_constants.data[str_i]);
+            StringBuilder.append(addr(final_sb), str("\\00\"\n"));
+            str_i++;
+        }
+        StringBuilder.append(addr(final_sb), str("\n"));
+    }
+    
+    if len(g_string_constants) > 0 {
+        StringBuilder.append(addr(final_sb), str("declare i32 @puts(i8*)\n\n"));
+    }
+    
+    StringBuilder.append(addr(final_sb), StringBuilder.to_string(addr(g_llvm_sb)));
+    
+    return StringBuilder.to_string(addr(final_sb));
 }
 
 /// Render function definition
 def render_function(ast: ref ASTNode): string {
     val func_name: string = ast.data.function.name;
     val return_type: string = ast.data.function.return_type;
-    
     mut sb: StringBuilder = StringBuilder.init(512);
     
     StringBuilder.append(addr(sb), str("define "));
@@ -341,5 +381,45 @@ def render_return(ast: ref ASTNode): string {
     } else {
         StringBuilder.append(addr(sb), str("  ret void\n"));
     }
+    return StringBuilder.to_string(addr(sb));
+}
+
+/// Render print node (put statement)
+def render_print(ast: ref ASTNode): string {
+    val messages_ref: ref list(string) = ast.data.print.messages;
+    val flags_ref: ref list(bool) = ast.data.print.is_expressions;
+
+    if messages_ref == nil or flags_ref == nil {
+        return str("");
+    }
+
+    val messages: list(string) = deref(messages_ref);
+    val flags: list(bool) = deref(flags_ref);
+
+    if len(messages) == 0 {
+        return str("");
+    }
+
+    mut sb: StringBuilder = StringBuilder.init(256);
+    
+    if len(messages) == 1 and len(flags) == 1 and !flags.data[0] {
+        val str_id: string = i32_to_string(g_string_counter);
+        val call_reg: string = next_register();
+        
+        StringBuilder.append(addr(sb), str("  "));
+        StringBuilder.append(addr(sb), call_reg);
+        StringBuilder.append(addr(sb), str(" = call i32 @puts(i8* getelementptr inbounds (["));
+        StringBuilder.append(addr(sb), i32_to_string(str_len(messages.data[0]) + 1));
+        StringBuilder.append(addr(sb), str(" x i8], ["));
+        StringBuilder.append(addr(sb), i32_to_string(str_len(messages.data[0]) + 1));
+        StringBuilder.append(addr(sb), str(" x i8]* @.str"));
+        StringBuilder.append(addr(sb), str_id);
+        StringBuilder.append(addr(sb), str(", i32 0, i32 0))\n"));
+        
+        add_string_constant(messages.data[0]);
+        
+        return StringBuilder.to_string(addr(sb));
+    }
+    
     return StringBuilder.to_string(addr(sb));
 }
