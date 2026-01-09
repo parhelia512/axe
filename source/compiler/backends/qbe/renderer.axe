@@ -29,6 +29,12 @@ mut g_qbe_model_definitions: StringStringMap;
 /// Track model field offsets
 mut g_qbe_model_field_offsets: StringIntMap;
 
+/// Track string literals for data section
+mut g_qbe_string_counter: i32 = 0;
+
+/// Track the actual string literals
+mut g_qbe_string_literals: StringStringMap;
+
 /// Track if QBE renderer is initialized
 mut g_qbe_initialized: bool = false;
 
@@ -42,7 +48,9 @@ pub def initialize_qbe_renderer() {
     g_qbe_var_types = deref(StringStringMap.create(addr(g_qbe_arena), 128));
     g_qbe_model_definitions = deref(StringStringMap.create(addr(g_qbe_arena), 128));
     g_qbe_model_field_offsets = deref(StringIntMap.create(addr(g_qbe_arena), 256));
+    g_qbe_string_literals = deref(StringStringMap.create(addr(g_qbe_arena), 64));
     g_qbe_register_counter = 1;
+    g_qbe_string_counter = 0;
     g_qbe_initialized = true;
 }
 
@@ -115,7 +123,32 @@ def render_qbe_program(ast: ref ASTNode): string {
         i++;
     }
     
-    return StringBuilder.to_string(addr(g_qbe_sb));
+    mut final_sb: StringBuilder = StringBuilder.init(1024);
+    val keys: ref StringList = g_qbe_string_literals.keys;
+    mut j: i32 = 0;
+    
+    loop {
+        if j >= keys.len {
+            break;
+        }
+        val message: string = keys.data[j];
+        val str_name: string = StringStringMap.get(addr(g_qbe_string_literals), message);
+        
+        StringBuilder.append(addr(final_sb), str("data $"));
+        StringBuilder.append(addr(final_sb), str_name);
+        StringBuilder.append(addr(final_sb), str(" = { b \""));
+        StringBuilder.append(addr(final_sb), message);
+        StringBuilder.append(addr(final_sb), str("\\0\" }\n"));
+        j++;
+    }
+    
+    if keys.len > 0 {
+        StringBuilder.append(addr(final_sb), str("\n"));
+    }
+    
+    StringBuilder.append(addr(final_sb), StringBuilder.to_string(addr(g_qbe_sb)));
+    
+    return StringBuilder.to_string(addr(final_sb));
 }
 
 /// Render function definition
@@ -223,36 +256,26 @@ def render_qbe_print(ast: ref ASTNode): string {
 
     mut sb: StringBuilder = StringBuilder.init(256);
     
-    if len(messages) == 1 and len(flags) == 1 and flags.data[0] {
-        val expr: string = strip(messages.data[0]);
+    if len(messages) == 1 and len(flags) == 1 and !flags.data[0] {
+        val message: string = messages.data[0];
         
-        if find_char_from(expr, '.', cast[usize](0)) > 0 {
-            val dot_pos: i32 = find_char_from(expr, '.', cast[usize](0));
-            if dot_pos > 0 {
-                val object_name: string = substring_se(expr, 0, dot_pos);
-                
-                if StringStringMap.contains(addr(g_qbe_var_registers), object_name) {
-                    val object_reg: string = StringStringMap.get(addr(g_qbe_var_registers), object_name);
-                    val load_reg: string = next_qbe_register();
-                    
-                    StringBuilder.append(addr(sb), str("    "));
-                    StringBuilder.append(addr(sb), load_reg);
-                    StringBuilder.append(addr(sb), str(" =w loadw "));
-                    StringBuilder.append(addr(sb), object_reg);
-                    StringBuilder.append(addr(sb), str("\n"));
-                    StringBuilder.append(addr(sb), str("    call $println(w "));
-                    StringBuilder.append(addr(sb), load_reg);
-                    StringBuilder.append(addr(sb), str(")\n"));
-                    
-                    return StringBuilder.to_string(addr(sb));
-                }
-            }
+        mut str_name: string;
+        if StringStringMap.contains(addr(g_qbe_string_literals), message) {
+            str_name = StringStringMap.get(addr(g_qbe_string_literals), message);
+        } else {
+            str_name = concat(str("str_"), i32_to_string(g_qbe_string_counter));
+            g_qbe_string_counter++;
+            StringStringMap.set(
+                addr(g_qbe_string_literals),
+                addr(g_qbe_arena),
+                message,
+                str_name
+            );
         }
         
-        StringBuilder.append(addr(sb), str("    call $println(w "));
-        StringBuilder.append(addr(sb), expr);
+        StringBuilder.append(addr(sb), str("    call $printf(l $"));
+        StringBuilder.append(addr(sb), str_name);
         StringBuilder.append(addr(sb), str(")\n"));
-        
         return StringBuilder.to_string(addr(sb));
     }
     
@@ -292,7 +315,12 @@ def render_qbe_model(ast: ref ASTNode): string {
         return str("");
     }
 
-    StringStringMap.set(addr(g_qbe_model_definitions), addr(g_qbe_arena), model_name, str("defined"));
+    StringStringMap.set(
+        addr(g_qbe_model_definitions),
+        addr(g_qbe_arena),
+        model_name,
+        str("defined")
+    );
 
     mut i: i32 = 0;
     loop {
