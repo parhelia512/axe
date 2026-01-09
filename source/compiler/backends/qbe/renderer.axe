@@ -269,6 +269,19 @@ def render_qbe_declaration(ast: ref ASTNode): string {
             StringBuilder.append(addr(sb), str("    storew 0, "));
             StringBuilder.append(addr(sb), offset_reg);
             StringBuilder.append(addr(sb), str("\n"));
+        } else {
+            StringBuilder.append(addr(sb), str("    storew 0, "));
+            StringBuilder.append(addr(sb), reg);
+            StringBuilder.append(addr(sb), str("\n"));
+            val offset_reg: string = next_qbe_register();
+            StringBuilder.append(addr(sb), str("    "));
+            StringBuilder.append(addr(sb), offset_reg);
+            StringBuilder.append(addr(sb), str(" =l add "));
+            StringBuilder.append(addr(sb), reg);
+            StringBuilder.append(addr(sb), str(", 4\n"));
+            StringBuilder.append(addr(sb), str("    storew 0, "));
+            StringBuilder.append(addr(sb), offset_reg);
+            StringBuilder.append(addr(sb), str("\n"));
         }
     } else {
         StringBuilder.append(addr(sb), str("    "));
@@ -294,6 +307,10 @@ def render_qbe_declaration(ast: ref ASTNode): string {
                 StringBuilder.append(addr(sb), reg);
                 StringBuilder.append(addr(sb), str("\n"));
             }
+        } else {
+            StringBuilder.append(addr(sb), str("    storew 0, "));
+            StringBuilder.append(addr(sb), reg);
+            StringBuilder.append(addr(sb), str("\n"));
         }
     }
     
