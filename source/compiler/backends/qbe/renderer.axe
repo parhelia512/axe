@@ -663,7 +663,6 @@ def render_function_call_expression(expr: string, result_reg: string): string {
 
 /// Extract function name from expression (simplified)
 def extract_function_name(expr: string): string {
-    // Remove all spaces and parentheses to get just the function name
     mut clean_expr: string = replace_all(expr, str(" "), str(""));
     clean_expr = replace_all(clean_expr, str("("), str(""));
     clean_expr = replace_all(clean_expr, str(")"), str(""));
