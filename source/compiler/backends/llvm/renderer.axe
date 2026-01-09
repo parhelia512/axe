@@ -158,11 +158,9 @@ def render_function_call(ast: ref ASTNode): string {
 /// Render if statement
 def render_if(ast: ref ASTNode): string {
     val condition: string = ast.data.if_node.condition;
-    
     val then_label: string = next_block();
     val else_label: string = next_block();
     val end_label: string = next_block();
-    
     mut sb: StringBuilder = StringBuilder.init(256);
 
     StringBuilder.append(addr(sb), str("  br i1 "));
