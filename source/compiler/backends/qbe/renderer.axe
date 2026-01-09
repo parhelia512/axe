@@ -547,7 +547,9 @@ def fix_float_literals(expr: string): string {
     
     if equals_c(result, "0.0") {
         result = str("s_0.0");
-    } elif str_contains(result, str(".")) and !has_prefix(result, str("s_")) and !has_prefix(result, str("d_")) {
+    } elif str_contains(result, str("."))
+        and !has_prefix(result, str("s_"))
+        and !has_prefix(result, str("d_")) {
         result = concat(str("s_"), result);
     }
     
