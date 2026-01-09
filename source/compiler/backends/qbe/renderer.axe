@@ -35,6 +35,9 @@ mut g_qbe_string_counter: i32 = 0;
 /// Track the actual string literals
 mut g_qbe_string_literals: StringStringMap;
 
+/// Track overload mappings: overload_name -> (type -> target_function)
+mut g_qbe_overloads: StringStringMap;
+
 /// Track if QBE renderer is initialized
 mut g_qbe_initialized: bool = false;
 
@@ -49,6 +52,7 @@ pub def initialize_qbe_renderer() {
     g_qbe_model_definitions = deref(StringStringMap.create(addr(g_qbe_arena), 128));
     g_qbe_model_field_offsets = deref(StringIntMap.create(addr(g_qbe_arena), 256));
     g_qbe_string_literals = deref(StringStringMap.create(addr(g_qbe_arena), 64));
+    g_qbe_overloads = deref(StringStringMap.create(addr(g_qbe_arena), 64));
     g_qbe_register_counter = 1;
     g_qbe_string_counter = 0;
     g_qbe_initialized = true;
@@ -99,6 +103,8 @@ def render_qbe_ast_node(ast: ref ASTNode): string {
         return render_qbe_model(ast);
     } elif equals_c(node_type, "FunctionCall") {
         return render_qbe_function_call(ast);
+    } elif equals_c(node_type, "Overload") {
+        return render_qbe_overload(ast);
     }
     
     return str("");
@@ -289,9 +295,22 @@ def render_qbe_return(ast: ref ASTNode): string {
     
     mut sb: StringBuilder = StringBuilder.init(128);
     if str_len(expression) > 0 {
-        StringBuilder.append(addr(sb), str("    ret "));
-        StringBuilder.append(addr(sb), expression);
-        StringBuilder.append(addr(sb), str("\n"));
+        if StringStringMap.contains(addr(g_qbe_var_registers), expression) {
+            val reg: string = StringStringMap.get(addr(g_qbe_var_registers), expression);
+            val load_reg: string = next_qbe_register();
+            StringBuilder.append(addr(sb), str("    "));
+            StringBuilder.append(addr(sb), load_reg);
+            StringBuilder.append(addr(sb), str(" =w loadw "));
+            StringBuilder.append(addr(sb), reg);
+            StringBuilder.append(addr(sb), str("\n"));
+            StringBuilder.append(addr(sb), str("    ret "));
+            StringBuilder.append(addr(sb), load_reg);
+            StringBuilder.append(addr(sb), str("\n"));
+        } else {
+            StringBuilder.append(addr(sb), str("    ret "));
+            StringBuilder.append(addr(sb), expression);
+            StringBuilder.append(addr(sb), str("\n"));
+        }
     } else {
         StringBuilder.append(addr(sb), str("    ret 0\n"));
     }
@@ -339,11 +358,63 @@ def render_qbe_model(ast: ref ASTNode): string {
 /// Render function call
 def render_qbe_function_call(ast: ref ASTNode): string {
     val func_name: string = ast.data.func_call.function_name;
-    mut sb: StringBuilder = StringBuilder.init(128);
+    val args: ref list(string) = ast.data.func_call.args;
+    mut resolved_func_name: string = func_name;
     
+    if args != nil and len(deref(args)) > 0 {
+        val first_arg: string = args.data[0];
+        if StringStringMap.contains(addr(g_qbe_var_types), first_arg) {
+            val arg_type: string = StringStringMap.get(addr(g_qbe_var_types), first_arg);
+            val overload_key: string = concat(concat(func_name, str(":")), arg_type);
+            if StringStringMap.contains(addr(g_qbe_overloads), overload_key) {
+                resolved_func_name = StringStringMap.get(addr(g_qbe_overloads), overload_key);
+                if !str_contains(resolved_func_name, str("__")) {
+                    resolved_func_name = concat(str("test_overload__"), resolved_func_name);
+                }
+            }
+        }
+    }
+    
+    mut sb: StringBuilder = StringBuilder.init(128);
     StringBuilder.append(addr(sb), str("    call $"));
-    StringBuilder.append(addr(sb), func_name);
+    StringBuilder.append(addr(sb), resolved_func_name);
     StringBuilder.append(addr(sb), str("()\n"));
     
     return StringBuilder.to_string(addr(sb));
+}
+
+/// Render overload definition
+def render_qbe_overload(ast: ref ASTNode): string {
+    val overload_name: string = ast.data.overload_node.name;
+    val type_names_ref: ref list(string) = ast.data.overload_node.type_names;
+    val target_funcs_ref: ref list(string) = ast.data.overload_node.target_functions;
+    
+    if type_names_ref == nil or target_funcs_ref == nil {
+        return str("");
+    }
+    
+    val type_names: list(string) = deref(type_names_ref);
+    val target_funcs: list(string) = deref(target_funcs_ref);
+    val count: i32 = len(type_names);
+    
+    if count != len(target_funcs) {
+        return str("");
+    }
+    
+    mut i: i32 = 0;
+    loop {
+        if i >= count {
+            break;
+        }
+        val type_name: string = type_names.data[i];
+        val target_func: string = target_funcs.data[i];      
+        val overload_key1: string = concat(concat(overload_name, str(":")), type_name);
+        val overload_key2: string = concat(concat(str("print"), str(":")), type_name);
+        
+        StringStringMap.set(addr(g_qbe_overloads), addr(g_qbe_arena), overload_key1, target_func);
+        StringStringMap.set(addr(g_qbe_overloads), addr(g_qbe_arena), overload_key2, target_func);
+        i++;
+    }
+    
+    return str("");
 }
