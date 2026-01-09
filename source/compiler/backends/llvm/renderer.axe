@@ -607,6 +607,7 @@ def render_print(ast: ref ASTNode): string {
     
     return StringBuilder.to_string(addr(sb));
 }
+
 /// Render overload node
 def render_overload(ast: ref ASTNode): string {
     val name: string = ast.data.overload_node.name;
