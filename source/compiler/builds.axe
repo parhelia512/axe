@@ -275,7 +275,12 @@ def count_entry_points(
         mut i: i32 = 0;
         loop {
             if i >= len(deref(children)) { break; }
-            count_entry_points(addr(children.data[i]), main_count, custom_entry_count, test_count);
+            count_entry_points(
+                addr(children.data[i]),
+                main_count,
+                custom_entry_count,
+                test_count
+            );
             i++;
         }
     }
@@ -735,7 +740,9 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
         }
     }
     
-    if has_imported_module(str("std/net")) or has_imported_module(str("net.axe")) or find_substr(filename, str("net.axe")) >= 0 {
+    if has_imported_module(str("std/net"))
+        or has_imported_module(str("net.axe"))
+        or find_substr(filename, str("net.axe")) >= 0 {
         compile_cmd = concat_c(compile_cmd, " -DCURL_STATICLIB -I");
         compile_cmd = concat(compile_cmd, toolchain_root);
         compile_cmd = concat_c(compile_cmd, "/external/curl/include");
@@ -753,7 +760,9 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
         }
     }
     
-    if has_imported_module(str("std/json")) or has_imported_module(str("json.axe")) or find_substr(filename, str("json.axe")) >= 0 {
+    if has_imported_module(str("std/json"))
+        or has_imported_module(str("json.axe"))
+        or find_substr(filename, str("json.axe")) >= 0 {
         compile_cmd = concat_c(compile_cmd, " -I");
         compile_cmd = concat(compile_cmd, toolchain_root);
         compile_cmd = concat_c(compile_cmd, "/external/yyjson/include");
@@ -789,7 +798,10 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
     
     if !::is_release_build {
         platform windows {
-            compile_cmd = concat_c(compile_cmd, " -gcodeview -fuse-ld=lld -Xlinker /debug -ldbghelp");
+            compile_cmd = concat_c(
+                compile_cmd,
+                " -gcodeview -fuse-ld=lld -Xlinker /debug -ldbghelp"
+            );
         }
         platform posix {
             compile_cmd = concat_c(compile_cmd, " -g");
