@@ -641,15 +641,18 @@ def render_overload(ast: ref ASTNode): string {
         if i >= count {
             break;
         }
+        
         val type_name: string = type_names.data[i];
         val target_func: string = targets.data[i];
         val mapping_key: string = concat(concat(name, str(":")), type_name);
+
         StringStringMap.set(
             addr(g_overload_mappings),
             addr(g_llvm_arena),
             mapping_key,
             target_func
         );
+
         i++;
     }
 
