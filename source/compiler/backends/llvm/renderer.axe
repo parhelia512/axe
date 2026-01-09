@@ -23,11 +23,17 @@ mut g_register_counter: i32;
 /// Track variable to register mappings
 mut g_var_registers: StringStringMap;
 
+/// Track variable types
+mut g_var_types: StringStringMap;
+
 /// Track function declarations
 mut g_function_decls: StringBoolMap;
 
 /// Track function name prefixes (original -> prefixed)
 mut g_function_prefixes: StringStringMap;
+
+/// Track overload mappings (function_name -> type -> target_function)
+mut g_overload_mappings: StringStringMap;
 
 /// Track if LLVM renderer is initialized
 mut g_llvm_initialized: bool = false;
@@ -48,8 +54,10 @@ mut g_llvm_arena: Arena;
 pub def initialize_llvm_renderer() {
     g_llvm_arena = Arena.create(1024 * 1024);
     g_var_registers = deref(StringStringMap.create(addr(g_llvm_arena), 128));
+    g_var_types = deref(StringStringMap.create(addr(g_llvm_arena), 128));
     g_function_decls = deref(StringBoolMap.create(addr(g_llvm_arena), 128));
     g_function_prefixes = deref(StringStringMap.create(addr(g_llvm_arena), 128));
+    g_overload_mappings = deref(StringStringMap.create(addr(g_llvm_arena), 256));
     g_string_counter = 0;
     
     mut i: i32 = 0;
@@ -62,7 +70,12 @@ pub def initialize_llvm_renderer() {
         if colon_pos > 0 {
             val original: string = substring_se(pair, 0, colon_pos);
             val prefixed: string = substring_se(pair, colon_pos + 1, cast[i32](str_len(pair)));
-            StringStringMap.set(addr(g_function_prefixes), addr(g_llvm_arena), original, prefixed);
+            StringStringMap.set(
+                addr(g_function_prefixes),
+                addr(g_llvm_arena),
+                original,
+                prefixed
+            );
         }
         i++;
     }
@@ -174,6 +187,8 @@ def render_ast_node(ast: ref ASTNode): string {
         return render_loop(ast);
     } elif equals_c(node_type, "Print") {
         return render_print(ast);
+    } elif equals_c(node_type, "Overload") {
+        return render_overload(ast);
     }
     
     return str("");
@@ -187,6 +202,7 @@ def render_declaration(ast: ref ASTNode): string {
     
     val reg: string = next_register();
     StringStringMap.set(addr(g_var_registers), addr(g_llvm_arena), name, reg);
+    StringStringMap.set(addr(g_var_types), addr(g_llvm_arena), name, type_name);
     
     mut sb: StringBuilder = StringBuilder.init(128);
     StringBuilder.append(addr(sb), str("  "));
@@ -229,17 +245,80 @@ def render_assignment(ast: ref ASTNode): string {
 def render_function_call(ast: ref ASTNode): string {
     val func_name_ast: string = ast.data.func_call.function_name;
     mut func_name: string = func_name_ast;
+    val args: ref list(string) = ast.data.func_call.args;
+    mut sb: StringBuilder = StringBuilder.init(256);
     
-    if StringStringMap.contains(addr(g_function_prefixes), func_name_ast) {
-        func_name = StringStringMap.get(addr(g_function_prefixes), func_name_ast);
+    if args != nil and len(deref(args)) > 0 {
+        val first_arg: string = strip(args.data[0]);
+        
+        if StringStringMap.contains(addr(g_var_types), first_arg) {
+            val arg_type: string = StringStringMap.get(addr(g_var_types), first_arg);
+            val mapping_key: string = concat(concat(func_name_ast, str(":")), arg_type);
+            
+            if StringStringMap.contains(addr(g_overload_mappings), mapping_key) {
+                val target_func: string = StringStringMap.get(
+                    addr(g_overload_mappings),
+                    mapping_key
+                );
+                func_name = target_func;
+            }
+        }
+        
+        val arg_list: list(string) = deref(args);
+        mut i: i32 = 0;
+        loop {
+            if i >= len(arg_list) {
+                break;
+            }
+            val arg: string = strip(arg_list.data[i]);
+            
+            if StringStringMap.contains(addr(g_var_registers), arg) {
+                val reg: string = StringStringMap.get(addr(g_var_registers), arg);
+                val load_reg: string = next_register();
+                StringBuilder.append(addr(sb), str("  "));
+                StringBuilder.append(addr(sb), load_reg);
+                StringBuilder.append(addr(sb), str(" = load i32, i32* "));
+                StringBuilder.append(addr(sb), reg);
+                StringBuilder.append(addr(sb), str("\n"));
+            }
+            i++;
+        }
     }
     
-    val args: ref list(string) = ast.data.func_call.args;
+    if StringStringMap.contains(addr(g_function_prefixes), func_name) {
+        func_name = StringStringMap.get(addr(g_function_prefixes), func_name);
+    }
     
-    mut sb: StringBuilder = StringBuilder.init(128);
     StringBuilder.append(addr(sb), str("  call void @"));
     StringBuilder.append(addr(sb), func_name);
-    StringBuilder.append(addr(sb), str("()\n"));
+    StringBuilder.append(addr(sb), str("("));
+    
+    if args != nil and len(deref(args)) > 0 {
+        val arg_list: list(string) = deref(args);
+        mut i: i32 = 0;
+        val load_reg_counter: i32 = g_register_counter - len(arg_list);
+        loop {
+            if i >= len(arg_list) {
+                break;
+            }
+            if i > 0 {
+                StringBuilder.append(addr(sb), str(", "));
+            }
+            val arg: string = strip(arg_list.data[i]);
+            
+            if StringStringMap.contains(addr(g_var_registers), arg) {
+                val load_reg: string = concat(str("%"), i32_to_string(load_reg_counter + i));
+                StringBuilder.append(addr(sb), str("i32 "));
+                StringBuilder.append(addr(sb), load_reg);
+            } else {
+                StringBuilder.append(addr(sb), str("i32 "));
+                StringBuilder.append(addr(sb), arg);
+            }
+            i++;
+        }
+    }
+    
+    StringBuilder.append(addr(sb), str(")\n"));
     
     return StringBuilder.to_string(addr(sb));
 }
@@ -373,7 +452,10 @@ def render_program(ast: ref ASTNode): string {
             StringBuilder.append(addr(final_sb), str("@.str"));
             StringBuilder.append(addr(final_sb), i32_to_string(str_i));
             StringBuilder.append(addr(final_sb), str(" = private unnamed_addr constant ["));
-            StringBuilder.append(addr(final_sb), i32_to_string(str_len(g_string_constants.data[str_i]) + 1));
+            StringBuilder.append(
+                addr(final_sb),
+                i32_to_string(str_len(g_string_constants.data[str_i]) + 1)
+            );
             StringBuilder.append(addr(final_sb), str(" x i8] c\""));
             StringBuilder.append(addr(final_sb), g_string_constants.data[str_i]);
             StringBuilder.append(addr(final_sb), str("\\00\"\n"));
@@ -395,6 +477,7 @@ def render_program(ast: ref ASTNode): string {
 def render_function(ast: ref ASTNode): string {
     val func_name: string = ast.data.function.name;
     val return_type: string = ast.data.function.return_type;
+    val params: ref list(string) = ast.data.function.params;
     mut sb: StringBuilder = StringBuilder.init(512);
     
     StringBuilder.append(addr(sb), str("define "));
@@ -405,7 +488,24 @@ def render_function(ast: ref ASTNode): string {
     }
     StringBuilder.append(addr(sb), str(" @"));
     StringBuilder.append(addr(sb), func_name);
-    StringBuilder.append(addr(sb), str("() {\n"));
+    StringBuilder.append(addr(sb), str("("));
+    
+    if params != nil and len(deref(params)) > 0 {
+        val param_list: list(string) = deref(params);
+        mut i: i32 = 0;
+        loop {
+            if i >= len(param_list) {
+                break;
+            }
+            if i > 0 {
+                StringBuilder.append(addr(sb), str(", "));
+            }
+            StringBuilder.append(addr(sb), str("i32"));
+            i++;
+        }
+    }
+    
+    StringBuilder.append(addr(sb), str(") {\n"));
     StringBuilder.append(addr(sb), str("entry:\n"));
     
     mut has_return: bool = false;
@@ -506,4 +606,41 @@ def render_print(ast: ref ASTNode): string {
     }
     
     return StringBuilder.to_string(addr(sb));
+}
+/// Render overload node
+def render_overload(ast: ref ASTNode): string {
+    val name: string = ast.data.overload_node.name;
+    val type_names_ref: ref list(string) = ast.data.overload_node.type_names;
+    val targets_ref: ref list(string) = ast.data.overload_node.target_functions;
+
+    if type_names_ref == nil or targets_ref == nil {
+        return str("");
+    }
+
+    val type_names: list(string) = deref(type_names_ref);
+    val targets: list(string) = deref(targets_ref);
+    val count: i32 = len(type_names);
+    
+    if count == 0 or count != len(targets) {
+        return str("");
+    }
+
+    mut i: i32 = 0;
+    loop {
+        if i >= count {
+            break;
+        }
+        val type_name: string = type_names.data[i];
+        val target_func: string = targets.data[i];
+        val mapping_key: string = concat(concat(name, str(":")), type_name);
+        StringStringMap.set(
+            addr(g_overload_mappings),
+            addr(g_llvm_arena),
+            mapping_key,
+            target_func
+        );
+        i++;
+    }
+
+    return str("");
 }
