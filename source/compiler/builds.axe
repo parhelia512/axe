@@ -32,7 +32,8 @@ use backends.c.renderer (
 );
 use backends.llvm.renderer (
     initialize_llvm_renderer,
-    generate_llvm
+    generate_llvm,
+    llvm_renderer_add_prefix
 );
 use std.os (
     ExecResult, 
@@ -141,6 +142,11 @@ def prefix_root_functions(node: ref ASTNode, mprefix: string) {
                 
                 node.data.function.name = new_name;
                 renderer_add_prefix(fname, new_name);
+                
+                val backend: string = get_backend_type();
+                if equals_c(backend, "llvm") {
+                    llvm_renderer_add_prefix(fname, new_name);
+                }
             }
         }
     }

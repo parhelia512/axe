@@ -26,6 +26,15 @@ mut g_var_registers: StringStringMap;
 /// Track function declarations
 mut g_function_decls: StringBoolMap;
 
+/// Track function name prefixes (original -> prefixed)
+mut g_function_prefixes: StringStringMap;
+
+/// Track if LLVM renderer is initialized
+mut g_llvm_initialized: bool = false;
+
+/// Temporary storage for prefixes before initialization
+mut g_temp_prefixes: list(string);
+
 /// Track string constants counter
 mut g_string_counter: i32;
 
@@ -40,7 +49,25 @@ pub def initialize_llvm_renderer() {
     g_llvm_arena = Arena.create(1024 * 1024);
     g_var_registers = deref(StringStringMap.create(addr(g_llvm_arena), 128));
     g_function_decls = deref(StringBoolMap.create(addr(g_llvm_arena), 128));
+    g_function_prefixes = deref(StringStringMap.create(addr(g_llvm_arena), 128));
     g_string_counter = 0;
+    
+    mut i: i32 = 0;
+    loop {
+        if i >= len(g_temp_prefixes) {
+            break;
+        }
+        val pair: string = g_temp_prefixes.data[i];
+        val colon_pos: i32 = find_char_from(pair, ':', cast[usize](0));
+        if colon_pos > 0 {
+            val original: string = substring_se(pair, 0, colon_pos);
+            val prefixed: string = substring_se(pair, colon_pos + 1, cast[i32](str_len(pair)));
+            StringStringMap.set(addr(g_function_prefixes), addr(g_llvm_arena), original, prefixed);
+        }
+        i++;
+    }
+    
+    g_llvm_initialized = true;
 }
 
 /// Get next register name
@@ -61,6 +88,47 @@ def next_block(): string {
 def add_string_constant(str_value: string) {
     append(g_string_constants, str_value);
     g_string_counter++;
+}
+
+/// Register a function prefix mapping (original -> prefixed) for LLVM backend
+pub def llvm_renderer_add_prefix(original: string, prefixed: string) {
+    if g_llvm_initialized {
+        StringStringMap.set(addr(g_function_prefixes), addr(g_llvm_arena), original, prefixed);
+    } else {
+        val pair: string = concat(concat(original, str(":")), prefixed);
+        append(g_temp_prefixes, pair);
+    }
+}
+
+/// Analyze AST to find imported functions and create prefix mappings
+def analyze_imports_for_prefixes(ast: ref ASTNode) {
+    if ast == nil {
+        return;
+    }
+    
+    val node_type: string = ast.node_type;
+    
+    if equals_c(node_type, "Function") {
+        val func_name: string = ast.data.function.name;
+        val double_underscore_pos: i32 = find_substr(func_name, str("__"));
+        if double_underscore_pos > 0 {
+            val original_name: string = substring_se(func_name, double_underscore_pos + 2, cast[i32](str_len(func_name)));
+            StringStringMap.set(addr(g_function_prefixes), addr(g_llvm_arena), original_name, func_name);
+        }
+    }
+    
+    if ast.children != nil {
+        val children: ref list(ASTNode) = ast.children;
+        val child_count: i32 = len(deref(children));
+        mut i: i32 = 0;
+        loop {
+            if i >= child_count {
+                break;
+            }
+            analyze_imports_for_prefixes(addr(children.data[i]));
+            i++;
+        }
+    }
 }
 
 /// Generate LLVM IR for an AST node
@@ -159,7 +227,13 @@ def render_assignment(ast: ref ASTNode): string {
 
 /// Render function call node
 def render_function_call(ast: ref ASTNode): string {
-    val func_name: string = ast.data.func_call.function_name;
+    val func_name_ast: string = ast.data.func_call.function_name;
+    mut func_name: string = func_name_ast;
+    
+    if StringStringMap.contains(addr(g_function_prefixes), func_name_ast) {
+        func_name = StringStringMap.get(addr(g_function_prefixes), func_name_ast);
+    }
+    
     val args: ref list(string) = ast.data.func_call.args;
     
     mut sb: StringBuilder = StringBuilder.init(128);
@@ -268,7 +342,17 @@ def render_program(ast: ref ASTNode): string {
     val children: ref list(ASTNode) = ast.children;
     val child_count: i32 = len(deref(children));
     mut i: i32 = 0;
+
+    loop {
+        if i >= child_count {
+            break;
+        }
+        val child: ref ASTNode = addr(children.data[i]);
+        analyze_imports_for_prefixes(child);
+        i++;
+    }
     
+    i = 0;
     loop {
         if i >= child_count {
             break;
