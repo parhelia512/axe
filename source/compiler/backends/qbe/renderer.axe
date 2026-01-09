@@ -38,6 +38,9 @@ mut g_qbe_string_literals: StringStringMap;
 /// Track overload mappings: overload_name -> (type -> target_function)
 mut g_qbe_overloads: StringStringMap;
 
+/// Track extern function mappings: function_name -> symbol_name
+mut g_qbe_externs: StringStringMap;
+
 /// Track if QBE renderer is initialized
 mut g_qbe_initialized: bool = false;
 
@@ -53,6 +56,7 @@ pub def initialize_qbe_renderer() {
     g_qbe_model_field_offsets = deref(StringIntMap.create(addr(g_qbe_arena), 256));
     g_qbe_string_literals = deref(StringStringMap.create(addr(g_qbe_arena), 64));
     g_qbe_overloads = deref(StringStringMap.create(addr(g_qbe_arena), 64));
+    g_qbe_externs = deref(StringStringMap.create(addr(g_qbe_arena), 64));
     g_qbe_register_counter = 1;
     g_qbe_string_counter = 0;
     g_qbe_initialized = true;
@@ -105,6 +109,10 @@ def render_qbe_ast_node(ast: ref ASTNode): string {
         return render_qbe_function_call(ast);
     } elif equals_c(node_type, "Overload") {
         return render_qbe_overload(ast);
+    } elif equals_c(node_type, "Extern") {
+        return render_qbe_extern(ast);
+    } elif equals_c(node_type, "Test") {
+        return render_qbe_test(ast);
     }
     
     return str("");
@@ -361,15 +369,19 @@ def render_qbe_function_call(ast: ref ASTNode): string {
     val args: ref list(string) = ast.data.func_call.args;
     mut resolved_func_name: string = func_name;
     
-    if args != nil and len(deref(args)) > 0 {
-        val first_arg: string = args.data[0];
-        if StringStringMap.contains(addr(g_qbe_var_types), first_arg) {
-            val arg_type: string = StringStringMap.get(addr(g_qbe_var_types), first_arg);
-            val overload_key: string = concat(concat(func_name, str(":")), arg_type);
-            if StringStringMap.contains(addr(g_qbe_overloads), overload_key) {
-                resolved_func_name = StringStringMap.get(addr(g_qbe_overloads), overload_key);
-                if !str_contains(resolved_func_name, str("__")) {
-                    resolved_func_name = concat(str("test_overload__"), resolved_func_name);
+    if StringStringMap.contains(addr(g_qbe_externs), func_name) {
+        resolved_func_name = StringStringMap.get(addr(g_qbe_externs), func_name);
+    } else {
+        if args != nil and len(deref(args)) > 0 {
+            val first_arg: string = args.data[0];
+            if StringStringMap.contains(addr(g_qbe_var_types), first_arg) {
+                val arg_type: string = StringStringMap.get(addr(g_qbe_var_types), first_arg);
+                val overload_key: string = concat(concat(func_name, str(":")), arg_type);
+                if StringStringMap.contains(addr(g_qbe_overloads), overload_key) {
+                    resolved_func_name = StringStringMap.get(addr(g_qbe_overloads), overload_key);
+                    if !str_contains(resolved_func_name, str("__")) {
+                        resolved_func_name = concat(str("test_overload__"), resolved_func_name);
+                    }
                 }
             }
         }
@@ -417,4 +429,48 @@ def render_qbe_overload(ast: ref ASTNode): string {
     }
     
     return str("");
+}
+
+/// Render extern definition
+def render_qbe_extern(ast: ref ASTNode): string {
+    val func_name: string = ast.data.extern_node.function_name;
+    val symbol: string = ast.data.extern_node.symbol;
+    
+    mut extern_symbol: string;
+    if str_len(symbol) > 0 {
+        extern_symbol = symbol;
+    } else {
+        extern_symbol = func_name;
+    }
+    StringStringMap.set(addr(g_qbe_externs), addr(g_qbe_arena), func_name, extern_symbol);
+    
+    return str("");
+}
+
+/// Render test block
+def render_qbe_test(ast: ref ASTNode): string {
+    mut sb: StringBuilder = StringBuilder.init(512);
+    
+    StringBuilder.append(addr(sb), str("export function w $main() {\n"));
+    StringBuilder.append(addr(sb), str("@start\n"));
+    
+    if ast.children != nil {
+        val children: ref list(ASTNode) = ast.children;
+        val child_count: i32 = len(deref(children));
+        mut i: i32 = 0;
+        
+        loop {
+            if i >= child_count {
+                break;
+            }
+            val child_code: string = render_qbe_ast_node(addr(children.data[i]));
+            StringBuilder.append(addr(sb), child_code);
+            i++;
+        }
+    }
+    
+    StringBuilder.append(addr(sb), str("    ret 0\n"));
+    StringBuilder.append(addr(sb), str("}\n\n"));
+    
+    return StringBuilder.to_string(addr(sb));
 }
