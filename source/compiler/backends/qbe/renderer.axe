@@ -920,6 +920,7 @@ def convert_to_qbe_function_name(func_name: string): string {
     
     return result;
 }
+
 /// Render member access for QBE
 def render_qbe_member_access(ast: ref ASTNode): string {
     val object_name: string = ast.data.member_access.object_name;
