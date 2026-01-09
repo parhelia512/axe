@@ -812,6 +812,7 @@ def process_member_access_expression(expr: string): string {
     return temp_reg;
 }
 
+/// Process the C function calls
 def process_c_function_calls(expr: string): string {
     if contains_function_call(expr) and !str_contains(expr, str("C.")) {
         return resolve_member_access(expr);
