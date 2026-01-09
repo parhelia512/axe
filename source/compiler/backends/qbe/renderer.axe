@@ -139,6 +139,7 @@ def render_qbe_program(ast: ref ASTNode): string {
         StringBuilder.append(addr(final_sb), str(" = { b \""));
         StringBuilder.append(addr(final_sb), message);
         StringBuilder.append(addr(final_sb), str("\\0\" }\n"));
+
         j++;
     }
     
