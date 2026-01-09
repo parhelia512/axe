@@ -125,8 +125,17 @@ def analyze_imports_for_prefixes(ast: ref ASTNode) {
         val func_name: string = ast.data.function.name;
         val double_underscore_pos: i32 = find_substr(func_name, str("__"));
         if double_underscore_pos > 0 {
-            val original_name: string = substring_se(func_name, double_underscore_pos + 2, cast[i32](str_len(func_name)));
-            StringStringMap.set(addr(g_function_prefixes), addr(g_llvm_arena), original_name, func_name);
+            val original_name: string = substring_se(
+                func_name,
+                double_underscore_pos + 2,
+                cast[i32](str_len(func_name))
+            );
+            StringStringMap.set(
+                addr(g_function_prefixes),
+                addr(g_llvm_arena),
+                original_name,
+                func_name
+            );
         }
     }
     
