@@ -5,7 +5,7 @@
 
 use ../../gstate;
 use ../../structs (ASTNode);
-use std.lists (StringList);
+use std.lists     (StringList);
 use std.string;
 use std.io;
 use std.maps;
