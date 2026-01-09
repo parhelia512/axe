@@ -223,19 +223,43 @@ def render_qbe_function(ast: ref ASTNode): string {
     StringBuilder.append(addr(sb), str("() {\n"));
     StringBuilder.append(addr(sb), str("@start\n"));
     
+    if str_contains(func_name, str("string")) or str_contains(func_name, str("str_")) {
+        val param_reg: string = next_qbe_register();
+        StringBuilder.append(addr(sb), str("    "));
+        StringBuilder.append(addr(sb), param_reg);
+        StringBuilder.append(addr(sb), str(" =l alloc8 8\n"));
+        StringStringMap.set(addr(g_qbe_var_registers), addr(g_qbe_arena), str("s"), param_reg);
+    }
+    
+    val body_code: string = render_qbe_function_body(children);
+    StringBuilder.append(addr(sb), body_code);
+    
+    StringBuilder.append(addr(sb), str("}\n\n"));
+    return StringBuilder.to_string(addr(sb));
+}
+
+/// Render function body with proper return handling
+def render_qbe_function_body(children: ref list(ASTNode)): string {
+    val child_count: i32 = len(deref(children));
+    mut sb: StringBuilder = StringBuilder.init(512);
     mut has_return: bool = false;
-    i = 0;
+    mut i: i32 = 0;
     
     loop {
-        if i >= child_count {
+        if i >= child_count or has_return {
             break;
         }
+        
         val child: ref ASTNode = addr(children.data[i]);
-        if equals_c(child.node_type, "Return") {
-            has_return = true;
-        }
         val child_code: string = render_qbe_ast_node(child);
-        StringBuilder.append(addr(sb), child_code);
+        
+        if str_contains(child_code, str("ret ")) {
+            StringBuilder.append(addr(sb), child_code);
+            has_return = true;
+        } else {
+            StringBuilder.append(addr(sb), child_code);
+        }
+        
         i++;
     }
     
@@ -243,7 +267,6 @@ def render_qbe_function(ast: ref ASTNode): string {
         StringBuilder.append(addr(sb), str("    ret 0\n"));
     }
     
-    StringBuilder.append(addr(sb), str("}\n\n"));
     return StringBuilder.to_string(addr(sb));
 }
 
@@ -306,6 +329,79 @@ def render_qbe_declaration(ast: ref ASTNode): string {
                 StringBuilder.append(addr(sb), str(", "));
                 StringBuilder.append(addr(sb), reg);
                 StringBuilder.append(addr(sb), str("\n"));
+            } elif str_contains(initializer, str(".")) and !is_float_literal(initializer) {
+                val dot_pos: i32 = find_substr(initializer, str("."));
+                if dot_pos > 0 {
+                    val object_name: string = substring_se(initializer, 0, dot_pos);
+                    val member_name: string = substring_se(
+                        initializer, dot_pos + 1,
+                        cast[i32](str_len(initializer))
+                    );
+                    
+                    if StringStringMap.contains(addr(g_qbe_var_registers), object_name) {
+                        val object_reg: string = StringStringMap.get(addr(g_qbe_var_registers), object_name);
+                        val temp_reg: string = next_qbe_register();
+                        
+                        if equals_c(member_name, "len") {
+                            val addr_reg: string = next_qbe_register();
+                            StringBuilder.append(addr(sb), str("    "));
+                            StringBuilder.append(addr(sb), addr_reg);
+                            StringBuilder.append(addr(sb), str(" =l add "));
+                            StringBuilder.append(addr(sb), object_reg);
+                            StringBuilder.append(addr(sb), str(", 8\n"));
+                            StringBuilder.append(addr(sb), str("    "));
+                            StringBuilder.append(addr(sb), temp_reg);
+                            StringBuilder.append(addr(sb), str(" =w loadw "));
+                            StringBuilder.append(addr(sb), addr_reg);
+                            StringBuilder.append(addr(sb), str("\n"));
+                        } elif equals_c(member_name, "cap") {
+                            val addr_reg: string = next_qbe_register();
+                            StringBuilder.append(addr(sb), str("    "));
+                            StringBuilder.append(addr(sb), addr_reg);
+                            StringBuilder.append(addr(sb), str(" =l add "));
+                            StringBuilder.append(addr(sb), object_reg);
+                            StringBuilder.append(addr(sb), str(", 16\n"));
+                            StringBuilder.append(addr(sb), str("    "));
+                            StringBuilder.append(addr(sb), temp_reg);
+                            StringBuilder.append(addr(sb), str(" =w loadw "));
+                            StringBuilder.append(addr(sb), addr_reg);
+                            StringBuilder.append(addr(sb), str("\n"));
+                        } elif equals_c(member_name, "data") {
+                            StringBuilder.append(addr(sb), str("    "));
+                            StringBuilder.append(addr(sb), temp_reg);
+                            StringBuilder.append(addr(sb), str(" =w loadw "));
+                            StringBuilder.append(addr(sb), object_reg);
+                            StringBuilder.append(addr(sb), str("\n"));
+                        } else {
+                            StringBuilder.append(addr(sb), str("    storew 0, "));
+                            StringBuilder.append(addr(sb), reg);
+                            StringBuilder.append(addr(sb), str("\n"));
+                            return StringBuilder.to_string(addr(sb));
+                        }
+                        
+                        StringBuilder.append(addr(sb), str("    storew "));
+                        StringBuilder.append(addr(sb), temp_reg);
+                        StringBuilder.append(addr(sb), str(", "));
+                        StringBuilder.append(addr(sb), reg);
+                        StringBuilder.append(addr(sb), str("\n"));
+                    } else {
+                        mut processed_init: string = process_c_function_calls(initializer);
+                        processed_init = fix_float_literals(processed_init);
+                        StringBuilder.append(addr(sb), str("    storew "));
+                        StringBuilder.append(addr(sb), processed_init);
+                        StringBuilder.append(addr(sb), str(", "));
+                        StringBuilder.append(addr(sb), reg);
+                        StringBuilder.append(addr(sb), str("\n"));
+                    }
+                } else {
+                    mut processed_init: string = process_c_function_calls(initializer);
+                    processed_init = fix_float_literals(processed_init);
+                    StringBuilder.append(addr(sb), str("    storew "));
+                    StringBuilder.append(addr(sb), processed_init);
+                    StringBuilder.append(addr(sb), str(", "));
+                    StringBuilder.append(addr(sb), reg);
+                    StringBuilder.append(addr(sb), str("\n"));
+                }
             } else {
                 mut processed_init: string = process_c_function_calls(initializer);
                 processed_init = fix_float_literals(processed_init);
@@ -397,7 +493,11 @@ def render_qbe_return(ast: ref ASTNode): string {
             val dot_pos: i32 = find_substr(expression, str("."));
             if dot_pos > 0 {
                 val object_name: string = substring_se(expression, 0, dot_pos);
-                val member_name: string = substring_se(expression, dot_pos + 1, cast[i32](str_len(expression)));
+                val member_name: string = substring_se(
+                    expression,
+                    dot_pos + 1,
+                    cast[i32](str_len(expression))
+                );
                 
                 if StringStringMap.contains(addr(g_qbe_var_registers), object_name) {
                     val object_reg: string = StringStringMap.get(addr(g_qbe_var_registers), object_name);
@@ -619,8 +719,7 @@ def render_qbe_unsafe(ast: ref ASTNode): string {
     return StringBuilder.to_string(addr(sb));
 }
 
-/// Process C function calls and convert them to QBE extern calls
-/// Resolve member access in expressions
+/// Resolve member access in expressions (simplified version)
 def resolve_member_access(expr: string): string {
     if !str_contains(expr, str(".")) {
         return expr;
@@ -641,6 +740,66 @@ def resolve_member_access(expr: string): string {
     val object_reg: string = StringStringMap.get(addr(g_qbe_var_registers), object_name);
     
     return object_reg;
+}
+
+/// Process member access and generate load instructions if needed
+def process_member_access_expression(expr: string): string {
+    if !str_contains(expr, str(".")) {
+        return expr;
+    }
+    
+    val dot_pos: i32 = find_substr(expr, str("."));
+    if dot_pos <= 0 {
+        return expr;
+    }
+    
+    val object_name: string = substring_se(expr, 0, dot_pos);
+    val member_name: string = substring_se(expr, dot_pos + 1, cast[i32](str_len(expr)));
+    
+    if !StringStringMap.contains(addr(g_qbe_var_registers), object_name) {
+        return expr;
+    }
+    
+    val object_reg: string = StringStringMap.get(addr(g_qbe_var_registers), object_name);
+    val temp_reg: string = next_qbe_register();
+    
+    mut sb: StringBuilder = StringBuilder.init(128);
+    
+    if equals_c(member_name, "len") {
+        val addr_reg: string = next_qbe_register();
+        StringBuilder.append(addr(sb), str("    "));
+        StringBuilder.append(addr(sb), addr_reg);
+        StringBuilder.append(addr(sb), str(" =l add "));
+        StringBuilder.append(addr(sb), object_reg);
+        StringBuilder.append(addr(sb), str(", 8\n"));
+        StringBuilder.append(addr(sb), str("    "));
+        StringBuilder.append(addr(sb), temp_reg);
+        StringBuilder.append(addr(sb), str(" =w loadw "));
+        StringBuilder.append(addr(sb), addr_reg);
+        StringBuilder.append(addr(sb), str("\n"));
+    } elif equals_c(member_name, "cap") {
+        val addr_reg: string = next_qbe_register();
+        StringBuilder.append(addr(sb), str("    "));
+        StringBuilder.append(addr(sb), addr_reg);
+        StringBuilder.append(addr(sb), str(" =l add "));
+        StringBuilder.append(addr(sb), object_reg);
+        StringBuilder.append(addr(sb), str(", 16\n"));
+        StringBuilder.append(addr(sb), str("    "));
+        StringBuilder.append(addr(sb), temp_reg);
+        StringBuilder.append(addr(sb), str(" =w loadw "));
+        StringBuilder.append(addr(sb), addr_reg);
+        StringBuilder.append(addr(sb), str("\n"));
+    } elif equals_c(member_name, "data") {
+        StringBuilder.append(addr(sb), str("    "));
+        StringBuilder.append(addr(sb), temp_reg);
+        StringBuilder.append(addr(sb), str(" =w loadw "));
+        StringBuilder.append(addr(sb), object_reg);
+        StringBuilder.append(addr(sb), str("\n"));
+    } else {
+        return expr;
+    }
+    
+    return temp_reg;
 }
 
 def process_c_function_calls(expr: string): string {
