@@ -208,7 +208,8 @@ def render_qbe_function(ast: ref ASTNode): string {
            equals_c(child.node_type, "Declaration") or
            equals_c(child.node_type, "FunctionCall") or
            equals_c(child.node_type, "Print") or
-           equals_c(child.node_type, "If") {
+           equals_c(child.node_type, "If") or
+           equals_c(child.node_type, "Loop") {
             has_meaningful_code = true;
             break;
         }
@@ -257,6 +258,9 @@ def render_qbe_function_body(children: ref list(ASTNode)): string {
         val child_code: string = render_qbe_ast_node(child);
         
         if str_contains(child_code, str("ret ")) {
+            StringBuilder.append(addr(sb), child_code);
+            has_return = true;
+        } elif equals_c(child.node_type, "Loop") and str_contains(child_code, str("jmp @loop_")) {
             StringBuilder.append(addr(sb), child_code);
             has_return = true;
         } else {
@@ -1095,6 +1099,13 @@ def render_qbe_if(ast: ref ASTNode): string {
 def render_qbe_loop(ast: ref ASTNode): string {
     mut sb: StringBuilder = StringBuilder.init(256);
     
+    val loop_label: string = concat(str("loop_"), i32_to_string(g_qbe_register_counter));
+    g_qbe_register_counter++;
+    
+    StringBuilder.append(addr(sb), str("@"));
+    StringBuilder.append(addr(sb), loop_label);
+    StringBuilder.append(addr(sb), str("\n"));
+    
     if ast.children != nil {
         val children: ref list(ASTNode) = ast.children;
         val child_count: i32 = len(deref(children));
@@ -1109,6 +1120,10 @@ def render_qbe_loop(ast: ref ASTNode): string {
             i++;
         }
     }
+    
+    StringBuilder.append(addr(sb), str("    jmp @"));
+    StringBuilder.append(addr(sb), loop_label);
+    StringBuilder.append(addr(sb), str("\n"));
     
     return StringBuilder.to_string(addr(sb));
 }
