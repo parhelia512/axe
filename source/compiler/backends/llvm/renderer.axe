@@ -208,12 +208,13 @@ def render_declaration(ast: ref ASTNode): string {
     val name: string = ast.data.declaration.name;
     val type_name: string = ast.data.declaration.type_name;
     val initializer: string = ast.data.declaration.initializer;
-    
     val reg: string = next_register();
+
     StringStringMap.set(addr(g_var_registers), addr(g_llvm_arena), name, reg);
     StringStringMap.set(addr(g_var_types), addr(g_llvm_arena), name, type_name);
     
     mut sb: StringBuilder = StringBuilder.init(128);
+
     StringBuilder.append(addr(sb), str("  "));
     StringBuilder.append(addr(sb), reg);
     StringBuilder.append(addr(sb), str(" = alloca i32\n"));
