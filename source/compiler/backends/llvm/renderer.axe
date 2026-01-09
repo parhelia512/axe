@@ -5,10 +5,11 @@
 
 use ../../gstate;
 use ../../structs (ASTNode);
-use std.lists (StringList);
+use std.lists     (StringList);
 use std.string;
 use std.io;
 use std.maps;
+use std.arena;
 
 /// Global LLVM IR string builder
 mut g_llvm_sb: StringBuilder;
@@ -25,8 +26,14 @@ mut g_var_registers: StringStringMap;
 /// Track function declarations
 mut g_function_decls: StringBoolMap;
 
+/// Arena for LLVM renderer memory management
+mut g_llvm_arena: Arena;
+
 /// Initialize the LLVM renderer
 pub def initialize_llvm_renderer() {
+    g_llvm_arena = Arena.create(1024 * 1024);
+    g_var_registers = deref(StringStringMap.create(addr(g_llvm_arena), 128));
+    g_function_decls = deref(StringBoolMap.create(addr(g_llvm_arena), 128));
 }
 
 /// Get next register name
@@ -45,7 +52,192 @@ def next_block(): string {
 
 /// Generate LLVM IR for an AST node
 pub def generate_llvm(ast: ref ASTNode): string {
-    return str("; Simple LLVM IR test\ndefine i32 @main() {\nentry:\n  ret i32 42\n}\n");
+    g_llvm_sb = StringBuilder.init(4096);
+    g_block_counter = 0;
+    g_register_counter = 1;
+    
+    val code: string = render_ast_node(ast);
+    return code;
+}
+
+/// Render any AST node based on its type
+def render_ast_node(ast: ref ASTNode): string {
+    if ast == nil {
+        return str("");
+    }
+    
+    val node_type: string = ast.node_type;
+    
+    if equals_c(node_type, "Program") {
+        return render_program(ast);
+    } elif equals_c(node_type, "Function") {
+        return render_function(ast);
+    } elif equals_c(node_type, "Return") {
+        return render_return(ast);
+    } elif equals_c(node_type, "Declaration") {
+        return render_declaration(ast);
+    } elif equals_c(node_type, "Assignment") {
+        return render_assignment(ast);
+    } elif equals_c(node_type, "FunctionCall") {
+        return render_function_call(ast);
+    } elif equals_c(node_type, "If") {
+        return render_if(ast);
+    } elif equals_c(node_type, "Loop") {
+        return render_loop(ast);
+    }
+    
+    return str("");
+}
+
+/// Render declaration node
+def render_declaration(ast: ref ASTNode): string {
+    val name: string = ast.data.declaration.name;
+    val type_name: string = ast.data.declaration.type_name;
+    val initializer: string = ast.data.declaration.initializer;
+    
+    val reg: string = next_register();
+    StringStringMap.set(addr(g_var_registers), addr(g_llvm_arena), name, reg);
+    
+    mut sb: StringBuilder = StringBuilder.init(128);
+    StringBuilder.append(addr(sb), str("  "));
+    StringBuilder.append(addr(sb), reg);
+    StringBuilder.append(addr(sb), str(" = alloca i32\n"));
+    
+    if str_len(initializer) > 0 {
+        StringBuilder.append(addr(sb), str("  store i32 "));
+        StringBuilder.append(addr(sb), initializer);
+        StringBuilder.append(addr(sb), str(", i32* "));
+        StringBuilder.append(addr(sb), reg);
+        StringBuilder.append(addr(sb), str("\n"));
+    }
+    
+    return StringBuilder.to_string(addr(sb));
+}
+
+/// Render assignment node
+def render_assignment(ast: ref ASTNode): string {
+    val variable: string = ast.data.assignment.variable;
+    val expression: string = ast.data.assignment.expression;
+    
+    val reg: string = StringStringMap.get(addr(g_var_registers), variable);
+    
+    mut sb: StringBuilder = StringBuilder.init(128);
+    StringBuilder.append(addr(sb), str("  store i32 "));
+    StringBuilder.append(addr(sb), expression);
+    StringBuilder.append(addr(sb), str(", i32* "));
+    StringBuilder.append(addr(sb), reg);
+    StringBuilder.append(addr(sb), str("\n"));
+    
+    return StringBuilder.to_string(addr(sb));
+}
+
+/// Render function call node
+def render_function_call(ast: ref ASTNode): string {
+    val func_name: string = ast.data.func_call.function_name;
+    val args: ref list(string) = ast.data.func_call.args;
+    
+    mut sb: StringBuilder = StringBuilder.init(128);
+    StringBuilder.append(addr(sb), str("  call void @"));
+    StringBuilder.append(addr(sb), func_name);
+    StringBuilder.append(addr(sb), str("()\n"));
+    
+    return StringBuilder.to_string(addr(sb));
+}
+
+/// Render if statement
+def render_if(ast: ref ASTNode): string {
+    val condition: string = ast.data.if_node.condition;
+    
+    val then_label: string = next_block();
+    val else_label: string = next_block();
+    val end_label: string = next_block();
+    
+    mut sb: StringBuilder = StringBuilder.init(256);
+    StringBuilder.append(addr(sb), str("  br i1 "));
+    StringBuilder.append(addr(sb), condition);
+    StringBuilder.append(addr(sb), str(", label %"));
+    StringBuilder.append(addr(sb), then_label);
+    StringBuilder.append(addr(sb), str(", label %"));
+    StringBuilder.append(addr(sb), else_label);
+    StringBuilder.append(addr(sb), str("\n\n"));
+    
+    StringBuilder.append(addr(sb), then_label);
+    StringBuilder.append(addr(sb), str(":\n"));
+    
+    if ast.children != nil {
+        val children: ref list(ASTNode) = ast.children;
+        val child_count: i32 = len(deref(children));
+        mut i: i32 = 0;
+        
+        loop {
+            if i >= child_count {
+                break;
+            }
+            val child_code: string = render_ast_node(addr(children.data[i]));
+            StringBuilder.append(addr(sb), child_code);
+            i++;
+        }
+    }
+    
+    StringBuilder.append(addr(sb), str("  br label %"));
+    StringBuilder.append(addr(sb), end_label);
+    StringBuilder.append(addr(sb), str("\n\n"));
+    
+    StringBuilder.append(addr(sb), else_label);
+    StringBuilder.append(addr(sb), str(":\n"));
+    StringBuilder.append(addr(sb), str("  br label %"));
+    StringBuilder.append(addr(sb), end_label);
+    StringBuilder.append(addr(sb), str("\n\n"));
+    
+    StringBuilder.append(addr(sb), end_label);
+    StringBuilder.append(addr(sb), str(":\n"));
+    
+    return StringBuilder.to_string(addr(sb));
+}
+
+/// Render loop node
+def render_loop(ast: ref ASTNode): string {
+    val loop_label: string = next_block();
+    val body_label: string = next_block();
+    val end_label: string = next_block();
+    
+    mut sb: StringBuilder = StringBuilder.init(256);
+    StringBuilder.append(addr(sb), str("  br label %"));
+    StringBuilder.append(addr(sb), loop_label);
+    StringBuilder.append(addr(sb), str("\n\n"));
+    
+    StringBuilder.append(addr(sb), loop_label);
+    StringBuilder.append(addr(sb), str(":\n"));
+    StringBuilder.append(addr(sb), str("  br label %"));
+    StringBuilder.append(addr(sb), body_label);
+    StringBuilder.append(addr(sb), str("\n\n"));
+    
+    StringBuilder.append(addr(sb), body_label);
+    StringBuilder.append(addr(sb), str(":\n"));
+    
+    if ast.children != nil {
+        val children: ref list(ASTNode) = ast.children;
+        val child_count: i32 = len(deref(children));
+        mut i: i32 = 0;
+        
+        loop {
+            if i >= child_count {
+                break;
+            }
+            val child_code: string = render_ast_node(addr(children.data[i]));
+            StringBuilder.append(addr(sb), child_code);
+            i++;
+        }
+    }
+    
+    StringBuilder.append(addr(sb), str("  br label %"));
+    StringBuilder.append(addr(sb), loop_label);
+    StringBuilder.append(addr(sb), str("\n\n"));
+    
+    StringBuilder.append(addr(sb), end_label);
+    StringBuilder.append(addr(sb), str(":\n"));
+    
+    return StringBuilder.to_string(addr(sb));
 }
 
 /// Render program node
@@ -62,7 +254,7 @@ def render_program(ast: ref ASTNode): string {
         if i >= child_count {
             break;
         }
-        val child_code: string = generate_llvm(addr(children.data[i]));
+        val child_code: string = render_ast_node(addr(children.data[i]));
         StringBuilder.append(addr(g_llvm_sb), child_code);
         i++;
     }
@@ -73,9 +265,17 @@ def render_program(ast: ref ASTNode): string {
 /// Render function definition
 def render_function(ast: ref ASTNode): string {
     val func_name: string = ast.data.function.name;
-    mut sb: StringBuilder = StringBuilder.init(256);
+    val return_type: string = ast.data.function.return_type;
     
-    StringBuilder.append(addr(sb), str("define i32 @"));
+    mut sb: StringBuilder = StringBuilder.init(512);
+    
+    StringBuilder.append(addr(sb), str("define "));
+    if equals_c(return_type, "void") {
+        StringBuilder.append(addr(sb), str("void"));
+    } else {
+        StringBuilder.append(addr(sb), str("i32"));
+    }
+    StringBuilder.append(addr(sb), str(" @"));
     StringBuilder.append(addr(sb), func_name);
     StringBuilder.append(addr(sb), str("() {\n"));
     StringBuilder.append(addr(sb), str("entry:\n"));
@@ -89,10 +289,16 @@ def render_function(ast: ref ASTNode): string {
             if i >= child_count {
                 break;
             }
-            val child_code: string = generate_llvm(addr(children.data[i]));
+            val child_code: string = render_ast_node(addr(children.data[i]));
             StringBuilder.append(addr(sb), child_code);
             i++;
         }
+    }
+    
+    if equals_c(return_type, "void") {
+        StringBuilder.append(addr(sb), str("  ret void\n"));
+    } else {
+        StringBuilder.append(addr(sb), str("  ret i32 0\n"));
     }
     
     StringBuilder.append(addr(sb), str("}\n\n"));
@@ -101,7 +307,15 @@ def render_function(ast: ref ASTNode): string {
 
 /// Render return statement
 def render_return(ast: ref ASTNode): string {
+    val expression: string = ast.data.return_node.expression;
+    
     mut sb: StringBuilder = StringBuilder.init(128);
-    StringBuilder.append(addr(sb), str("  ret i32 0\n"));
+    if str_len(expression) > 0 {
+        StringBuilder.append(addr(sb), str("  ret i32 "));
+        StringBuilder.append(addr(sb), expression);
+        StringBuilder.append(addr(sb), str("\n"));
+    } else {
+        StringBuilder.append(addr(sb), str("  ret void\n"));
+    }
     return StringBuilder.to_string(addr(sb));
 }

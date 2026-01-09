@@ -576,12 +576,6 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
     
     mut compile_cmd: string = concat(compiler, str(" "));
     
-    if equals_c(backend, "llvm") {
-        compile_cmd = concat(compile_cmd, code_file);
-    } else {
-        compile_cmd = concat(compile_cmd, code_file);
-    }
-    
     val target_triple: string = get_target_triple();
     if str_len(target_triple) > 0 {
         if !::quiet_mode {
