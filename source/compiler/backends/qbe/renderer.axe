@@ -536,23 +536,8 @@ def render_qbe_unsafe(ast: ref ASTNode): string {
 
 /// Process C function calls and convert them to QBE extern calls
 def process_c_function_calls(expr: string): string {
-    mut result: string = expr;
-    
-    result = replace_all(result, str("C.strlen"), str("call $strlen"));
-    result = replace_all(result, str("C.printf"), str("call $printf"));
-    result = replace_all(result, str("C.fprintf"), str("call $fprintf"));
-    result = replace_all(result, str("C.scanf"), str("call $scanf"));
-    result = replace_all(result, str("C.malloc"), str("call $malloc"));
-    result = replace_all(result, str("C.free"), str("call $free"));
-    result = replace_all(result, str("C.memcpy"), str("call $memcpy"));
-    result = replace_all(result, str("C.memset"), str("call $memset"));
-    result = replace_all(result, str("C.strcmp"), str("call $strcmp"));
-    result = replace_all(result, str("C.strcpy"), str("call $strcpy"));
-    result = replace_all(result, str("C.strcat"), str("call $strcat"));
-    result = replace_all(result, str("C.stderr"), str("$stderr"));
-    result = replace_all(result, str("C.stdout"), str("$stdout"));
-    result = replace_all(result, str("C.stdin"), str("$stdin"));
-    
+    mut result: string = replace_all(expr, str("C."), str("$"));
+    result = replace_all(result, str("$("), str("call $("));
     return result;
 }
 
