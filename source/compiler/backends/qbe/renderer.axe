@@ -79,7 +79,10 @@ pub def generate_qbe(ast: ref ASTNode): string {
     g_qbe_register_counter = 1;
     
     val code: string = render_qbe_ast_node(ast);
-    return code;
+    mut fixed_code: string = replace_all(code, str("()("), str("("));
+    fixed_code = replace_all(fixed_code, str("()()"), str("()"));
+    
+    return fixed_code;
 }
 
 /// Render any AST node based on its type
@@ -273,13 +276,24 @@ def render_qbe_declaration(ast: ref ASTNode): string {
         StringBuilder.append(addr(sb), str(" =l alloc4 4\n"));
         
         if str_len(initializer) > 0 {
-            mut processed_init: string = process_c_function_calls(initializer);
-            processed_init = fix_float_literals(processed_init);
-            StringBuilder.append(addr(sb), str("    storew "));
-            StringBuilder.append(addr(sb), processed_init);
-            StringBuilder.append(addr(sb), str(", "));
-            StringBuilder.append(addr(sb), reg);
-            StringBuilder.append(addr(sb), str("\n"));
+            if contains_function_call(initializer) {
+                val temp_reg: string = next_qbe_register();
+                val call_code: string = render_function_call_expression(initializer, temp_reg);
+                StringBuilder.append(addr(sb), call_code);
+                StringBuilder.append(addr(sb), str("    storew "));
+                StringBuilder.append(addr(sb), temp_reg);
+                StringBuilder.append(addr(sb), str(", "));
+                StringBuilder.append(addr(sb), reg);
+                StringBuilder.append(addr(sb), str("\n"));
+            } else {
+                mut processed_init: string = process_c_function_calls(initializer);
+                processed_init = fix_float_literals(processed_init);
+                StringBuilder.append(addr(sb), str("    storew "));
+                StringBuilder.append(addr(sb), processed_init);
+                StringBuilder.append(addr(sb), str(", "));
+                StringBuilder.append(addr(sb), reg);
+                StringBuilder.append(addr(sb), str("\n"));
+            }
         }
     }
     
@@ -347,9 +361,18 @@ def render_qbe_return(ast: ref ASTNode): string {
             StringBuilder.append(addr(sb), str("    ret "));
             StringBuilder.append(addr(sb), load_reg);
             StringBuilder.append(addr(sb), str("\n"));
-        } else {
+        } elif contains_function_call(expression) {
+            val temp_reg: string = next_qbe_register();
+            val call_code: string = render_function_call_expression(expression, temp_reg);
+            StringBuilder.append(addr(sb), call_code);
             StringBuilder.append(addr(sb), str("    ret "));
-            StringBuilder.append(addr(sb), expression);
+            StringBuilder.append(addr(sb), temp_reg);
+            StringBuilder.append(addr(sb), str("\n"));
+        } else {
+            mut processed_expr: string = process_c_function_calls(expression);
+            processed_expr = fix_float_literals(processed_expr);
+            StringBuilder.append(addr(sb), str("    ret "));
+            StringBuilder.append(addr(sb), processed_expr);
             StringBuilder.append(addr(sb), str("\n"));
         }
     } else {
@@ -536,6 +559,10 @@ def render_qbe_unsafe(ast: ref ASTNode): string {
 
 /// Process C function calls and convert them to QBE extern calls
 def process_c_function_calls(expr: string): string {
+    if contains_function_call(expr) and !str_contains(expr, str("C.")) {
+        return expr;
+    }
+    
     mut result: string = replace_all(expr, str("C."), str("$"));
     result = replace_all(result, str("$("), str("call $("));
     return result;
@@ -544,13 +571,95 @@ def process_c_function_calls(expr: string): string {
 /// Fix float literals that have spaces around the dot
 def fix_float_literals(expr: string): string {
     mut result: string = replace_all(expr, str(" . "), str("."));
+    result = strip(result); 
     
     if equals_c(result, "0.0") {
         result = str("s_0.0");
-    } elif str_contains(result, str("."))
+    } elif is_float_literal(result)
         and !has_prefix(result, str("s_"))
         and !has_prefix(result, str("d_")) {
         result = concat(str("s_"), result);
+    }
+    
+    return result;
+}
+
+/// Check if a string is actually a float literal (not a function call or member access)
+def is_float_literal(expr: string): bool {
+    if !str_contains(expr, str(".")) {
+        return false;
+    }
+    
+    if str_contains(expr, str("(")) {
+        return false;
+    }
+    
+    mut i: i32 = 0;
+    mut has_dot: bool = false;
+    mut has_digit: bool = false;
+    
+    loop {
+        if i >= str_len(expr) {
+            break;
+        }
+        
+        val c: char = get_char(expr, i);
+        if c == '.' {
+            if has_dot {
+                return false;
+            }
+            has_dot = true;
+        } elif c >= '0' and c <= '9' {
+            has_digit = true;
+        } elif c == '-' or c == '+' {
+            // Allow signs
+        } elif c == 'e' or c == 'E' {
+            // Allow scientific notation
+        } elif c >= 'a' and c <= 'z' or c >= 'A' and c <= 'Z' {
+            return false;
+        } elif c == ' ' {
+            return false;
+        }
+        
+        i++;
+    }
+    
+    return has_dot and has_digit;
+}
+
+/// Check if an expression contains a function call
+def contains_function_call(expr: string): bool {
+    return str_contains(expr, str("(")) and str_contains(expr, str(")")) and !str_contains(expr, str("C."));
+}
+
+/// Render a function call expression and store result in a register
+def render_function_call_expression(expr: string, result_reg: string): string {
+    mut func_name: string = extract_function_name(expr);
+    func_name = convert_to_qbe_function_name(func_name);
+    mut result: string = concat(str("    "), result_reg);
+    result = concat(result, str(" =w call $"));
+    result = concat(result, func_name);
+    result = concat(result, str("()\n"));
+    
+    return result;
+}
+
+/// Extract function name from expression (simplified)
+def extract_function_name(expr: string): string {
+    // Remove all spaces and parentheses to get just the function name
+    mut clean_expr: string = replace_all(expr, str(" "), str(""));
+    clean_expr = replace_all(clean_expr, str("("), str(""));
+    clean_expr = replace_all(clean_expr, str(")"), str(""));
+    return clean_expr;
+}
+
+/// Convert function name to QBE format
+def convert_to_qbe_function_name(func_name: string): string {
+    mut result: string = replace_all(func_name, str("."), str("__"));
+    result = replace_all(result, str(" "), str(""));
+    
+    if !str_contains(result, str("__")) {
+        result = concat(str("std__io__"), result);
     }
     
     return result;
