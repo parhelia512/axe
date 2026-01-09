@@ -104,6 +104,12 @@ def render_qbe_ast_node(ast: ref ASTNode): string {
         return render_qbe_return(ast);
     } elif equals_c(node_type, "Declaration") {
         return render_qbe_declaration(ast);
+    } elif equals_c(node_type, "Assignment") {
+        return render_qbe_assignment(ast);
+    } elif equals_c(node_type, "If") {
+        return render_qbe_if(ast);
+    } elif equals_c(node_type, "Loop") {
+        return render_qbe_loop(ast);
     } elif equals_c(node_type, "Print") {
         return render_qbe_print(ast);
     } elif equals_c(node_type, "Model") {
@@ -118,6 +124,8 @@ def render_qbe_ast_node(ast: ref ASTNode): string {
         return render_qbe_test(ast);
     } elif equals_c(node_type, "Unsafe") {
         return render_qbe_unsafe(ast);
+    } elif equals_c(node_type, "MemberAccess") {
+        return render_qbe_member_access(ast);
     }
     
     return str("");
@@ -385,6 +393,43 @@ def render_qbe_return(ast: ref ASTNode): string {
             StringBuilder.append(addr(sb), str("    ret "));
             StringBuilder.append(addr(sb), temp_reg);
             StringBuilder.append(addr(sb), str("\n"));
+        } elif str_contains(expression, str(".")) {
+            val dot_pos: i32 = find_substr(expression, str("."));
+            if dot_pos > 0 {
+                val object_name: string = substring_se(expression, 0, dot_pos);
+                val member_name: string = substring_se(expression, dot_pos + 1, cast[i32](str_len(expression)));
+                
+                if StringStringMap.contains(addr(g_qbe_var_registers), object_name) {
+                    val object_reg: string = StringStringMap.get(addr(g_qbe_var_registers), object_name);
+                    val temp_reg: string = next_qbe_register();
+                    
+                    if equals_c(member_name, "len") {
+                        StringBuilder.append(addr(sb), str("    "));
+                        StringBuilder.append(addr(sb), temp_reg);
+                        StringBuilder.append(addr(sb), str(" =w loadw "));
+                        StringBuilder.append(addr(sb), object_reg);
+                        StringBuilder.append(addr(sb), str(" + 8\n"));
+                        StringBuilder.append(addr(sb), str("    ret "));
+                        StringBuilder.append(addr(sb), temp_reg);
+                        StringBuilder.append(addr(sb), str("\n"));
+                    } elif equals_c(member_name, "cap") {
+                        StringBuilder.append(addr(sb), str("    "));
+                        StringBuilder.append(addr(sb), temp_reg);
+                        StringBuilder.append(addr(sb), str(" =w loadw "));
+                        StringBuilder.append(addr(sb), object_reg);
+                        StringBuilder.append(addr(sb), str(" + 16\n"));
+                        StringBuilder.append(addr(sb), str("    ret "));
+                        StringBuilder.append(addr(sb), temp_reg);
+                        StringBuilder.append(addr(sb), str("\n"));
+                    } else {
+                        StringBuilder.append(addr(sb), str("    ret 0\n"));
+                    }
+                } else {
+                    StringBuilder.append(addr(sb), str("    ret 0\n"));
+                }
+            } else {
+                StringBuilder.append(addr(sb), str("    ret 0\n"));
+            }
         } else {
             mut processed_expr: string = process_c_function_calls(expression);
             processed_expr = fix_float_literals(processed_expr);
@@ -575,12 +620,36 @@ def render_qbe_unsafe(ast: ref ASTNode): string {
 }
 
 /// Process C function calls and convert them to QBE extern calls
-def process_c_function_calls(expr: string): string {
-    if contains_function_call(expr) and !str_contains(expr, str("C.")) {
+/// Resolve member access in expressions
+def resolve_member_access(expr: string): string {
+    if !str_contains(expr, str(".")) {
         return expr;
     }
     
-    mut result: string = replace_all(expr, str("C."), str("$"));
+    val dot_pos: i32 = find_substr(expr, str("."));
+    if dot_pos <= 0 {
+        return expr;
+    }
+    
+    val object_name: string = substring_se(expr, 0, dot_pos);
+    val member_name: string = substring_se(expr, dot_pos + 1, cast[i32](str_len(expr)));
+    
+    if !StringStringMap.contains(addr(g_qbe_var_registers), object_name) {
+        return expr;
+    }
+    
+    val object_reg: string = StringStringMap.get(addr(g_qbe_var_registers), object_name);
+    
+    return object_reg;
+}
+
+def process_c_function_calls(expr: string): string {
+    if contains_function_call(expr) and !str_contains(expr, str("C.")) {
+        return resolve_member_access(expr);
+    }
+    
+    mut result: string = resolve_member_access(expr);
+    result = replace_all(result, str("C."), str("$"));
     result = replace_all(result, str("$("), str("call $("));
     return result;
 }
@@ -589,6 +658,7 @@ def process_c_function_calls(expr: string): string {
 def fix_float_literals(expr: string): string {
     mut result: string = replace_all(expr, str(" . "), str("."));
     result = strip(result); 
+    result = resolve_member_access(result);
     
     if equals_c(result, "0.0") {
         result = str("s_0.0");
@@ -679,4 +749,162 @@ def convert_to_qbe_function_name(func_name: string): string {
     }
     
     return result;
+}
+/// Render member access for QBE
+def render_qbe_member_access(ast: ref ASTNode): string {
+    val object_name: string = ast.data.member_access.object_name;
+    val member_name: string = ast.data.member_access.member_name;
+    
+    if !StringStringMap.contains(addr(g_qbe_var_registers), object_name) {
+        return str("");
+    }
+    
+    val object_reg: string = StringStringMap.get(addr(g_qbe_var_registers), object_name);
+    
+    if equals_c(member_name, "len") {
+        val temp_reg: string = next_qbe_register();
+        val addr_reg: string = next_qbe_register();
+        mut sb: StringBuilder = StringBuilder.init(256);
+        
+        StringBuilder.append(addr(sb), str("    "));
+        StringBuilder.append(addr(sb), addr_reg);
+        StringBuilder.append(addr(sb), str(" =l add "));
+        StringBuilder.append(addr(sb), object_reg);
+        StringBuilder.append(addr(sb), str(", 8\n"));
+        StringBuilder.append(addr(sb), str("    "));
+        StringBuilder.append(addr(sb), temp_reg);
+        StringBuilder.append(addr(sb), str(" =w loadw "));
+        StringBuilder.append(addr(sb), addr_reg);
+        StringBuilder.append(addr(sb), str("\n"));
+        
+        return StringBuilder.to_string(addr(sb));
+    } elif equals_c(member_name, "cap") {
+        val temp_reg: string = next_qbe_register();
+        val addr_reg: string = next_qbe_register();
+        mut sb: StringBuilder = StringBuilder.init(256);
+        
+        StringBuilder.append(addr(sb), str("    "));
+        StringBuilder.append(addr(sb), addr_reg);
+        StringBuilder.append(addr(sb), str(" =l add "));
+        StringBuilder.append(addr(sb), object_reg);
+        StringBuilder.append(addr(sb), str(", 16\n"));
+        StringBuilder.append(addr(sb), str("    "));
+        StringBuilder.append(addr(sb), temp_reg);
+        StringBuilder.append(addr(sb), str(" =w loadw "));
+        StringBuilder.append(addr(sb), addr_reg);
+        StringBuilder.append(addr(sb), str("\n"));
+        
+        return StringBuilder.to_string(addr(sb));
+    } elif equals_c(member_name, "data") {
+        val temp_reg: string = next_qbe_register();
+        mut sb: StringBuilder = StringBuilder.init(256);
+        
+        StringBuilder.append(addr(sb), str("    "));
+        StringBuilder.append(addr(sb), temp_reg);
+        StringBuilder.append(addr(sb), str(" =w loadw "));
+        StringBuilder.append(addr(sb), object_reg);
+        StringBuilder.append(addr(sb), str("\n"));
+        
+        return StringBuilder.to_string(addr(sb));
+    }
+    
+    return str("");
+}
+
+/// Render assignment for QBE
+def render_qbe_assignment(ast: ref ASTNode): string {
+    val variable: string = ast.data.assignment.variable;
+    val expression: string = ast.data.assignment.expression;
+    mut sb: StringBuilder = StringBuilder.init(128);
+    
+    if str_contains(variable, str(".")) {
+        val dot_pos: i32 = find_substr(variable, str("."));
+        if dot_pos > 0 {
+            val object_name: string = substring_se(variable, 0, dot_pos);
+            val member_name: string = substring_se(variable, dot_pos + 1, cast[i32](str_len(variable)));
+            
+            if StringStringMap.contains(addr(g_qbe_var_registers), object_name) {
+                val object_reg: string = StringStringMap.get(addr(g_qbe_var_registers), object_name);
+                mut processed_expr: string = process_c_function_calls(expression);
+
+                processed_expr = fix_float_literals(processed_expr);
+                
+                mut offset: string = str("0");
+                if equals_c(member_name, "data") {
+                    offset = str("0");
+                } elif equals_c(member_name, "len") {
+                    offset = str("8");
+                } elif equals_c(member_name, "cap") {
+                    offset = str("16");
+                }
+                
+                StringBuilder.append(addr(sb), str("    storew "));
+                StringBuilder.append(addr(sb), processed_expr);
+                StringBuilder.append(addr(sb), str(", "));
+                StringBuilder.append(addr(sb), object_reg);
+                StringBuilder.append(addr(sb), str(" + "));
+                StringBuilder.append(addr(sb), offset);
+                StringBuilder.append(addr(sb), str("\n"));
+            }
+        }
+    } else {
+        if StringStringMap.contains(addr(g_qbe_var_registers), variable) {
+            val reg: string = StringStringMap.get(addr(g_qbe_var_registers), variable);
+            
+            mut processed_expr: string = process_c_function_calls(expression);
+            processed_expr = fix_float_literals(processed_expr);
+            
+            StringBuilder.append(addr(sb), str("    storew "));
+            StringBuilder.append(addr(sb), processed_expr);
+            StringBuilder.append(addr(sb), str(", "));
+            StringBuilder.append(addr(sb), reg);
+            StringBuilder.append(addr(sb), str("\n"));
+        }
+    }
+    
+    return StringBuilder.to_string(addr(sb));
+}
+
+/// Render if statement for QBE
+def render_qbe_if(ast: ref ASTNode): string {
+    mut sb: StringBuilder = StringBuilder.init(256);
+    
+    if ast.children != nil {
+        val children: ref list(ASTNode) = ast.children;
+        val child_count: i32 = len(deref(children));
+        
+        mut i: i32 = 0;
+        loop {
+            if i >= child_count {
+                break;
+            }
+            val child_code: string = render_qbe_ast_node(addr(children.data[i]));
+            StringBuilder.append(addr(sb), child_code);
+            i++;
+        }
+    }
+    
+    return StringBuilder.to_string(addr(sb));
+}
+
+/// Render loop for QBE
+def render_qbe_loop(ast: ref ASTNode): string {
+    mut sb: StringBuilder = StringBuilder.init(256);
+    
+    if ast.children != nil {
+        val children: ref list(ASTNode) = ast.children;
+        val child_count: i32 = len(deref(children));
+        
+        mut i: i32 = 0;
+        loop {
+            if i >= child_count {
+                break;
+            }
+            val child_code: string = render_qbe_ast_node(addr(children.data[i]));
+            StringBuilder.append(addr(sb), child_code);
+            i++;
+        }
+    }
+    
+    return StringBuilder.to_string(addr(sb));
 }
