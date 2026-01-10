@@ -645,6 +645,11 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
             return false;
         }
         
+        if ::keep_emitted_file {
+            println "Keeping emitted QBE IR.";    
+        } else {
+            delete_file(asm_filename);
+        }
         println "Compiled.";
         return true;
     } else {
