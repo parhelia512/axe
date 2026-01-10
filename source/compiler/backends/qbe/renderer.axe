@@ -71,13 +71,6 @@ def next_qbe_register(): string {
 
 /// Generate QBE IR for an AST node
 pub def generate_qbe(ast: ref ASTNode): string {
-    unsafe {
-        C.fprintf(C.stderr, "[QBE GEN] generate_qbe called, ast=%p\n", ast);
-        if ast != nil and ast.node_type.data != nil {
-            C.fprintf(C.stderr, "[QBE GEN] ast.node_type=%s\n", ast.node_type);
-        }
-    }
-    
     if ast == nil {
         return str("# Empty AST\n");
     }
@@ -268,7 +261,9 @@ def render_qbe_function_body(children: ref list(ASTNode)): string {
         if str_contains(child_code, str("ret ")) {
             StringBuilder.append(addr(sb), child_code);
             has_return = true;
-        } elif equals_c(child.node_type, "If") and str_contains(child_code, str("@after_")) and str_contains(child_code, str("ret 0")) {
+        } elif equals_c(child.node_type, "If")
+            and str_contains(child_code, str("@after_"))
+            and str_contains(child_code, str("ret 0")) {
             StringBuilder.append(addr(sb), child_code);
             has_return = true;
         } elif equals_c(child.node_type, "Loop") and str_contains(child_code, str("jmp @loop_")) {
@@ -764,7 +759,10 @@ def render_qbe_function_call(ast: ref ASTNode): string {
                     mut format_str: string = str("%d");
                     val quote_start: i32 = find_substr(arg_expr, str("\""));
                     if quote_start >= 0 {
-                        val quote_end: i32 = find_substr(substr(arg_expr, quote_start + 1, str_len(arg_expr) - quote_start - 1), str("\""));
+                        val quote_end: i32 = find_substr(
+                            substr(arg_expr, quote_start + 1,
+                            str_len(arg_expr) - quote_start - 1), str("\"")
+                        );
                         if quote_end >= 0 {
                             format_str = substr(arg_expr, quote_start + 1, quote_end);
                         }
@@ -774,7 +772,10 @@ def render_qbe_function_call(ast: ref ASTNode): string {
                     val addr_start: i32 = find_substr(arg_expr, str("addr("));
                     if addr_start >= 0 {
                         val paren_start: i32 = addr_start + 5; 
-                        val paren_end: i32 = find_substr(substr(arg_expr, paren_start, str_len(arg_expr) - paren_start), str(")"));
+                        val paren_end: i32 = find_substr(
+                            substr(arg_expr, paren_start, str_len(arg_expr) - paren_start),
+                            str(")")
+                        );
                         if paren_end >= 0 {
                             var_name = strip(substr(arg_expr, paren_start, paren_end));
                         }
