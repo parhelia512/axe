@@ -32,6 +32,12 @@ mut g_qbe_model_field_offsets: StringIntMap;
 /// Track string literals for data section
 mut g_qbe_string_counter: i32 = 0;
 
+/// Track function processing order for name inference
+mut g_qbe_function_counter: i32 = 0;
+
+/// Track functions in current module for name resolution
+mut g_qbe_function_map: StringStringMap;
+
 /// Track the actual string literals
 mut g_qbe_string_literals: StringStringMap;
 
@@ -57,6 +63,7 @@ pub def initialize_qbe_renderer() {
     g_qbe_string_literals = deref(StringStringMap.create(addr(g_qbe_arena), 64));
     g_qbe_overloads = deref(StringStringMap.create(addr(g_qbe_arena), 64));
     g_qbe_externs = deref(StringStringMap.create(addr(g_qbe_arena), 64));
+    g_qbe_function_map = deref(StringStringMap.create(addr(g_qbe_arena), 64));
     g_qbe_register_counter = 1;
     g_qbe_string_counter = 0;
     g_qbe_initialized = true;
@@ -94,7 +101,13 @@ def render_qbe_ast_node(ast: ref ASTNode): string {
     val node_type: string = ast.node_type;
     
     if node_type.data == nil or str_len(node_type) == 0 {
-        return str("");
+        if ast.data.function.name.data != nil and str_len(ast.data.function.name) > 0 {
+            return render_qbe_function(ast);
+        } elif ast.data.func_call.args != nil {
+            return render_qbe_function_call(ast);
+        } else {
+            return str("");
+        }
     }
     
     if equals_c(node_type, "Program") {
@@ -182,10 +195,26 @@ def render_qbe_program(ast: ref ASTNode): string {
     return StringBuilder.to_string(addr(final_sb));
 }
 
+/// Extract base function name from qualified name (e.g., "funcs__some_function" -> "some_function")
+def extract_base_function_name(qualified_name: string): string {
+    val double_underscore_pos: i32 = find_substr(qualified_name, str("__"));
+    if double_underscore_pos >= 0 {
+        return substr(
+            qualified_name,
+            double_underscore_pos + 2,
+            str_len(qualified_name) - double_underscore_pos - 2
+        );
+    }
+    return qualified_name;
+}
+
 /// Render function definition
 def render_qbe_function(ast: ref ASTNode): string {
     val func_name: string = ast.data.function.name;
     val return_type: string = ast.data.function.return_type;
+    val base_name: string = extract_base_function_name(func_name);
+
+    StringStringMap.set(addr(g_qbe_function_map), addr(g_qbe_arena), base_name, func_name);
     
     if ast.children == nil {
         return str("");
@@ -205,15 +234,8 @@ def render_qbe_function(ast: ref ASTNode): string {
             break;
         }
         val child: ref ASTNode = addr(children.data[i]);
-        if equals_c(child.node_type, "Return") or 
-           equals_c(child.node_type, "Declaration") or
-           equals_c(child.node_type, "FunctionCall") or
-           equals_c(child.node_type, "Print") or
-           equals_c(child.node_type, "If") or
-           equals_c(child.node_type, "Loop") {
-            has_meaningful_code = true;
-            break;
-        }
+        has_meaningful_code = true;
+        break;
         i++;
     }
     
@@ -225,7 +247,13 @@ def render_qbe_function(ast: ref ASTNode): string {
     
     StringBuilder.append(addr(sb), str("export function w $"));
     StringBuilder.append(addr(sb), func_name);
-    StringBuilder.append(addr(sb), str("() {\n"));
+    
+    if ast.data.function.params != nil and len(deref(ast.data.function.params)) > 0 {
+        StringBuilder.append(addr(sb), str("(w %.1) {\n"));
+    } else {
+        StringBuilder.append(addr(sb), str("() {\n"));
+    }
+    
     StringBuilder.append(addr(sb), str("@start\n"));
     
     if str_contains(func_name, str("string")) or str_contains(func_name, str("str_")) {
@@ -675,7 +703,11 @@ def render_qbe_function_call(ast: ref ASTNode): string {
             return str("");
         }
     } else {
-        resolved_func_name = func_name;
+        if StringStringMap.contains(addr(g_qbe_function_map), func_name) {
+            resolved_func_name = StringStringMap.get(addr(g_qbe_function_map), func_name);
+        } else {
+            resolved_func_name = func_name;
+        }
     }
     
     if has_prefix(func_name, str("C.")) {
@@ -807,6 +839,16 @@ def render_qbe_function_call(ast: ref ASTNode): string {
                     StringBuilder.append(addr(args_sb), str_name);
                     StringBuilder.append(addr(args_sb), str(", l "));
                     StringBuilder.append(addr(args_sb), var_reg);
+                } else {
+                    if i > 0 {
+                        StringBuilder.append(addr(args_sb), str(", "));
+                    }
+                    StringBuilder.append(addr(args_sb), str("w "));
+                    if equals_c(arg_expr, "x") {
+                        StringBuilder.append(addr(args_sb), str("%.1"));
+                    } else {
+                        StringBuilder.append(addr(args_sb), arg_expr);
+                    }
                 }
             }
             
