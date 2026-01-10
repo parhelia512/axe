@@ -71,6 +71,13 @@ def next_qbe_register(): string {
 
 /// Generate QBE IR for an AST node
 pub def generate_qbe(ast: ref ASTNode): string {
+    unsafe {
+        C.fprintf(C.stderr, "[QBE GEN] generate_qbe called, ast=%p\n", ast);
+        if ast != nil and ast.node_type.data != nil {
+            C.fprintf(C.stderr, "[QBE GEN] ast.node_type=%s\n", ast.node_type);
+        }
+    }
+    
     if ast == nil {
         return str("# Empty AST\n");
     }
@@ -92,7 +99,8 @@ def render_qbe_ast_node(ast: ref ASTNode): string {
     }
     
     val node_type: string = ast.node_type;
-    if str_len(node_type) == 0 {
+    
+    if node_type.data == nil or str_len(node_type) == 0 {
         return str("");
     }
     
@@ -475,6 +483,64 @@ def render_qbe_print(ast: ref ASTNode): string {
         return StringBuilder.to_string(addr(sb));
     }
     
+    if len(messages) >= 2 {
+        val format_str: string = messages.data[0];
+        mut str_name: string;
+        if StringStringMap.contains(addr(g_qbe_string_literals), format_str) {
+            str_name = StringStringMap.get(addr(g_qbe_string_literals), format_str);
+        } else {
+            str_name = concat(str("str_"), i32_to_string(g_qbe_string_counter));
+            g_qbe_string_counter++;
+            StringStringMap.set(
+                addr(g_qbe_string_literals),
+                addr(g_qbe_arena),
+                format_str,
+                str_name
+            );
+        }
+        
+        mut args_sb: StringBuilder = StringBuilder.init(256);
+        
+        mut i: i32 = 1;
+        loop {
+            if i >= len(messages) {
+                break;
+            }
+            
+            if flags.data[i] {
+                val expr: string = strip(messages.data[i]);
+                
+                if has_prefix(expr, str("addr(")) and has_suffix(expr, str(")")) {
+                    val var_name: string = strip(substr(expr, 5, str_len(expr) - 6));
+                    if StringStringMap.contains(addr(g_qbe_var_registers), var_name) {
+                        val var_reg: string = StringStringMap.get(addr(g_qbe_var_registers), var_name);
+                        StringBuilder.append(addr(args_sb), str(", l "));
+                        StringBuilder.append(addr(args_sb), var_reg);
+                    }
+                } elif StringStringMap.contains(addr(g_qbe_var_registers), expr) {
+                    val var_reg: string = StringStringMap.get(addr(g_qbe_var_registers), expr);
+                    val load_reg: string = next_qbe_register();
+                    StringBuilder.append(addr(sb), str("    "));
+                    StringBuilder.append(addr(sb), load_reg);
+                    StringBuilder.append(addr(sb), str(" =w loadw "));
+                    StringBuilder.append(addr(sb), var_reg);
+                    StringBuilder.append(addr(sb), str("\n"));
+                    StringBuilder.append(addr(args_sb), str(", w "));
+                    StringBuilder.append(addr(args_sb), load_reg);
+                }
+            }
+            
+            i++;
+        }
+        
+        StringBuilder.append(addr(sb), str("    call $printf(l $"));
+        StringBuilder.append(addr(sb), str_name);
+        StringBuilder.append(addr(sb), StringBuilder.to_string(addr(args_sb)));
+        StringBuilder.append(addr(sb), str(")\n"));
+        
+        return StringBuilder.to_string(addr(sb));
+    }
+    
     return StringBuilder.to_string(addr(sb));
 }
 
@@ -596,9 +662,26 @@ def render_qbe_model(ast: ref ASTNode): string {
 
 /// Render function call
 def render_qbe_function_call(ast: ref ASTNode): string {
+    if ast == nil {
+        return str("");
+    }
+    
     val func_name: string = ast.data.func_call.function_name;
     val args: ref list(string) = ast.data.func_call.args;
-    mut resolved_func_name: string = func_name;
+    
+    
+    mut resolved_func_name: string;
+    
+    if func_name.data == nil or str_len(func_name) == 0 {
+        // FIX LATER: Assumes any function call with arguments is printf
+        if args != nil and len(deref(args)) >= 1 {
+            resolved_func_name = str("printf");
+        } else {
+            return str("");
+        }
+    } else {
+        resolved_func_name = func_name;
+    }
     
     if has_prefix(func_name, str("C.")) {
         resolved_func_name = substr(func_name, 2, str_len(func_name) - 2);
@@ -620,10 +703,121 @@ def render_qbe_function_call(ast: ref ASTNode): string {
         }
     }
     
-    mut sb: StringBuilder = StringBuilder.init(128);
+    mut sb: StringBuilder = StringBuilder.init(256);
+    mut args_sb: StringBuilder = StringBuilder.init(256);
+    
+    if args != nil {
+        val args_list: list(string) = deref(args);
+        mut i: i32 = 0;
+        loop {
+            if i >= len(args_list) {
+                break;
+            }
+            
+            val arg_expr: string = strip(args_list.data[i]);
+            
+            if has_prefix(arg_expr, str("addr(")) and has_suffix(arg_expr, str(")")) {
+                val var_name: string = strip(substr(arg_expr, 5, str_len(arg_expr) - 6));
+                if StringStringMap.contains(addr(g_qbe_var_registers), var_name) {
+                    val var_reg: string = StringStringMap.get(addr(g_qbe_var_registers), var_name);
+                    if i > 0 {
+                        StringBuilder.append(addr(args_sb), str(", "));
+                    }
+                    StringBuilder.append(addr(args_sb), str("l "));
+                    StringBuilder.append(addr(args_sb), var_reg);
+                }
+            } elif has_prefix(arg_expr, str("\"")) and has_suffix(arg_expr, str("\"")) {
+                val str_content: string = substr(arg_expr, 1, str_len(arg_expr) - 2);
+                mut str_name: string;
+                if StringStringMap.contains(addr(g_qbe_string_literals), str_content) {
+                    str_name = StringStringMap.get(addr(g_qbe_string_literals), str_content);
+                } else {
+                    str_name = concat(str("str_"), i32_to_string(g_qbe_string_counter));
+                    g_qbe_string_counter++;
+                    StringStringMap.set(
+                        addr(g_qbe_string_literals),
+                        addr(g_qbe_arena),
+                        str_content,
+                        str_name
+                    );
+                }
+                if i > 0 {
+                    StringBuilder.append(addr(args_sb), str(", "));
+                }
+                StringBuilder.append(addr(args_sb), str("l $"));
+                StringBuilder.append(addr(args_sb), str_name);
+            } elif StringStringMap.contains(addr(g_qbe_var_registers), arg_expr) {
+                val var_reg: string = StringStringMap.get(addr(g_qbe_var_registers), arg_expr);
+                val load_reg: string = next_qbe_register();
+                StringBuilder.append(addr(sb), str("    "));
+                StringBuilder.append(addr(sb), load_reg);
+                StringBuilder.append(addr(sb), str(" =w loadw "));
+                StringBuilder.append(addr(sb), var_reg);
+                StringBuilder.append(addr(sb), str("\n"));
+                if i > 0 {
+                    StringBuilder.append(addr(args_sb), str(", "));
+                }
+                StringBuilder.append(addr(args_sb), str("w "));
+                StringBuilder.append(addr(args_sb), load_reg);
+            } else {
+                if str_contains(arg_expr, str("addr(")) and str_contains(arg_expr, str("\"")) {
+                    mut format_str: string = str("%d");
+                    val quote_start: i32 = find_substr(arg_expr, str("\""));
+                    if quote_start >= 0 {
+                        val quote_end: i32 = find_substr(substr(arg_expr, quote_start + 1, str_len(arg_expr) - quote_start - 1), str("\""));
+                        if quote_end >= 0 {
+                            format_str = substr(arg_expr, quote_start + 1, quote_end);
+                        }
+                    }
+                    
+                    mut var_name: string = str("x"); 
+                    val addr_start: i32 = find_substr(arg_expr, str("addr("));
+                    if addr_start >= 0 {
+                        val paren_start: i32 = addr_start + 5; 
+                        val paren_end: i32 = find_substr(substr(arg_expr, paren_start, str_len(arg_expr) - paren_start), str(")"));
+                        if paren_end >= 0 {
+                            var_name = strip(substr(arg_expr, paren_start, paren_end));
+                        }
+                    }
+                    
+                    mut str_name: string;
+                    if StringStringMap.contains(addr(g_qbe_string_literals), format_str) {
+                        str_name = StringStringMap.get(addr(g_qbe_string_literals), format_str);
+                    } else {
+                        str_name = concat(str("str_"), i32_to_string(g_qbe_string_counter));
+                        g_qbe_string_counter++;
+                        StringStringMap.set(
+                            addr(g_qbe_string_literals),
+                            addr(g_qbe_arena),
+                            format_str,
+                            str_name
+                        );
+                    }
+                    
+                    mut var_reg: string = str("%r1");
+                    if StringStringMap.contains(addr(g_qbe_var_registers), var_name) {
+                        var_reg = StringStringMap.get(addr(g_qbe_var_registers), var_name);
+                    }
+                    
+                    if i > 0 {
+                        StringBuilder.append(addr(args_sb), str(", "));
+                    }
+                    StringBuilder.append(addr(args_sb), str("l $"));
+                    StringBuilder.append(addr(args_sb), str_name);
+                    StringBuilder.append(addr(args_sb), str(", l "));
+                    StringBuilder.append(addr(args_sb), var_reg);
+                }
+            }
+            
+            i++;
+        }
+    }
+    
     StringBuilder.append(addr(sb), str("    call $"));
     StringBuilder.append(addr(sb), resolved_func_name);
-    StringBuilder.append(addr(sb), str("()\n"));
+    StringBuilder.append(addr(sb), str("("));
+    StringBuilder.append(addr(sb), StringBuilder.to_string(addr(args_sb)));
+    StringBuilder.append(addr(sb), str(")\n"));
     
     return StringBuilder.to_string(addr(sb));
 }
