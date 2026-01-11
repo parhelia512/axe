@@ -20,6 +20,15 @@ mut g_qbe_register_counter: i32;
 /// Track variable to register mappings
 mut g_qbe_var_registers: StringStringMap;
 
+/// Function context for maintaining per-function state
+model QBEFunctionContext {
+    var_registers: StringStringMap;
+    param_count: i32;
+}
+
+/// Current function context
+mut g_current_function_context: ref QBEFunctionContext;
+
 /// Track variable types
 mut g_qbe_var_types: StringStringMap;
 
@@ -57,6 +66,7 @@ mut g_qbe_arena: Arena;
 pub def initialize_qbe_renderer() {
     g_qbe_arena = Arena.create(1024 * 1024);
     g_qbe_var_registers = deref(StringStringMap.create(addr(g_qbe_arena), 128));
+    g_current_function_context = nil;
     g_qbe_var_types = deref(StringStringMap.create(addr(g_qbe_arena), 128));
     g_qbe_model_definitions = deref(StringStringMap.create(addr(g_qbe_arena), 128));
     g_qbe_model_field_offsets = deref(StringIntMap.create(addr(g_qbe_arena), 256));
@@ -243,6 +253,12 @@ def render_qbe_function(ast: ref ASTNode): string {
         return str("");
     }
     
+    mut context: QBEFunctionContext = { 
+        var_registers: deref(StringStringMap.create(addr(g_qbe_arena), 128)),
+        param_count: 0
+    };
+    g_current_function_context = addr(context);
+    
     mut sb: StringBuilder = StringBuilder.init(512);
     
     StringBuilder.append(addr(sb), str("export function w $"));
@@ -250,6 +266,7 @@ def render_qbe_function(ast: ref ASTNode): string {
     
     if ast.data.function.params != nil and len(deref(ast.data.function.params)) > 0 {
         StringBuilder.append(addr(sb), str("(w %.1) {\n"));
+        context.param_count = 1;
     } else {
         StringBuilder.append(addr(sb), str("() {\n"));
     }
@@ -274,16 +291,15 @@ def render_qbe_function(ast: ref ASTNode): string {
             
             param_name = strip(param_name);
             if has_prefix(param_name, str("mut ")) {
-                param_name = substr(param_name, 4, str_len(param_name) - 4);
+                param_name = strip(substr(param_name, 4, str_len(param_name) - 4));
             } elif has_prefix(param_name, str("val ")) {
-                param_name = substr(param_name, 4, str_len(param_name) - 4);
+                param_name = strip(substr(param_name, 4, str_len(param_name) - 4));
             } elif has_prefix(param_name, str("ref ")) {
-                param_name = substr(param_name, 4, str_len(param_name) - 4);
+                param_name = strip(substr(param_name, 4, str_len(param_name) - 4));
             }
-            param_name = strip(param_name);
             
             val qbe_param_ref: string = concat(str("%."), i32_to_string(param_idx + 1));
-            StringStringMap.set(addr(g_qbe_var_registers), addr(g_qbe_arena), param_name, qbe_param_ref);
+            StringStringMap.set(addr(deref(g_current_function_context).var_registers), addr(g_qbe_arena), param_name, qbe_param_ref);
             param_idx++;
         }
     }
@@ -293,13 +309,16 @@ def render_qbe_function(ast: ref ASTNode): string {
         StringBuilder.append(addr(sb), str("    "));
         StringBuilder.append(addr(sb), param_reg);
         StringBuilder.append(addr(sb), str(" =l alloc8 8\n"));
-        StringStringMap.set(addr(g_qbe_var_registers), addr(g_qbe_arena), str("s"), param_reg);
+        StringStringMap.set(addr(deref(g_current_function_context).var_registers), addr(g_qbe_arena), str("s"), param_reg);
     }
     
     val body_code: string = render_qbe_function_body(children);
     StringBuilder.append(addr(sb), body_code);
     
     StringBuilder.append(addr(sb), str("}\n\n"));
+    
+    g_current_function_context = nil;
+    
     return StringBuilder.to_string(addr(sb));
 }
 
@@ -774,112 +793,13 @@ def render_qbe_function_call(ast: ref ASTNode): string {
             }
             
             val arg_expr: string = strip(args_list.data[i]);
-            val resolved_expr: string = resolve_variable_reference(arg_expr);
             
-            if has_prefix(arg_expr, str("addr(")) and has_suffix(arg_expr, str(")")) {
-                val var_name: string = strip(substr(arg_expr, 5, str_len(arg_expr) - 6));
-                if StringStringMap.contains(addr(g_qbe_var_registers), var_name) {
-                    val var_reg: string = StringStringMap.get(addr(g_qbe_var_registers), var_name);
-                    if i > 0 {
-                        StringBuilder.append(addr(args_sb), str(", "));
-                    }
-                    StringBuilder.append(addr(args_sb), str("l "));
-                    StringBuilder.append(addr(args_sb), var_reg);
-                }
-            } elif str_len(arg_expr) >= 2 and 
-                   get_char(arg_expr, 0) == '"' and 
-                   get_char(arg_expr, str_len(arg_expr) - 1) == '"' {
-                val str_content: string = substr(arg_expr, 1, str_len(arg_expr) - 2);
-                mut str_name: string;
-                if StringStringMap.contains(addr(g_qbe_string_literals), str_content) {
-                    str_name = StringStringMap.get(addr(g_qbe_string_literals), str_content);
-                } else {
-                    str_name = concat(str("str_"), i32_to_string(g_qbe_string_counter));
-                    g_qbe_string_counter++;
-                    StringStringMap.set(
-                        addr(g_qbe_string_literals),
-                        addr(g_qbe_arena),
-                        str_content,
-                        str_name
-                    );
-                }
-                if i > 0 {
-                    StringBuilder.append(addr(args_sb), str(", "));
-                }
-                StringBuilder.append(addr(args_sb), str("l $"));
-                StringBuilder.append(addr(args_sb), str_name);
-            } else {
-                if compare(resolved_expr, arg_expr) != 0 {
-                    if i > 0 {
-                        StringBuilder.append(addr(args_sb), str(", "));
-                    }
-                    StringBuilder.append(addr(args_sb), str("w "));
-                    StringBuilder.append(addr(args_sb), resolved_expr);
-                } else {
-                    if str_contains(arg_expr, str("addr(")) and str_contains(arg_expr, str("\"")) {
-                        mut format_str: string = str("%d");
-                        val quote_start: i32 = find_substr(arg_expr, str("\""));
-                        if quote_start >= 0 {
-                            val quote_end: i32 = find_substr(
-                                substr(arg_expr, quote_start + 1,
-                                str_len(arg_expr) - quote_start - 1), str("\"")
-                            );
-                            if quote_end >= 0 {
-                                format_str = substr(arg_expr, quote_start + 1, quote_end);
-                            }
-                        }
-                        
-                        mut var_name: string = str("x"); 
-                        val addr_start: i32 = find_substr(arg_expr, str("addr("));
-                        if addr_start >= 0 {
-                            val paren_start: i32 = addr_start + 5; 
-                            val paren_end: i32 = find_substr(
-                                substr(arg_expr, paren_start, str_len(arg_expr) - paren_start),
-                                str(")")
-                            );
-                            if paren_end >= 0 {
-                                var_name = strip(substr(arg_expr, paren_start, paren_end));
-                            }
-                        }
-                        
-                        mut str_name: string;
-                        if StringStringMap.contains(addr(g_qbe_string_literals), format_str) {
-                            str_name = StringStringMap.get(
-                                addr(g_qbe_string_literals),
-                                format_str
-                            );
-                        } else {
-                            str_name = concat(str("str_"), i32_to_string(g_qbe_string_counter));
-                            g_qbe_string_counter++;
-                            StringStringMap.set(
-                                addr(g_qbe_string_literals),
-                                addr(g_qbe_arena),
-                                format_str,
-                                str_name
-                            );
-                        }
-                        
-                        mut var_reg: string = str("%r1");
-                        if StringStringMap.contains(addr(g_qbe_var_registers), var_name) {
-                            var_reg = StringStringMap.get(addr(g_qbe_var_registers), var_name);
-                        }
-                        
-                        if i > 0 {
-                            StringBuilder.append(addr(args_sb), str(", "));
-                        }
-                        StringBuilder.append(addr(args_sb), str("l $"));
-                        StringBuilder.append(addr(args_sb), str_name);
-                        StringBuilder.append(addr(args_sb), str(", l "));
-                        StringBuilder.append(addr(args_sb), var_reg);
-                    } else {
-                        if i > 0 {
-                            StringBuilder.append(addr(args_sb), str(", "));
-                        }
-                        StringBuilder.append(addr(args_sb), str("w "));
-                        StringBuilder.append(addr(args_sb), arg_expr);
-                    }
-                }
+            if i > 0 {
+                StringBuilder.append(addr(args_sb), str(", "));
             }
+            
+            val processed_arg: string = process_qbe_expression(arg_expr);
+            StringBuilder.append(addr(args_sb), processed_arg);
             
             i++;
         }
@@ -1023,6 +943,44 @@ def resolve_member_access(expr: string): string {
     val object_reg: string = StringStringMap.get(addr(g_qbe_var_registers), object_name);
     
     return object_reg;
+}
+
+/// Process expression for QBE IR generation
+def process_qbe_expression(expr: string): string {
+    val trimmed: string = strip(expr);
+    
+    if has_prefix(trimmed, str("addr(")) and has_suffix(trimmed, str(")")) {
+        val var_name: string = strip(substr(trimmed, 5, str_len(trimmed) - 6));
+        if g_current_function_context != nil and StringStringMap.contains(addr(deref(g_current_function_context).var_registers), var_name) {
+            val var_reg: string = StringStringMap.get(addr(deref(g_current_function_context).var_registers), var_name);
+            return concat(str("l "), var_reg);
+        } else {
+            return concat(str("l "), trimmed);
+        }
+    } elif str_len(trimmed) >= 2 and 
+           get_char(trimmed, 0) == '"' and 
+           get_char(trimmed, str_len(trimmed) - 1) == '"' {
+        val str_content: string = substr(trimmed, 1, str_len(trimmed) - 2);
+        mut str_name: string;
+        if StringStringMap.contains(addr(g_qbe_string_literals), str_content) {
+            str_name = StringStringMap.get(addr(g_qbe_string_literals), str_content);
+        } else {
+            str_name = concat(str("str_"), i32_to_string(g_qbe_string_counter));
+            g_qbe_string_counter++;
+            StringStringMap.set(
+                addr(g_qbe_string_literals),
+                addr(g_qbe_arena),
+                str_content,
+                str_name
+            );
+        }
+        return concat(str("l $"), str_name);
+    } elif g_current_function_context != nil and StringStringMap.contains(addr(deref(g_current_function_context).var_registers), trimmed) {
+        val var_reg: string = StringStringMap.get(addr(deref(g_current_function_context).var_registers), trimmed);
+        return concat(str("w "), var_reg);
+    } else {
+        return concat(str("w "), trimmed);
+    }
 }
 
 /// Resolve simple variable references
